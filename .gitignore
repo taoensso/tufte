@@ -1,0 +1,14 @@
+pom.xml*
+.lein*
+.nrepl-port
+*.jar
+*.class
+.env
+.DS_Store
+/lib/
+/classes/
+/target/
+/checkouts/
+/logs/
+/docs/
+/doc/
