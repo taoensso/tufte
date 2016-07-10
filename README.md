@@ -4,7 +4,7 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.0.0-SNAPSHOT"] ; Pre-alpha, subject to change
+[com.taoensso/tufte "1.0.0-alpha1"]
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
@@ -64,7 +64,7 @@
 Add the necessary dependency to your project:
 
 ```clojure
-[com.taoensso/tufte "1.0.0-SNAPSHOT"]
+[com.taoensso/tufte "1.0.0-alpha1"]
 ```
 
 And setup your namespace imports:

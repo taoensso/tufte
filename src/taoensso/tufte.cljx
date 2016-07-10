@@ -14,9 +14,9 @@
   See the relevant docstrings for more info:
     `p`, `profiled`, `profile`, `set-handler!` ; Core API
 
-    (p [id & body] [opts & body]) ; e.g. `(p ::my-pid (do-work))`
-    (profiled [opts & body])      ; e.g. `(profiled {:level 2} (my-fn))`
-    (profile  [opts & body])      ; e.g. `(profiled {:level 2} (my-fn))`
+    (p        [opts & body] [id & body]) ; e.g. `(p ::my-pid (do-work))`
+    (profiled [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
+    (profile  [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
 
     (set-handler! [handler-id ?handler-fn ?ns-filter])
 
