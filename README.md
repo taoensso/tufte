@@ -1,12 +1,10 @@
-# Work in progress, ETA: Aug 2016
-
 <a href="https://www.taoensso.com" title="More stuff by @ptaoussanis at www.taoensso.com">
 <img src="https://www.taoensso.com/taoensso-open-source.png" alt="Taoensso open-source" width="400"/></a>
 
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.0.0-SNAPSHOT"] ; Experimental, subject to change
+[com.taoensso/tufte "1.0.0-SNAPSHOT"] ; Pre-alpha, subject to change
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
@@ -23,7 +21,43 @@
 
 > Charles Joseph Minard's _Carte Figurative_, one of [Edward Tufte][]'s favourite examples of good data visualization.
 
+## 10-second example
+
+```clojure
+(require '[taoensso.tufte :as tufte :refer (defnp p profile profiled)])
+
+;; We'll request to send `profile` stats to `println`:
+(tufte/set-basic-println-handler!)
+
+;;; Let's define a couple dummy fns to simulate doing some expensive work
+(defn get-x [] (Thread/sleep 500)             "x val")
+(defn get-y [] (Thread/sleep (rand-int 1000)) "y val")
+
+;; How do these fns perform? Let's check:
+
+(profile ; Profile any `p` forms called during body execution
+  {} ; Profiling options; we'll use the defaults for now
+  (dotimes [_ 5]
+    (p :get-x (get-x))
+    (p :get-y (get-y))))
+
+;; The following will be printed to *out*:
+;;
+;;            pId      nCalls       Min        Max       MAD      Mean   Time% Time
+;;         :get-x           5   502.3ms   505.07ms    1.17ms   503.4ms      48 2.52s
+;;         :get-y           5  171.68ms   940.84ms  264.82ms  541.28ms      52 2.71s
+;;     Clock Time                                                          100 5.22s
+;; Accounted Time                                                          100 5.22s
+```
+
 ## Features
+
+ * Small, **fast**, cross-platform Clojure/Script codebase (<1k loc)
+ * **Tiny**, flexible API: `p`, `profiled`, `profile`
+ * Great **compile-time elision** and **runtime filtering** support
+ * Arbitrary Clojure/Script **form-level** profiling
+ * Full support for **thread-local** and **multi-threaded** profiling
+ * **Stats are just Clojure maps**: aggregate, **analyse**, log, serialize to db, ...
 
 ## Quickstart
 
@@ -36,9 +70,178 @@ Add the necessary dependency to your project:
 And setup your namespace imports:
 
 ```clojure
+(ns my-clj-ns ; Clojure namespace
+  (:require [taoensso.tufte :as tufte :refer (defnp p profiled profile)]))
+
+(ns my-cljs-ns ; ClojureScript namespace
+  (:require [taoensso.tufte :as tufte :refer-macros (defnp p profiled profile)]))
+```
+
+### Step 1: identify forms you'd like to [sometimes] profile
+
+Just wrap them with `p` and give them an id (namespaced keyword):
+
+```clojure
+(defn get-customer-info []
+  (let [raw-customer-map (p ::get-raw-customer (fetch-from-db))]
+    (p ::enrich-raw-customer
+      (do-some-work raw-customer-map))))
+```
+
+Tufte will record the execution times of these `p` forms whenever profiling is active. 
+
+**NB**: whether or not profiling is active, a `p` form **always returns its normal body result**.
+
+> This last point is important: you never need to worry about Tufte messing with your return values.
+
+### Step 2: activate profiling of `p` forms
+
+Activate profiling with `profiled` or `profile`:
+
+API        | Return value               | Effect                                     |
+---------- | -------------------------- | ------------------------------------------ |
+`profiled` | `[<body-result> <?stats>]` | None                                       |
+`profile`  | `<body-result>`            | Sends `<?stats>` to registered handlers[1] |
+
+**[1]** Register handlers using `(tufte/set-handler! <handler-id> <?handler-fn> <?ns-filter>)`
+
+> Handler ideas: save to a db, log, `put!` to a `core.async` channel, filter, aggregate, use for a realtime analytics dashboard, examine for outliers or unexpected behaviour, feed into your other performance/analytics systems, ...
+
+ * Use `profiled` to handle stats yourself **directly at the callsite**.
+ * Use `profile` to queue stats for handling **later/elsewhere**.
+
+Between the two, you have great flexibility for a wide range of use cases in production and during development/debugging.
+
+## Conditional profiling
+
+Tufte offers extensive facilities to control if and when profiling happens.
+
+Both **compile-time elision** and **runtime filtering** are supported.
+
+### Method 1/3: profiling levels
+
+Every `p`, `profiled`, and `profile` form can take an optional **profiling level** ∈ `#{0 1 2 3 4 5}`.
+
+This level must be >= `tufte/*min-level*` for profiling to occur.
+
+For example:
+
+```clojure
+(profiled {:level 3} ...) ; Only activates profiling when (>= 3 *min-level*)
+```
+
+Min level    | Set with                                       |
+------------ | ---------------------------------------------- |
+Runtime      | `tufte/set-min-level!`, `tufte/with-min-level` |
+Compile-time | `TUFTE_MIN_LEVEL` environment variable         |
+
+> Note that runtime filtering stacks with any compile-time elision
+
+### Method 2/3: namespace filtering
+
+Likewise- `p`, `profiled`, and `profile` forms can be elided or filtered by the namespace in which they occur.
+
+Namespace filter | Set with                                         |
+---------------- | ------------------------------------------------ |
+Runtime          | `tufte/set-ns-pattern!`, `tufte-with-ns-pattern` |
+Compile-time     | `TUFTE_NS_PATTERN` environment variable          |
+
+> Note that runtime filtering stacks with any compile-time elision
+
+Some example namespace patterns:
+
+```clojure
+"foo.bar.baz"
+"foo.bar.*"
+#{"foo.bar.*" "some.lib.*"}
+{:whitelist #{"foo.bar.*"} :blacklist #{"noisy.lib.*"}}
+```
+
+### Method 3/3: arbitrary runtime conditions
+
+Finally, `profiled` and `profile` both support an optional arbitrary test expression:
+
+```clojure
+(profiled {:when my-cond?} ...) ; Only activates profiling when `my-cond?` is truthy
+```
+
+This can be used for a wide range of sophisticated behaviour including smart, **application-aware rate limiting**.
+
+As one simpler example, we can get **sampled profiling** like this:
+
+```clojure
+(profiled {:when (tufte/chance 0.5)} ...) ; Only activates profiling with 50% probability
 ```
 
 ## FAQ
+
+### Why not just use [YourKit], [JProfiler], or [VisualVM]?
+
+The traditional recommendation for Clojure profiling has usually been to use a standard JVM profiling tool like one of the above.
+
+And they can certainly do the job, but they also tend to be a little hairy: requiring special effort to use, and often producing gobs of information that can be difficult or time-consuming to meaningfully interpret.
+
+In contrast, Tufte offers some interesting benefits:
+
+ * Arbitrary **application-aware, form-level** profiling; measure [just] what you care about
+ * Simple **thread-local or multi-threaded semantics**
+ * During dev/debug: check performance **right from within your REPL**
+ * During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**)
+ * A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
+
+
+My general preference is to use JVM tools only for very specific forensic profiling when something's producing unexpected performance numbers. In other cases, Tufte's often a better fit IMO.
+
+### How does Tufte compare to the profiling in [Timbre]?
+
+Actually, I developed Tuft one weekend while refactoring Timbre's profiling. It's basically a refinement of the ideas from there.
+
+Decided that I could make some worthwhile improvements with some breaking API changes and a new set of dedicated docs. Tufte's implementation is considerably faster, and its API considerably more flexible.
+
+With the release of Tuft, I'll be **deprecating Timbre's profiling features**.
+
+Note that Tuft's a feature **superset** of Timbre's profiling, so in most cases porting should be pretty straightforward.
+
+### How's the performance in production?
+
+For thread-local profiling: _very good_. For dynamic profiling: _good_.
+
+Tufte's designed specifically to support ongoing use in production, and is **highly optimized**: so it's about as fast as it gets in both cases.
+
+I'd think of it this way: if something's _at all_ worth profiling, the overhead that Tufte introduces will be _vanishingly_ insignificant. 
+
+Also, keep in mind that Tufte's **conditional profiling** gives you complete control over if and when you do pay (however little) for profiling.
+
+### What's the difference between thread-local and dynamic (multi-threaded) profiling?
+
+If you don't already know the difference, you probably want **thread-local profiling** (the default). It's faster and conceptually simpler: it literally just profiles what happens sequentially on the current thread.
+
+Work being done concurrently in futures and agents will be ignored.
+
+In contrast, **dynamic profiling** works across thread boundaries using Clojure's standard `^:dynamic` binding conveyance as in:
+
+```clojure
+(def ^:dynamic *my-dynamic-var* nil)
+(binding [*my-dynamic-var* "foobar!"] ; This val will be available across Clojure threads
+  (future (println [:thread1 *my-dynamic-var*]))
+  (future (println [:thread2 *my-dynamic-var*]))
+  (println [:thread3 *my-dynamic-var*])
+  (Thread/sleep 100))
+  
+;; %> "foobar!", "foobar!", "foobar!"
+```
+
+### How do I get dynamic (multi-threaded) profiling?
+
+`profiled` and `profile` have a `:dynamic?` option:
+
+```clojure
+(profiled {:dynamic? true} ...) ; Activates dynamic (multi-threaded) profiling
+```
+
+This works through Clojure's standard `^:dynamic` binding conveyance.
+
+If you really want to get fancy, you can also do _manual_ multi-threaded profiling using `tufte/stats-accumulator`.
 
 ## Contacting me / contributions
 
@@ -71,3 +274,7 @@ Copyright &copy; 2016 [Peter Taoussanis].
 
 <!--- Unique links -->
 [Edward Tufte]: https://en.wikipedia.org/wiki/Edward_Tufte
+[YourKit]: http://www.yourkit.com/)
+[JProfiler]: http://www.ej-technologies.com/products/jprofiler/overview.html
+[VisualVM]: http://docs.oracle.com/javase/6/docs/technotes/guides/visualvm/index.html
+[Timbre]: https://github.com/ptaoussanis/timbre
