@@ -7,7 +7,10 @@
    #+cljs [taoensso.timbre :as timbre :refer-macros (log!)]))
 
 (defn add-timbre-logging-handler!
-  "Adds a simple handler that logs `profile` stats output with Timbre."
+  "Adds a simple handler that logs `profile` stats output with Timbre.
+
+  `timbre-level` may be a fixed Timbre level (e.g. :info), or a
+  (fn [tufte-level) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
   [{:keys [timbre-level ns-pattern handler-id]
     :or   {timbre-level :info
            ns-pattern "*"
@@ -17,7 +20,11 @@
     (fn [m]
       (let [{:keys [ns-str level ?id ?data stats stats-str_ ?file ?line]} m
             stats-str (force stats-str_)
-            profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)]
+            profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
+            timbre-level
+            (if (ifn? timbre-level)
+              (timbre-level level)
+              timbre-level)]
 
         (log! timbre-level :p
           [(str "Tufte `profile` ouput " profile-opts ":\n\n" stats-str "\n")]
