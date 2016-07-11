@@ -44,8 +44,8 @@
 ;; The following will be printed to *out*:
 ;;
 ;;            pId      nCalls       Min        Max       MAD      Mean   Time% Time
-;;         :get-x           5   502.3ms   505.07ms    1.17ms   503.4ms      48 2.52s
 ;;         :get-y           5  171.68ms   940.84ms  264.82ms  541.28ms      52 2.71s
+;;         :get-x           5   502.3ms   505.07ms    1.17ms   503.4ms      48 2.52s
 ;;     Clock Time                                                          100 5.22s
 ;; Accounted Time                                                          100 5.22s
 ```

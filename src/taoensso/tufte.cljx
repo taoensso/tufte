@@ -543,8 +543,11 @@
       :else              (str                ns              "ns"))))
 
 (defn format-stats
-  ([stats           ] (format-stats stats :time))
-  ([stats sort-field]
+  ([stats]
+   (format-stats stats
+     (fn [id ^IdStats id-stats] (.-time id-stats))))
+
+  ([stats sort-fn]
    (when stats
      (let [^Stats stats stats
            ^Clock clock (.-clock        stats)
@@ -552,12 +555,14 @@
            clock-total  (.-total clock)
 
            ^long accounted
-           (reduce-kv (fn [^long acc k v] (+ acc ^long (:time v))) 0
-             m-id-stats)
+           (reduce-kv
+             (fn [^long acc id ^IdStats v]
+               (+ acc ^long (.-time v)))
+             0 m-id-stats)
 
            sorted-ids
            (sort-by
-             (fn [id] (get-in stats [id sort-field]))
+             (fn [id] (sort-fn id (get m-id-stats id)))
              enc/rcompare
              (keys m-id-stats))
 
