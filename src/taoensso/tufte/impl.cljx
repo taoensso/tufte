@@ -238,9 +238,13 @@
   here to be safe + make sure we never tie up the execution thread."
   (ArrayBlockingQueue. 1024))
 
-;; Nb we intentionally, silently swallow any handler errors
 (defn- handle-blocking! [m]
-  (enc/run-kv! (fn [_ f] (enc/catch-errors* (f m))) @handlers_))
+  (enc/run-kv!
+    (fn [id f]
+      (enc/catch-errors* (f m) e
+        (enc/catch-errors* ; Esp. nb for Cljs
+          (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e)))))
+    @handlers_))
 
 #+clj  (declare ^:private handler-thread_)
 #+cljs (defn handle! [m] (handle-blocking! m) nil)
