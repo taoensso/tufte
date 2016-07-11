@@ -12,13 +12,13 @@
   filtering.
 
   See the relevant docstrings for more info:
-    `p`, `profiled`, `profile`, `set-handler!` ; Core API
+    `p`, `profiled`, `profile`, `add-handler!` ; Core API
 
     (p        [opts & body] [id & body]) ; e.g. `(p ::my-pid (do-work))`
     (profiled [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
     (profile  [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
 
-    (set-handler! [handler-id ?handler-fn ?ns-filter])
+    (add-handler! [handler-id ns-pattern handler-fn])
 
   How/where to use this library:
     Tufte is highly optimized: even without elision, you can usually leave
@@ -161,38 +161,58 @@
 ;; Handlers are used for `profile` output, let us nicely decouple stat
 ;; creation and consumption.
 
-(defrecord HandlerVal [level ns-str ?id stats stats-str_ ?data])
-(defn  set-handler!
-  "Use to un/register interest in stats output.
+(defrecord HandlerVal [ns-str level ?id ?data stats stats-str_])
 
-  nil  `?handler-fn` => unregister id.
-  nnil `?handler-fn` =>   register id:
-    `(handler-fn {:level _ :ns-str _ :stats _ :stats-str_ _ :?id _ :?data _})`
-    will be called for stats output produced by any `profile` calls.
+(def      handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
+(defn add-handler!
+  "Use this to register interest in stats output produced by `profile` calls.
+  Each registered `handler-fn` will be called as:
+
+    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :stats _ :stats-str_ _})
+
+  Map args:
+    :ns-str     - Namespace string where `profile` call took place
+    :level      - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
+    :?id        - Optional id,              given in `(profile {:id    _} ...)`
+    :?data      - Optional arb data,        given in `(profile {:data  _} ...)`
+    :stats      - Stats map as in `(second (profiled ...))`
+    :stats-str_ - `(delay (format-stats stats))`
+
+  Error handling (NB):
+    Handler errors will be silently swallowed. Please `try`/`catch` and
+    appropriately deal with (e.g. log) possible errors *within* `handler-fn`.
+
+  Async/blocking:
+    `handler-fn` should ideally be non-blocking, or reasonably cheap. Handler
+     dispatch occurs through a 1-thread 1k-buffer dropping queue.
+
+  Ns filtering:
+    Provide an optional `ns-pattern` arg to only call handler for matching
+    namespaces. See `compile-ns-filter` docstring for details on `ns-pattern`.
 
   Handler ideas:
-    Save to a db, log, `put!` to an appropriate `core.async`
-    channel, filter, aggregate, use for a realtime analytics dashboard,
-    examine for outliers or unexpected output, ...
+    Save to a db, log, `put!` to an appropriate `core.async` channel, filter,
+    aggregate, use for a realtime analytics dashboard, examine for outliers
+    or unexpected output, ..."
 
-  NB: handler errors will be silently swallowed. Please `try`/`catch`
-  and appropriately deal with (e.g. log) possible errors *within* your
-  handler fns."
-  ([handler-id ?handler-fn] (set-handler! handler-id ?handler-fn nil))
-  ([handler-id ?handler-fn ?ns-filter]
-   (if (nil? ?handler-fn)
-     (set (keys (swap! impl/handlers_ dissoc handler-id)))
-     (let [f ?handler-fn
-           f (if (or (nil? ?ns-filter) (= ?ns-filter "*"))
-               f
-               (let [nsf? (-compile-ns-filter ?ns-filter)]
-                 (fn [m]
-                   (when (nsf? (get m :?ns-str))
-                     (f m)))))]
-       (set (keys (swap! impl/handlers_ assoc  handler-id f)))))))
+  ([handler-id handler-fn] (add-handler! handler-id nil handler-fn))
+  ([handler-id ns-pattern handler-fn]
+   (let [f (if (or (nil? ns-pattern) (= ns-pattern "*"))
+             handler-fn
+             (let [nsf? (-compile-ns-filter ns-pattern)]
+               (fn [m]
+                 (when (nsf? (get m :?ns-str))
+                   (handler-fn m)))))]
+     (set (keys (swap! handlers_ assoc handler-id f))))))
 
-(defn set-basic-println-handler! []
-  (set-handler! :basic-println-handler
+(defn remove-handler! [handler-id]
+  (set (keys (swap! handlers_ dissoc handler-id))))
+
+(defn add-basic-println-handler!
+  "Adds a simple handler that logs `profile` stats output with `println`."
+  [{:keys [ns-pattern] :or {ns-pattern "*"}}]
+  (add-handler! :basic-println
+    ns-pattern
     (fn [m]
       (let [{:keys [stats-str_ ?id ?data]} m
             stats-str (force stats-str_)]
@@ -202,7 +222,7 @@
             (when ?data (str "\ndata: " ?data))
             "\n" stats-str))))))
 
-(comment (set-basic-println-handler!))
+(comment (add-basic-println-handler! {}))
 
 ;;;; Some low-level primitives
 
@@ -291,7 +311,7 @@
 
   When [ns level] unelided and [ns level `when`] unfiltered, executes body
   with profiling active and dispatches stats to any registered handlers
-  (see `set-handler!`).
+  (see `add-handler!`).
 
   Handy if you'd like to consume/aggregate stats output later/elsewhere.
   Otherwise see `profiled`.
@@ -323,8 +343,8 @@
       `(let [[result# stats#] (profiled ~opts ~@body)]
          (when stats#
            (impl/handle!
-             (->HandlerVal ~level-form ~ns-str ~id-form stats#
-               (delay (format-stats stats#)) ~data-form)))
+             (->HandlerVal ~ns-str ~level-form ~id-form ~data-form
+               stats# (delay (format-stats stats#)))))
          result#))))
 
 (comment
@@ -655,7 +675,7 @@
 ;;;;
 
 (comment
-  (set-basic-println-handler!)
+  (add-basic-println-handler! {})
   (defn sleepy-threads []
     (dotimes [n 5]
       (Thread/sleep 100) ; Unaccounted

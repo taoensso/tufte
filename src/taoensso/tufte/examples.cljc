@@ -8,7 +8,7 @@
 (comment
 
 (taoensso.tufte/refer-tufte) ; Setup Tufte's ns imports (works with clj only)
-(taoensso.tufte/set-basic-println-handler!) ; Send `profile` stats to `println`
+(taoensso.tufte/add-basic-println-handler! {}) ; Send `profile` stats to `println`
 
 ;;; Let's define a couple dummy fns to simulate doing some expensive work
 (defn get-x [] (Thread/sleep 500)             "x val")

@@ -27,7 +27,7 @@
 (require '[taoensso.tufte :as tufte :refer (defnp p profile profiled)])
 
 ;; We'll request to send `profile` stats to `println`:
-(tufte/set-basic-println-handler!)
+(tufte/add-basic-println-handler! {})
 
 ;;; Let's define a couple dummy fns to simulate doing some expensive work
 (defn get-x [] (Thread/sleep 500)             "x val")
@@ -103,7 +103,7 @@ API        | Return value               | Effect                                
 `profiled` | `[<body-result> <?stats>]` | None                                       |
 `profile`  | `<body-result>`            | Sends `<?stats>` to registered handlers[1] |
 
-**[1]** Register handlers using `(tufte/set-handler! <handler-id> <?handler-fn> <?ns-filter>)`
+**[1]** Register handlers using `(tufte/add-handler! <handler-id> <ns-pattern> <handler-fn>)`
 
 > Handler ideas: save to a db, log, `put!` to a `core.async` channel, filter, aggregate, use for a realtime analytics dashboard, examine for outliers or unexpected behaviour, feed into your other performance/analytics systems, ...
 
