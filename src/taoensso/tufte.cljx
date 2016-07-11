@@ -493,6 +493,16 @@
       s1)
     s2))
 
+(defn accounted-time [^Stats stats]
+  (reduce-kv
+    (fn [^long acc id ^IdStats v]
+      (+ acc ^long (.-time v)))
+    0 (.-id-stats-map stats)))
+
+(comment
+  (accounted-time (second (profiled {})))
+  (accounted-time (second (profiled {} (p :p1)))))
+
 (defn stats-accumulator
   "Experimental, subject to change!
   Small util to help merge stats maps from multiple runs or threads.
@@ -554,11 +564,7 @@
            m-id-stats   (.-id-stats-map stats)
            clock-total  (.-total clock)
 
-           ^long accounted
-           (reduce-kv
-             (fn [^long acc id ^IdStats v]
-               (+ acc ^long (.-time v)))
-             0 m-id-stats)
+           ^long accounted (accounted-time stats)
 
            sorted-ids
            (sort-by
