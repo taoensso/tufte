@@ -161,7 +161,7 @@
 ;; Handlers are used for `profile` output, let us nicely decouple stat
 ;; creation and consumption.
 
-(defrecord HandlerVal [ns-str level ?id ?data stats stats-str_])
+(defrecord HandlerVal [ns-str level ?id ?data stats stats-str_ ?file ?line])
 
 (def      handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
 (defn add-handler!
@@ -344,7 +344,8 @@
          (when stats#
            (impl/handle!
              (->HandlerVal ~ns-str ~level-form ~id-form ~data-form
-               stats# (delay (format-stats stats#)))))
+               stats# (delay (format-stats stats#))
+               ~*file* ~(:line (meta &form)))))
          result#))))
 
 (comment
