@@ -189,8 +189,9 @@ In contrast, Tufte offers some interesting benefits:
  * During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**)
  * A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
 
+Note that JVM profiling tools can still be very handy. Tufte doesn't offer memory profiling for example, and it's not well suited to forensic or very low-level profiling.
 
-My general preference is to use JVM tools only for very specific forensic profiling when something's producing unexpected performance numbers. In other cases, Tufte's often a better fit IMO.
+If you want to know `clojure.lang.Numbers$LongOps.lt(Number, Number)` or memory stats, you'll want a JVM tool. If you want to know `my-fn` stats, or you want ongoing stats in production - Tufte could be a good fit.
 
 ### How does Tufte compare to the profiling in [Timbre]?
 
@@ -250,6 +251,21 @@ In contrast, **dynamic profiling** works across thread boundaries using Clojure'
 This works through Clojure's standard `^:dynamic` binding conveyance.
 
 If you really want to get fancy, you can also do _manual_ multi-threaded profiling using `tufte/stats-accumulator`.
+
+### What's the difference between Clock Time and Accounted Time?
+
+> This question refers to the values reported by the `format-stats` util
+
+**Clock time** is just the total real-world time that elapsed between the start and end of a `profiled` or `profile` call. This is the amount of time that you'd have seen pass on a stopwatch in your hand.
+
+**Accounted time** is the total execution time tracked by all `p` forms during the same period. It can be:
+
+Outcome                    | Meaning                                                 |
+-------------------------- | ------------------------------------------------------- |
+`(< accounted clock-time)` | Some work was done that wasn't tracked by any `p` forms |
+`(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling[1]        |
+
+**[1]** For example: if you're doing concurrent work on 6 threads, then you can do 6ms of work for each 1ms of clock time.
 
 ## Contacting me / contributions
 
