@@ -3,8 +3,6 @@
   {:author "Peter Taoussanis (@ptaoussanis)"}
   (:require [taoensso.tufte]))
 
-(taoensso.tufte/refer-tufte)
-
 (comment
 
 (taoensso.tufte/refer-tufte) ; Setup Tufte's ns imports (works with clj only)

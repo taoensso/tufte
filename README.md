@@ -193,11 +193,11 @@ Note that JVM profiling tools can still be very handy. Tufte doesn't offer memor
 
 If you want to know `clojure.lang.Numbers$LongOps.lt(Number, Number)` or memory stats, you'll want a JVM tool. If you want to know `my-fn` stats, or you want ongoing stats in production - Tufte could be a good fit.
 
-### How does Tufte compare to the profiling in [Timbre]?
+### How does Tufte compare to the profiling in [@ptaoussanis/Timbre]?
 
 Actually, I developed Tufte one weekend while refactoring Timbre's profiling. It's basically a refinement of the ideas from there.
 
-Decided that I could make some worthwhile improvements with some breaking API changes and a new set of dedicated docs. Tufte's implementation is considerably faster, and its API considerably more flexible.
+Decided that I could make some worthwhile improvements with some breaking API changes and a new set of dedicated docs. Tufte's implementation is cross-platform, considerably faster, and its API more flexible.
 
 With the release of Tufte, I'll be **deprecating Timbre's profiling features**.
 
@@ -211,6 +211,24 @@ API        | Timbre              | Tufte                              |
 `profile`  | Output -> log       | Output -> arbitrary handler-fn [1] |
 
 **[1]** See `tufte.timbre/add-timbre-logging-handler!` for directing Tufte's `profile` output to Timbre.
+
+### How does Tufte compare to [@hugoduncan/Criterium]?
+
+Basically, they serve different use cases: **benchmarking** for Criterium, and **profiling** for Tufte.
+
+| Library   | Measures                 | Use for                       | During    | Emphasis           |
+| --------- | ------------------------ | ----------------------------- | --------- | ------------------ |
+| Criterium | 1 Clojure form           | Benchmarking                  | Dev       | Accuracy           |
+| Tufte     | >=1 Clojure/Script forms | Profiling, basic benchmarking | Dev, prod | Flexibility, speed |
+
+So Criterium produces very accurate stats for a _single_ Clojure expression.
+
+Tufte produces _combined stats_ for an _arbitrary_ number of Clojure/Script expressions with less emphasis on decimal-digit-level accuracy.
+
+For example:
+
+ * Use **Criterium** to measure and compare the performance of two libraries.
+ * Use **Tufte** to measure or monitor the performance of various parts of your system and how they relate.
 
 ### How's the performance in production?
 
@@ -264,7 +282,7 @@ If you really want to get fancy, you can also do _manual_ multi-threaded profili
 Outcome                    | Meaning                                                 |
 -------------------------- | ------------------------------------------------------- |
 `(< accounted clock-time)` | Some work was done that wasn't tracked by any `p` forms |
-`(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling[1]        |
+`(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling[1]    |
 
 **[1]** For example: if you're doing concurrent work on 6 threads, then you can do 6ms of work for each 1ms of clock time.
 
@@ -302,4 +320,5 @@ Copyright &copy; 2016 [Peter Taoussanis].
 [YourKit]: http://www.yourkit.com/)
 [JProfiler]: http://www.ej-technologies.com/products/jprofiler/overview.html
 [VisualVM]: http://docs.oracle.com/javase/6/docs/technotes/guides/visualvm/index.html
-[Timbre]: https://github.com/ptaoussanis/timbre
+[@ptaoussanis/Timbre]: https://github.com/ptaoussanis/timbre
+[@hugoduncan/Criterium]: https://github.com/hugoduncan/criterium
