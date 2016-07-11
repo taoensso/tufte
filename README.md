@@ -24,7 +24,7 @@
 ## 10-second example
 
 ```clojure
-(require '[taoensso.tufte :as tufte :refer (defnp p profile profiled)])
+(require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)])
 
 ;; We'll request to send `profile` stats to `println`:
 (tufte/add-basic-println-handler! {})
@@ -195,21 +195,22 @@ If you want to know `clojure.lang.Numbers$LongOps.lt(Number, Number)` or memory 
 
 ### How does Tufte compare to the profiling in [Timbre]?
 
-Actually, I developed Tuft one weekend while refactoring Timbre's profiling. It's basically a refinement of the ideas from there.
+Actually, I developed Tufte one weekend while refactoring Timbre's profiling. It's basically a refinement of the ideas from there.
 
 Decided that I could make some worthwhile improvements with some breaking API changes and a new set of dedicated docs. Tufte's implementation is considerably faster, and its API considerably more flexible.
 
-With the release of Tuft, I'll be **deprecating Timbre's profiling features**.
+With the release of Tufte, I'll be **deprecating Timbre's profiling features**.
 
-Note that Tuft's a feature **superset** of Timbre's profiling, so porting should be straightforward:
+Note that Tufte's a feature **superset** of Timbre's profiling, so porting should be straightforward:
 
-API        | Timbre              | Tuft                           |
----------- | ------------------- | ------------------------------ |
-`p`        | `[id & body]`       | `[id & body]`, `[opts & body]` |
-`profile`  | `[level id & body]` | `[opts & body]`                |
-`profiled` | `[level id & body]` | `[opts & body]`                |
+API        | Timbre              | Tufte                              |
+---------- | ------------------- | ---------------------------------- |
+`p`        | `[id & body]`       | `[id & body]`, `[opts & body]`     |
+`profile`  | `[level id & body]` | `[opts & body]`                    |
+`profiled` | `[level id & body]` | `[opts & body]`                    |
+`profile`  | Output -> log       | Output -> arbitrary handler-fn [1] |
 
-See also `tufte.timbre/add-timbre-logging-handler!` for an easy way to direct Tufte's `profile` output to Timbre.
+**[1]** See `tufte.timbre/add-timbre-logging-handler!` for directing Tufte's `profile` output to Timbre.
 
 ### How's the performance in production?
 
