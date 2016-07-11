@@ -1,4 +1,4 @@
-(defproject com.taoensso/tufte "1.0.0-alpha1"
+(defproject com.taoensso/tufte "1.0.0-RC1"
   :author "Peter Taoussanis <https://www.taoensso.com>"
   :description "Simple profiling and performance monitoring for Clojure/Script"
   :url "https://github.com/ptaoussanis/tuftey"
@@ -33,7 +33,8 @@
    :dev
    [:1.9 :test :server-jvm
     {:dependencies
-     [[org.clojure/clojurescript "1.9.93"]]
+     [[org.clojure/clojurescript "1.9.93"]
+      [com.taoensso/timbre       "4.5.1"]]
 
      :plugins
      [;; These must be in :dev, Ref. https://github.com/lynaghk/cljx/issues/47:
