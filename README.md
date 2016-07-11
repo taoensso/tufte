@@ -200,7 +200,15 @@ Decided that I could make some worthwhile improvements with some breaking API ch
 
 With the release of Tuft, I'll be **deprecating Timbre's profiling features**.
 
-Note that Tuft's a feature **superset** of Timbre's profiling, so in most cases porting should be pretty straightforward.
+Note that Tuft's a feature **superset** of Timbre's profiling, so porting should be straightforward:
+
+API        | Timbre              | Tuft                           |
+---------- | ------------------- | ------------------------------ |
+`p`        | `[id & body]`       | `[id & body]`, `[opts & body]` |
+`profile`  | `[level id & body]` | `[opts & body]`                |
+`profiled` | `[level id & body]` | `[opts & body]`                |
+
+See also `tufte.timbre/add-timbre-logging-handler!` for an easy way to direct Tufte's `profile` output to Timbre.
 
 ### How's the performance in production?
 
