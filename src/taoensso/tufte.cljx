@@ -42,6 +42,10 @@
 
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
 
+(if (vector? taoensso.encore/encore-version)
+  (enc/assert-min-encore-version [2 64 1])
+  (enc/assert-min-encore-version  2.64))
+
 ;;;; Level filtering
 
 ;; We distinguish between run and min levels to ensure that it's
