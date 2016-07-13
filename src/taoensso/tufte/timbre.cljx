@@ -28,7 +28,7 @@
               :else timbre-level)]
 
         (log! timbre-level :p
-          [(str "Tufte `profile` ouput " profile-opts ":\n\n" stats-str "\n")]
+          [(str "Tufte `profile` output " profile-opts ":\n\n" stats-str "\n")]
           {:?ns-str ns-str :?file ?file :?line ?line})))))
 
 (comment (add-timbre-logging-handler! {}))
