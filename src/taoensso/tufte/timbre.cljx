@@ -10,7 +10,7 @@
   "Adds a simple handler that logs `profile` stats output with Timbre.
 
   `timbre-level` may be a fixed Timbre level (e.g. :info), or a
-  (fn [tufte-level) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
+  (fn [tufte-level]) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
   [{:keys [timbre-level ns-pattern handler-id]
     :or   {timbre-level :info
            ns-pattern "*"
@@ -22,12 +22,13 @@
             stats-str (force stats-str_)
             profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
             timbre-level
-            (if (ifn? timbre-level)
-              (timbre-level level)
-              timbre-level)]
+            (cond
+              (keyword? timbre-level) timbre-level
+              (ifn? timbre-level) (timbre-level level)
+              :else timbre-level)]
 
         (log! timbre-level :p
-          [(str "Tufte `profile` ouput " profile-opts ":\n\n" stats-str "\n")]
+          [(str "Tufte `profile` output " profile-opts ":\n\n" stats-str "\n")]
           {:?ns-str ns-str :?file ?file :?line ?line})))))
 
 (comment (add-timbre-logging-handler! {}))
