@@ -7,7 +7,7 @@
   #+cljs
   (:require-macros
    [taoensso.tufte.impl :refer
-    (nano-time mutable-times mt-add mt-count atom?)]))
+    (mutable-times mt-add mt-count atom?)]))
 
 ;;;; Pdata
 
@@ -30,8 +30,8 @@
 
 (comment (enc/qb 1e6 (pdata-proxy))) ; 48.39
 
-(defmacro new-pdata-thread  []       `(PData. (nano-time)))
-(defmacro new-pdata-dynamic [] `(atom (PData. (nano-time))))
+(defmacro new-pdata-thread  []       `(PData. (enc/now-nano*)))
+(defmacro new-pdata-dynamic [] `(atom (PData. (enc/now-nano*))))
 (comment (macroexpand '(new-pdata-thread)))
 
 ;;;; Stats
@@ -46,7 +46,6 @@
 ;; Note that LinkedList uses more mem but is faster than
 ;; java.util.ArrayList.
 
-(defmacro nano-time [] `(enc/if-cljs (enc/nano-time) (System/nanoTime)))
 (defmacro ^:private mutable-times [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
 (defmacro ^:private mt-add     [x t] `(enc/if-cljs (.push   ~x ~t) (.add ~(with-meta x {:tag 'LinkedList}) ~t)))
 (defmacro ^:private mt-count     [x] `(enc/if-cljs (alength ~x)   (.size ~(with-meta x {:tag 'LinkedList}))))
@@ -150,7 +149,7 @@
   "Wraps up a pdata run. Nb: recall that we need a *fresh* `(pdata-proxy)`
   here for thread-local profiling."
   [^PData current-pdata]
-  (let [t1         (nano-time)
+  (let [t1         (enc/now-nano*)
         t0         (.-__t0 current-pdata)
         m-id-stats (get    current-pdata :__m-id-stats)
         m-times    (dissoc current-pdata :__m-id-stats :__t0)]
@@ -161,72 +160,6 @@
           (assoc m id (times->IdStats times (get m-id-stats id))))
         #_(transient {}) {} ; Usu. <10 entries
         m-times))))
-
-;;;; Misc
-
-;; Code shared with Timbre
-(def compile-ns-filter "Returns (fn [?ns]) -> truthy."
-  (let [compile1
-        (fn [x] ; ns-pattern
-          (cond
-            (enc/re-pattern? x) (fn [ns-str] (re-find x ns-str))
-            (string? x)
-            (if (enc/str-contains? x "*")
-              (let [re
-                    (re-pattern
-                      (-> (str "^" x "$")
-                          (str/replace "." "\\.")
-                          (str/replace "*" "(.*)")))]
-                (fn [ns-str] (re-find re ns-str)))
-              (fn [ns-str] (= ns-str x)))
-
-            :else (throw (ex-info "Unexpected ns-pattern type"
-                           {:given x :type (type x)}))))]
-
-    (fn self
-      ([ns-pattern] ; Useful for user-level matching
-       (let [x ns-pattern]
-         (cond
-           (map? x) (self (:whitelist x) (:blacklist x))
-           (or (vector? x) (set? x)) (self x nil)
-           (= x "*") (fn [?ns] true)
-           :else
-           (let [match? (compile1 x)]
-             (fn [?ns] (if (match? (str ?ns)) true))))))
-
-      ([whitelist blacklist]
-       (let [white
-             (when (seq whitelist)
-               (let [match-fns (mapv compile1 whitelist)
-                     [m1 & mn] match-fns]
-                 (if mn
-                   (fn [ns-str] (enc/rsome #(% ns-str) match-fns))
-                   (fn [ns-str] (m1 ns-str)))))
-
-             black
-             (when (seq blacklist)
-               (let [match-fns (mapv compile1 blacklist)
-                     [m1 & mn] match-fns]
-                 (if mn
-                   (fn [ns-str] (not (enc/rsome #(% ns-str) match-fns)))
-                   (fn [ns-str] (not (m1 ns-str))))))]
-         (cond
-           (and white black)
-           (fn [?ns]
-             (let [ns-str (str ?ns)]
-               (if (white ns-str)
-                 (if (black ns-str)
-                   true))))
-
-           white (fn [?ns] (if (white (str ?ns)) true))
-           black (fn [?ns] (if (black (str ?ns)) true))
-           :else (fn [?ns] true) ; Common case
-           ))))))
-
-(comment
-  (def nsf? (compile-ns-filter #{"foo.*" "bar"}))
-  (enc/qb 1e5 (nsf? "foo")) ; 20.44
-  )
 
 ;;;; Output handlers
 
@@ -241,8 +174,8 @@
 (defn- handle-blocking! [m]
   (enc/run-kv!
     (fn [id f]
-      (enc/catch-errors* (f m) e
-        (enc/catch-errors* ; Esp. nb for Cljs
+      (enc/catching (f m) e
+        (enc/catching ; Esp. nb for Cljs
           (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e)))))
     @handlers_))
 

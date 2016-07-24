@@ -43,8 +43,8 @@
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
 
 (if (vector? taoensso.encore/encore-version)
-  (enc/assert-min-encore-version [2 64 1])
-  (enc/assert-min-encore-version  2.64))
+  (enc/assert-min-encore-version [2 67 1])
+  (enc/assert-min-encore-version  2.67))
 
 ;;;; Level filtering
 
@@ -92,8 +92,7 @@
 
 ;;;; Namespace filtering
 
-(def -compile-ns-filter "Caching `impl/comple-ns-filter`."
-  (enc/memoize_ impl/compile-ns-filter))
+(def -compile-ns-filter (enc/memoize_ enc/compile-ns-filter))
 
 (def ^:dynamic *ns-filter* "(fn [?ns] -> truthy)." (-compile-ns-filter "*"))
 
@@ -148,7 +147,7 @@
         (not (string? ns-str-form)) ; Not a compile-time ns-str const
         (compile-time-ns-filter ns-str-form)))))
 
-(defn may-profile?
+(defn #+clj may-profile? #+cljs ^boolean may-profile?
   "Returns true iff level and ns are runtime unfiltered."
   ([level   ] (may-profile? level *ns*))
   ([level ns]
@@ -398,7 +397,7 @@
              ~'__result)
            (do ~@body))))))
 
-(defmacro pspy "`p` alias" [& sigs] `(p ~@sigs))
+(defmacro pspy "`p` alias" [& args] `(p ~@args))
 
 (comment
   (p :p1 "body")
@@ -415,7 +414,7 @@
   "Returns (fn [?ns]) -> truthy. Some example patterns:
     \"foo.bar\", \"foo.bar.*\", #{\"foo\" \"bar\"},
     {:whitelist [\"foo.bar.*\"] :blacklist [\"baz.*\"]}"
-  [ns-pattern] (impl/compile-ns-filter ns-pattern))
+  [ns-pattern] (enc/compile-ns-filter ns-pattern))
 
 (defn chance "Returns true with 0<`p`<1 probability."
   [p] (< ^double (rand) (double p)))
