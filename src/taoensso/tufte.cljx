@@ -389,9 +389,9 @@
       ;; Note no runtime `may-profile?` check
       `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
          (if ~'__pdata-or-pdata_
-           (let [~'__t0     (impl/nano-time)
+           (let [~'__t0     (enc/now-nano*)
                  ~'__result (do ~@body)
-                 ~'__t1     (impl/nano-time)]
+                 ~'__t1     (enc/now-nano*)]
              (impl/capture-time! ~'__pdata-or-pdata_ ~id-form
                (- ~'__t1 ~'__t0))
              ~'__result)
