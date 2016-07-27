@@ -1,5 +1,13 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.0.1 - 2016 Jul 27
+
+```clojure
+[com.taoensso/tufte "1.0.0"]
+```
+
+**Hotfix**: [#4] Fix broken reference (@federkasten)
+
 ## v1.0.0 - 2016 Jul 24
 
 ```clojure
