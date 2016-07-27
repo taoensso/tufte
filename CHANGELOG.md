@@ -3,7 +3,7 @@
 ## v1.0.1 - 2016 Jul 27
 
 ```clojure
-[com.taoensso/tufte "1.0.0"]
+[com.taoensso/tufte "1.0.1"]
 ```
 
 **Hotfix**: [#4] Fix broken reference (@federkasten)
