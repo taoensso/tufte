@@ -37,7 +37,7 @@
 
   #+cljs
   (:require
-   [taoensso.encore     :as enc]
+   [taoensso.encore     :as enc  :refer-macros ()]
    [taoensso.tufte.impl :as impl :refer (IdStats Stats Clock)])
 
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
