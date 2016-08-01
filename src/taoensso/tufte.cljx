@@ -406,7 +406,8 @@
   (profiled {} (p (let [x :foo/id] x) "body"))
   (enc/qb 1e5  (profiled {} 2 (p :p1))) ; 195.56
   (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 2485
-  (profiled {:level 2 :when (chance 0.5)} (p :p1 "body")))
+  (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
+  (profiled {} (p :foo (p :bar))))
 
 ;;;; Public user utils
 

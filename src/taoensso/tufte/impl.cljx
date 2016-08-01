@@ -86,7 +86,9 @@
           (swap! pdata_ assoc-in [:__m-id-stats id] id-stats))))
 
     ;; Using mutable thread-local times (cheap), no coordination
-    (let [pdata pdata-or-pdata_]
+    (let [pdata pdata-or-pdata_
+          pdata (pdata-proxy) ; Must refresh to support p-nesting
+          ]
       (if-let [times (get pdata id)]
         (if (>= (long (mt-count times)) nmax-times) ; Compact
           (let [m-id-stats (get pdata :__m-id-stats)
