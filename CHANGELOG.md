@@ -1,5 +1,13 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.0.2 - 2016 Aug 2
+
+```clojure
+[com.taoensso/tufte "1.0.2"]
+```
+
+**Hotfix**: [#6] Fix non-dynamic p-nesting support
+
 ## v1.0.1 - 2016 Jul 27
 
 ```clojure
