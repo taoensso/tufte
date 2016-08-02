@@ -34,7 +34,7 @@
    [:1.9 :test :server-jvm
     {:dependencies
      [[org.clojure/clojurescript "1.9.93"]
-      [com.taoensso/timbre       "4.7.2"]]
+      [com.taoensso/timbre       "4.7.3"]]
 
      :plugins
      [;; These must be in :dev, Ref. https://github.com/lynaghk/cljx/issues/47:
