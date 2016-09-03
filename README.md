@@ -317,7 +317,7 @@ Copyright &copy; 2016 [Peter Taoussanis].
 
 <!--- Unique links -->
 [Edward Tufte]: https://en.wikipedia.org/wiki/Edward_Tufte
-[YourKit]: http://www.yourkit.com/)
+[YourKit]: http://www.yourkit.com
 [JProfiler]: http://www.ej-technologies.com/products/jprofiler/overview.html
 [VisualVM]: http://docs.oracle.com/javase/6/docs/technotes/guides/visualvm/index.html
 [@ptaoussanis/Timbre]: https://github.com/ptaoussanis/timbre
