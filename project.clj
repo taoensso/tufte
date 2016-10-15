@@ -14,12 +14,12 @@
 
   :dependencies
   [[org.clojure/clojure "1.5.1"]
-   [com.taoensso/encore "2.68.1"]]
+   [com.taoensso/encore "2.85.0"]]
 
   :plugins
   [[lein-pprint  "1.1.2"]
    [lein-ancient "0.6.10"]
-   [lein-codox   "0.9.5"]]
+   [lein-codox   "0.10.1"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
@@ -33,13 +33,13 @@
    :dev
    [:1.9 :test :server-jvm
     {:dependencies
-     [[org.clojure/clojurescript "1.9.93"]
-      [com.taoensso/timbre       "4.7.3"]]
+     [[org.clojure/clojurescript "1.9.229"]
+      [com.taoensso/timbre       "4.7.4"]]
 
      :plugins
      [;; These must be in :dev, Ref. https://github.com/lynaghk/cljx/issues/47:
       [com.keminglabs/cljx "0.6.0"]
-      [lein-cljsbuild      "1.1.3"]]}]}
+      [lein-cljsbuild      "1.1.4"]]}]}
 
   ;; :jar-exclusions [#"\.cljx|\.DS_Store"]
 
