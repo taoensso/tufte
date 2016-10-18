@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.1.0 - 2016 Oct 18
+
+```clojure
+[com.taoensso/tufte "1.1.0"]
+```
+
+> **NB** This release now **requires Clojure >= 1.7**. Please continue to use `v1.0.x` if you're stuck on Clojure < 1.7.
+
+**Impl**: Bump minimum Clojure dependency, migrate from .cljx to .cljc
+
 ## v1.0.2 - 2016 Aug 2
 
 ```clojure
