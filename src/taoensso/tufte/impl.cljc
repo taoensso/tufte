@@ -1,13 +1,15 @@
 (ns taoensso.tufte.impl
   "Private implementation details."
   (:require [clojure.string  :as str]
-            [taoensso.encore :as enc :refer-macros ()])
-  #+clj (:import [java.util LinkedList]
-                 [java.util.concurrent ArrayBlockingQueue])
-  #+cljs
-  (:require-macros
-   [taoensso.tufte.impl :refer
-    (mutable-times mt-add mt-count atom?)]))
+            [taoensso.encore :as enc :refer-macros []])
+  #?(:clj
+     (:import [java.util LinkedList]
+              [java.util.concurrent ArrayBlockingQueue]))
+
+  #?(:cljs
+     (:require-macros
+      [taoensso.tufte.impl :refer
+       [mutable-times mt-add mt-count atom?]])))
 
 ;;;; Pdata
 
@@ -16,17 +18,17 @@
 
 ;; Would esp. benefit from ^:static support / direct linking / a Java class
 (def ^:static pdata-proxy "Non-nil iff thread-local profiling active."
-  #+clj
-  (let [^ThreadLocal proxy (proxy [ThreadLocal] [])]
-    (fn
-      ([]        (.get proxy))
-      ([new-val] (.set proxy new-val) new-val)))
+  #?(:clj
+     (let [^ThreadLocal proxy (proxy [ThreadLocal] [])]
+       (fn
+         ([]        (.get proxy))
+         ([new-val] (.set proxy new-val) new-val)))
 
-  #+cljs ; Assuming we have Clojure 1.7+ for Cljs
-  (let [state_ (volatile! false)] ; Automatically thread-local in js
-    (fn
-      ([]                @state_)
-      ([new-val] (vreset! state_ new-val)))))
+     :cljs
+     (let [state_ (volatile! false)] ; Automatically thread-local in js
+       (fn
+         ([]                @state_)
+         ([new-val] (vreset! state_ new-val))))))
 
 (comment (enc/qb 1e6 (pdata-proxy))) ; 48.39
 
@@ -110,7 +112,6 @@
 
   nil)
 
-(def ^:private ^:const max-long #+clj Long/MAX_VALUE #+cljs 9007199254740991)
 (defn- times->IdStats [times ?interim-id-stats]
   (let [times      (vec   times) ; Faster to reduce
         ts-count   (count times)
@@ -118,7 +119,7 @@
         ts-time    (reduce (fn [^long acc ^long in] (+ acc in)) 0 times)
         ts-mean    (/ (double ts-time) (double ts-count))
         ts-mad-sum (reduce (fn [^long acc ^long in] (+ acc (Math/abs (- in ts-mean)))) 0 times)
-        ts-min     (reduce (fn [^long acc ^long in] (if (< in acc) in acc)) max-long     times)
+        ts-min     (reduce (fn [^long acc ^long in] (if (< in acc) in acc)) enc/max-long times)
         ts-max     (reduce (fn [^long acc ^long in] (if (> in acc) in acc)) 0            times)]
 
     (if-let [^IdStats id-stats ?interim-id-stats] ; Merge over previous stats
@@ -167,11 +168,11 @@
 
 (enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
 
-#+clj
-(enc/defonce ^:private ^ArrayBlockingQueue handler-queue
-  "While user handlers should ideally be non-blocking, we'll use a queue
-  here to be safe + make sure we never tie up the execution thread."
-  (ArrayBlockingQueue. 1024))
+#?(:clj
+   (enc/defonce ^:private ^ArrayBlockingQueue handler-queue
+     "While user handlers should ideally be non-blocking, we'll use a queue
+     here to be safe + make sure we never tie up the execution thread."
+     (ArrayBlockingQueue. 1024)))
 
 (defn- handle-blocking! [m]
   (enc/run-kv!
@@ -181,18 +182,18 @@
           (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e)))))
     @handlers_))
 
-#+clj  (declare ^:private handler-thread_)
-#+cljs (defn handle! [m] (handle-blocking! m) nil)
-#+clj  (defn handle! [m] (.offer handler-queue m) @handler-thread_ nil)
-#+clj
-(defonce ^:private handler-thread_
-  (delay
-    (let [f (fn []
-              (loop []
-                (let [m (.take handler-queue)]
-                  ;; Note: just drop if no registered handlers
-                  (handle-blocking! m)
-                  (recur))))]
-      (doto (Thread. f)
-        (.setDaemon true)
-        (.start)))))
+#?(:clj  (declare ^:private handler-thread_))
+#?(:cljs (defn handle! [m] (handle-blocking! m) nil))
+#?(:clj  (defn handle! [m] (.offer handler-queue m) @handler-thread_ nil))
+#?(:clj
+   (defonce ^:private handler-thread_
+     (delay
+       (let [f (fn []
+                 (loop []
+                   (let [m (.take handler-queue)]
+                     ;; Note: just drop if no registered handlers
+                     (handle-blocking! m)
+                     (recur))))]
+         (doto (Thread. f)
+           (.setDaemon true)
+           (.start))))))

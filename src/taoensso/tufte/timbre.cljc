@@ -1,10 +1,10 @@
 (ns taoensso.tufte.timbre
   "Simple logging handler for integration with Timbre."
   (:require
-          [taoensso.encore :as enc]
-          [taoensso.tufte  :as tufte]
-   #+clj  [taoensso.timbre :as timbre :refer        (log!)]
-   #+cljs [taoensso.timbre :as timbre :refer-macros (log!)]))
+            [taoensso.encore :as enc]
+            [taoensso.tufte  :as tufte]
+   #?(:clj  [taoensso.timbre :as timbre :refer        [log!]]
+      :cljs [taoensso.timbre :as timbre :refer-macros [log!]])))
 
 (defn add-timbre-logging-handler!
   "Adds a simple handler that logs `profile` stats output with Timbre.

@@ -28,23 +28,21 @@
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
-  #+clj
-  (:require
-   [taoensso.encore     :as enc]
-   [taoensso.tufte.impl :as impl])
+  #?(:clj
+     (:require
+      [taoensso.encore     :as enc]
+      [taoensso.tufte.impl :as impl]))
 
-  #+clj (:import [taoensso.tufte.impl IdStats Stats Clock])
+  #?(:clj (:import [taoensso.tufte.impl IdStats Stats Clock]))
 
-  #+cljs
-  (:require
-   [taoensso.encore     :as enc  :refer-macros ()]
-   [taoensso.tufte.impl :as impl :refer (IdStats Stats Clock)])
+  #?(:cljs
+     (:require
+      [taoensso.encore     :as enc  :refer-macros []]
+      [taoensso.tufte.impl :as impl :refer [IdStats Stats Clock]]))
 
-  #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
+  #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
-(if (vector? taoensso.encore/encore-version)
-  (enc/assert-min-encore-version [2 67 1])
-  (enc/assert-min-encore-version  2.67))
+(enc/assert-min-encore-version [2 85 0])
 
 ;;;; Level filtering
 
@@ -74,8 +72,8 @@
     6 => Disable all profiling."
   [level]
   (valid-min-level level)
-  #+cljs (set!             *min-level*         level)
-  #+clj  (alter-var-root #'*min-level* (fn [_] level)))
+  #?(:cljs (set!             *min-level*        level)
+     :clj  (alter-var-root #'*min-level* (fn [_] level))))
 
 (comment (enc/qb 1e6 *min-level*)) ; 25.93
 
@@ -101,8 +99,8 @@
   See `compile-ns-filter` docstring for details on `ns-pattern` arg."
   [ns-pattern]
   (let [nsf? (-compile-ns-filter ns-pattern)]
-    #+cljs (set!             *ns-filter*        nsf?)
-    #+clj  (alter-var-root #'*ns-filter* (fn [_] nsf?))))
+    #?(:cljs (set!             *ns-filter*        nsf?)
+       :clj  (alter-var-root #'*ns-filter* (fn [_] nsf?)))))
 
 (defmacro with-ns-pattern
   "Executes body with dynamic namespace filter.
@@ -119,35 +117,35 @@
 
 ;;;; Combo filtering
 
-#+clj
-(def ^:private compile-time-min-level
-  (when-let [level (enc/read-sys-val "TUFTE_MIN_LEVEL")]
-    (println (str "Compile-time (elision) Tufte min-level: " level))
-    (valid-min-level level)))
+#?(:clj
+   (def ^:private compile-time-min-level
+     (when-let [level (enc/read-sys-val "TUFTE_MIN_LEVEL")]
+       (println (str "Compile-time (elision) Tufte min-level: " level))
+       (valid-min-level level))))
 
-#+clj
-(def ^:private compile-time-ns-filter
-  (let [ns-pattern (enc/read-sys-val "TUFTE_NS_PATTERN")]
-    (when ns-pattern
-      (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
-    (-compile-ns-filter (or ns-pattern "*"))))
+#?(:clj
+   (def ^:private compile-time-ns-filter
+     (let [ns-pattern (enc/read-sys-val "TUFTE_NS_PATTERN")]
+       (when ns-pattern
+         (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
+       (-compile-ns-filter (or ns-pattern "*")))))
 
-#+clj ; Called only at macro-expansiom time
-(defn -elide?
-  "Returns true iff level or ns are compile-time filtered."
-  [level-form ns-str-form]
-  (not
-    (and
-      (or ; Level okay
-        (nil? compile-time-min-level)
-        (not (valid-run-level? level-form)) ; Not a compile-time level const
-        (>= ^long level-form ^long compile-time-min-level))
+#?(:clj ; Called only at macro-expansiom time
+   (defn -elide?
+     "Returns true iff level or ns are compile-time filtered."
+     [level-form ns-str-form]
+     (not
+       (and
+         (or ; Level okay
+           (nil? compile-time-min-level)
+           (not (valid-run-level? level-form)) ; Not a compile-time level const
+           (>= ^long level-form ^long compile-time-min-level))
 
-      (or ; Namespace okay
-        (not (string? ns-str-form)) ; Not a compile-time ns-str const
-        (compile-time-ns-filter ns-str-form)))))
+         (or ; Namespace okay
+           (not (string? ns-str-form)) ; Not a compile-time ns-str const
+           (compile-time-ns-filter ns-str-form))))))
 
-(defn #+clj may-profile? #+cljs ^boolean may-profile?
+(defn #?(:clj may-profile? :cljs ^boolean may-profile?)
   "Returns true iff level and ns are runtime unfiltered."
   ([level   ] (may-profile? level *ns*))
   ([level ns]
@@ -254,150 +252,155 @@
 
 ;;;; Core macros
 
-(defmacro profiled
-  "Always executes body, and always returns [<body-result> ?<stats>].
+#?(:clj
+   (defmacro profiled
+     "Always executes body, and always returns [<body-result> ?<stats>].
 
-  When [ns level] unelided and [ns level `when`] unfiltered, executes body
-  with profiling active.
+     When [ns level] unelided and [ns level `when`] unfiltered, executes body
+     with profiling active.
 
-  Handy if you'd like to consume stats output directly.
-  Otherwise see `profile`.
+     Handy if you'd like to consume stats output directly.
+     Otherwise see `profile`.
 
-  Compile-time opts:
-    :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
-    :dynamic? - Use multi-threaded profiling? ; Default is `false`
-    :when     - Optional arbitrary conditional form (e.g. boolean expr)"
+     Compile-time opts:
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :dynamic? - Use multi-threaded profiling? ; Default is `false`
+       :when     - Optional arbitrary conditional form (e.g. boolean expr)"
 
-  [opts & body]
-  (let [ns-str (str *ns*)]
+     [opts & body]
+     (let [ns-str (str *ns*)]
 
-    (when-not (map? opts)
-      (throw
-        (ex-info "`tufte/profiled` requires a compile-time map as first arg."
-          {:ns-str ns-str :line (:line (meta &form))
-           :form (cons 'profiled (cons opts body))})))
+       (when-not (map? opts)
+         (throw
+           (ex-info "`tufte/profiled` requires a compile-time map as first arg."
+             {:ns-str ns-str :line (:line (meta &form))
+              :form (cons 'profiled (cons opts body))})))
 
-    (let [level-form (get opts :level    5)
-          dynamic?   (get opts :dynamic? false)
-          test-form  (get opts :when     true)]
+       (let [level-form (get opts :level    5)
+             dynamic?   (get opts :dynamic? false)
+             test-form  (get opts :when     true)]
 
-      (when (integer? level-form) (valid-run-level level-form))
+         (when (integer? level-form) (valid-run-level level-form))
 
-      (if (-elide? level-form ns-str)
-        `[(do ~@body)]
-        (let [runtime-check
-              (if (= test true) ; Common case
-                     `(may-profile? ~level-form ~ns-str)
-                `(and (may-profile? ~level-form ~ns-str) ~test-form))]
+         (if (-elide? level-form ns-str)
+           `[(do ~@body)]
+           (let [runtime-check
+                 (if (= test true) ; Common case
+                   `(may-profile? ~level-form ~ns-str)
+                   `(and (may-profile? ~level-form ~ns-str) ~test-form))]
 
-          (if dynamic?
-            `(if ~runtime-check
-               (let [pdata_# (impl/new-pdata-dynamic)]
-                 (binding [impl/*pdata_* pdata_#]
-                   (let [result# (do ~@body)
-                         stats#  (impl/pdata->Stats @pdata_#)]
-                     [result# stats#])))
-               [(do ~@body)])
+             (if dynamic?
+               `(if ~runtime-check
+                  (let [pdata_# (impl/new-pdata-dynamic)]
+                    (binding [impl/*pdata_* pdata_#]
+                      (let [result# (do ~@body)
+                            stats#  (impl/pdata->Stats @pdata_#)]
+                        [result# stats#])))
+                  [(do ~@body)])
 
-            `(if ~runtime-check
-               (try
-                 (impl/pdata-proxy (impl/new-pdata-thread))
-                 (let [result# (do ~@body)
-                       stats#  (impl/pdata->Stats (impl/pdata-proxy))]
-                   [result# stats#])
-                 (finally (impl/pdata-proxy nil)))
-               [(do ~@body)])))))))
+               `(if ~runtime-check
+                  (try
+                    (impl/pdata-proxy (impl/new-pdata-thread))
+                    (let [result# (do ~@body)
+                          stats#  (impl/pdata->Stats (impl/pdata-proxy))]
+                      [result# stats#])
+                    (finally (impl/pdata-proxy nil)))
+                  [(do ~@body)]))))))))
 
 (declare format-stats)
-(defmacro profile
-  "Always executes body, and always returns <body-result>.
 
-  When [ns level] unelided and [ns level `when`] unfiltered, executes body
-  with profiling active and dispatches stats to any registered handlers
-  (see `add-handler!`).
+#?(:clj
+   (defmacro profile
+     "Always executes body, and always returns <body-result>.
 
-  Handy if you'd like to consume/aggregate stats output later/elsewhere.
-  Otherwise see `profiled`.
+     When [ns level] unelided and [ns level `when`] unfiltered, executes body
+     with profiling active and dispatches stats to any registered handlers
+     (see `add-handler!`).
 
-  Compile-time opts:
-    :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
-    :dynamic? - Use multi-threaded profiling? ; Default is `false`
-    :when     - Optional arbitrary conditional form (e.g. boolean expr)
-    :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
-    :data     - Optional, any other arbitrary data provided to handlers"
+     Handy if you'd like to consume/aggregate stats output later/elsewhere.
+     Otherwise see `profiled`.
 
-  [opts & body]
-  (let [ns-str (str *ns*)]
+     Compile-time opts:
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :dynamic? - Use multi-threaded profiling? ; Default is `false`
+       :when     - Optional arbitrary conditional form (e.g. boolean expr)
+       :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
+       :data     - Optional, any other arbitrary data provided to handlers"
 
-    (when-not (map? opts)
-      (throw
-        (ex-info "`tufte/profile` requires a compile-time map as first arg."
-          {:ns-str ns-str :line (:line (meta &form))
-           :form (cons 'profile (cons opts body))})))
+     [opts & body]
+     (let [ns-str (str *ns*)]
 
-    (let [level-form (get opts :level    5)
-          dynamic?   (get opts :dynamic? false)
-          test-form  (get opts :when     true)
-          id-form    (get opts :id)
-          data-form  (get opts :data)]
+       (when-not (map? opts)
+         (throw
+           (ex-info "`tufte/profile` requires a compile-time map as first arg."
+             {:ns-str ns-str :line (:line (meta &form))
+              :form (cons 'profile (cons opts body))})))
 
-      (when (integer? level-form) (valid-run-level level-form))
+       (let [level-form (get opts :level    5)
+             dynamic?   (get opts :dynamic? false)
+             test-form  (get opts :when     true)
+             id-form    (get opts :id)
+             data-form  (get opts :data)]
 
-      `(let [[result# stats#] (profiled ~opts ~@body)]
-         (when stats#
-           (impl/handle!
-             (->HandlerVal ~ns-str ~level-form ~id-form ~data-form
-               stats# (delay (format-stats stats#))
-               ~*file* ~(:line (meta &form)))))
-         result#))))
+         (when (integer? level-form) (valid-run-level level-form))
+
+         `(let [[result# stats#] (profiled ~opts ~@body)]
+            (when stats#
+              (impl/handle!
+                (->HandlerVal ~ns-str ~level-form ~id-form ~data-form
+                  stats# (delay (format-stats stats#))
+                  ~*file* ~(:line (meta &form)))))
+            result#)))))
+
 
 (comment
   (profiled {} "body")
   (profiled {:when (chance 0.5)} "body")
   (profile  {:id ::my-id} "body"))
 
-(defmacro p
-  "Profiling spy. Always executes body, and always returns <body-result>.
+#?(:clj
+   (defmacro p
+     "Profiling spy. Always executes body, and always returns <body-result>.
 
-  When [ns level] unelided and profiling is active, records execution
-  time of body.
+     When [ns level] unelided and profiling is active, records execution
+     time of body.
 
-  Compile-time opts:
-    :id    - Id for this body in stats output (e.g. `::my-fn-call`)
-    :level - e/o #{0 1 2 3 4 5} ; Default is `5`"
+     Compile-time opts:
+      :id    - Id for this body in stats output (e.g. `::my-fn-call`)
+      :level - e/o #{0 1 2 3 4 5} ; Default is `5`"
 
-  {:arglists '([id & body] [opts & body])}
-  [s1 & body]
-  (let [ns-str  (str *ns*)
-        opts    (if (map? s1) s1 {:level 5 :id s1})
-        level   (get opts :level)
-        id-form (get opts :id)]
+     {:arglists '([id & body] [opts & body])}
+     [s1 & body]
+     (let [ns-str  (str *ns*)
+           opts    (if (map? s1) s1 {:level 5 :id s1})
+           level   (get opts :level)
+           id-form (get opts :id)]
 
-    ;; If *any* level is present, it must be a valid compile-time level
-    ;; since this macro doesn't offer runtime level checking
-    (when level (valid-run-level level))
+       ;; If *any* level is present, it must be a valid compile-time level
+       ;; since this macro doesn't offer runtime level checking
+       (when level (valid-run-level level))
 
-    (when (nil? id-form)
-      (throw
-        (ex-info "`tufte/p` requires an id."
-          {:ns-str ns-str :line (:line (meta &form))
-           :opts opts
-           :form (cons 'p (cons s1 body))})))
+       (when (nil? id-form)
+         (throw
+           (ex-info "`tufte/p` requires an id."
+             {:ns-str ns-str :line (:line (meta &form))
+              :opts opts
+              :form (cons 'p (cons s1 body))})))
 
-    (if (-elide? level ns-str)
-      `(do ~@body)
-      ;; Note no runtime `may-profile?` check
-      `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
-         (if ~'__pdata-or-pdata_
-           (let [~'__t0     (enc/now-nano*)
-                 ~'__result (do ~@body)
-                 ~'__t1     (enc/now-nano*)]
-             (impl/capture-time! ~'__pdata-or-pdata_ ~id-form
-               (- ~'__t1 ~'__t0))
-             ~'__result)
-           (do ~@body))))))
+       (if (-elide? level ns-str)
+         `(do ~@body)
+         ;; Note no runtime `may-profile?` check
+         `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
+            (if ~'__pdata-or-pdata_
+              (let [~'__t0     (enc/now-nano*)
+                    ~'__result (do ~@body)
+                    ~'__t1     (enc/now-nano*)]
+                (impl/capture-time! ~'__pdata-or-pdata_ ~id-form
+                  (- ~'__t1 ~'__t0))
+                ~'__result)
+              (do ~@body)))))))
 
-(defmacro pspy "`p` alias" [& args] `(p ~@args))
+#?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
 
 (comment
   (p :p1 "body")
@@ -536,10 +539,10 @@
     (accumulate-stats sacc (profiled {} (p :p2)))
     (sacc)))
 
-#+clj
-(defn refer-tufte
-  "(require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)])"
-  [] (require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)]))
+#?(:clj
+   (defn refer-tufte
+     "(require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])"
+     [] (require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])))
 
 (comment (refer-tufte))
 
@@ -584,55 +587,55 @@
              #=(count "Accounted Time")
              m-id-stats)]
 
-       #+cljs
-       (let [sb
-             (reduce
-               (fn [acc id]
-                 (let [^IdStats id-stats (get m-id-stats id)
-                       time (.-time id-stats)]
-                   (enc/sb-append acc
-                     (str
-                       {:id      id
-                        :n-calls     (.-count id-stats)
-                        :min     (ft (.-min   id-stats))
-                        :max     (ft (.-max   id-stats))
-                        :mad     (ft (.-mad   id-stats))
-                        :mean    (ft (.-mean  id-stats))
-                        :time%   (perc time clock-total)
-                        :time    (ft   time)}
-                       "\n"))))
-               (enc/str-builder)
-               sorted-ids)]
+       #?(:cljs
+          (let [sb
+                (reduce
+                  (fn [acc id]
+                    (let [^IdStats id-stats (get m-id-stats id)
+                          time (.-time id-stats)]
+                      (enc/sb-append acc
+                        (str
+                          {:id      id
+                           :n-calls     (.-count id-stats)
+                           :min     (ft (.-min   id-stats))
+                           :max     (ft (.-max   id-stats))
+                           :mad     (ft (.-mad   id-stats))
+                           :mean    (ft (.-mean  id-stats))
+                           :time%   (perc time clock-total)
+                           :time    (ft   time)}
+                          "\n"))))
+                  (enc/str-builder)
+                  sorted-ids)]
 
-         (enc/sb-append sb "\n")
-         (enc/sb-append sb (str "Clock Time: (100%) " (ft clock-total) "\n"))
-         (enc/sb-append sb (str "Accounted Time: (" (perc accounted clock-total) "%) " (ft accounted) "\n"))
-         (str           sb))
+            (enc/sb-append sb "\n")
+            (enc/sb-append sb (str "Clock Time: (100%) " (ft clock-total) "\n"))
+            (enc/sb-append sb (str "Accounted Time: (" (perc accounted clock-total) "%) " (ft accounted) "\n"))
+            (str           sb)))
 
-       #+clj
-       (let [pattern   (str "%" max-id-width "s %,11d %9s %10s %9s %9s %7d %1s%n")
-             s-pattern (str "%" max-id-width  "s %11s %9s %10s %9s %9s %7s %1s%n")
-             sb
-             (reduce
-               (fn [acc id]
-                 (let [^IdStats id-stats (get m-id-stats id)
-                       time (.-time id-stats)]
-                   (enc/sb-append acc
-                     (format pattern id
-                           (.-count id-stats)
-                       (ft (.-min   id-stats))
-                       (ft (.-max   id-stats))
-                       (ft (.-mad   id-stats))
-                       (ft (.-mean  id-stats))
-                       (perc time clock-total)
-                       (ft   time)))))
+       #?(:clj
+          (let [pattern   (str "%" max-id-width "s %,11d %9s %10s %9s %9s %7d %1s%n")
+                s-pattern (str "%" max-id-width  "s %11s %9s %10s %9s %9s %7s %1s%n")
+                sb
+                (reduce
+                  (fn [acc id]
+                    (let [^IdStats id-stats (get m-id-stats id)
+                          time (.-time id-stats)]
+                      (enc/sb-append acc
+                        (format pattern id
+                          (.-count id-stats)
+                          (ft (.-min   id-stats))
+                          (ft (.-max   id-stats))
+                          (ft (.-mad   id-stats))
+                          (ft (.-mean  id-stats))
+                          (perc time clock-total)
+                          (ft   time)))))
 
-               (enc/str-builder (format s-pattern "pId" "nCalls" "Min" "Max" "MAD" "Mean" "Time%" "Time"))
-               sorted-ids)]
+                  (enc/str-builder (format s-pattern "pId" "nCalls" "Min" "Max" "MAD" "Mean" "Time%" "Time"))
+                  sorted-ids)]
 
-         (enc/sb-append sb (format s-pattern "Clock Time"     "" "" "" "" "" 100 (ft clock-total)))
-         (enc/sb-append sb (format s-pattern "Accounted Time" "" "" "" "" "" (perc accounted clock-total) (ft accounted)))
-         (str sb))))))
+            (enc/sb-append sb (format s-pattern "Clock Time"     "" "" "" "" "" 100 (ft clock-total)))
+            (enc/sb-append sb (format s-pattern "Accounted Time" "" "" "" "" "" (perc accounted clock-total) (ft accounted)))
+            (str sb)))))))
 
 ;;;; fnp stuff
 
@@ -667,9 +670,9 @@
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn      [x]            (* x x)))
+  (macroexpand '(fn       [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn      [x] {:pre [x]} (* x x))))
+  (macroexpand '(fn       [x] {:pre [x]} (* x x))))
 
 (defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
   {:arglists
