@@ -476,8 +476,8 @@
                             s2-count   (.-count   sid2)
                             s2-time    (.-time    sid2)
                             s2-mad-sum (.-mad-sum sid2)
-                            s2-min     (.min      sid2)
-                            s2-max     (.max      sid2)
+                            s2-min     (.-min      sid2)
+                            s2-max     (.-max      sid2)
 
                             s3-count   (+ s1-count   s2-count)
                             s3-time    (+ s1-time    s2-time)
