@@ -1,5 +1,16 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.1.1 - 2016 Dec 17
+
+```clojure
+[com.taoensso/tufte "1.1.1"]
+```
+
+> This is a non-breaking hotfix release.
+
+**Hotfix**: [#16] Fix `merge-stats` typo (@atdixon)
+**Impl**: [#14] Add short mention of laziness to relevant doc-strings
+
 ## v1.1.0 - 2016 Oct 18
 
 ```clojure
