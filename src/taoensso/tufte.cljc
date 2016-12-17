@@ -265,7 +265,15 @@
      Compile-time opts:
        :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
-       :when     - Optional arbitrary conditional form (e.g. boolean expr)"
+       :when     - Optional arbitrary conditional form (e.g. boolean expr)
+
+     A comment on laziness:
+       Please note that lazy seqs and other forms of laziness (e.g. delays)
+       will only contribute to profiling results if/when evaluation actually
+       occurs. This is intentional and a useful property. Compare:
+
+       (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
+       (profiled {} @(delay (Thread/sleep 2000))) ; Counts sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
@@ -325,7 +333,15 @@
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
        :when     - Optional arbitrary conditional form (e.g. boolean expr)
        :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
-       :data     - Optional, any other arbitrary data provided to handlers"
+       :data     - Optional, any other arbitrary data provided to handlers
+
+     A comment on laziness:
+       Please note that lazy seqs and other forms of laziness (e.g. delays)
+       will only contribute to profiling results if/when evaluation actually
+       occurs. This is intentional and a useful property. Compare:
+
+       (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
+       (profiled {} @(delay (Thread/sleep 2000))) ; Counts sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
