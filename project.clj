@@ -12,12 +12,12 @@
 
   :dependencies
   [[org.clojure/clojure "1.7.0"]
-   [com.taoensso/encore "2.88.0"]]
+   [com.taoensso/encore "2.92.0"]]
 
   :plugins
   [[lein-pprint    "1.1.2"]
-   [lein-ancient   "0.6.10"]
-   [lein-codox     "0.10.2"]
+   [lein-ancient   "0.6.12"]
+   [lein-codox     "0.10.3"]
    [lein-cljsbuild "1.1.4"]]
 
   :profiles
@@ -26,10 +26,10 @@
    :1.8      {:dependencies [[org.clojure/clojure "1.8.0"]]}
    :1.9      {:dependencies [[org.clojure/clojure "1.9.0-alpha13"]]}
    :test     {:dependencies [[org.clojure/test.check "0.9.0"]]}
-   :provided {:dependencies [[org.clojure/clojurescript "1.9.293"]]}
+   :provided {:dependencies [[org.clojure/clojurescript "1.9.473"]]}
    :dev
    [:1.9 :test :server-jvm
-    {:dependencies [[com.taoensso/timbre "4.7.4"]]}]}
+    {:dependencies [[com.taoensso/timbre "4.10.0"]]}]}
 
   :cljsbuild
   {:test-commands
