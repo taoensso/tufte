@@ -418,6 +418,40 @@
 
 #?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
 
+#?(:clj
+   (defmacro p->
+     "Profiling spy for forms threaded with -> or some->. Wraps each threaded
+      form with p and generates a unique identifier based on id, the form
+      position, and the form fn."
+     [id [op x & forms]]
+     (letfn [(fid [i x] (keyword (str id "-form" i "-" (let [x (if (seq? x) (first (flatten x)) x)] (if (symbol? x) x "data")))))]
+       `(~op (p ~(fid 0 x) ~x)
+          ~@(map-indexed
+              (fn [i form]
+                (let [y (gensym)]
+                  `((fn [~y]
+                      ~(if (seq? form)
+                         (with-meta `(p ~(fid (inc i) form) (~(first form) ~y ~@(rest form))) (meta form))
+                         `(p ~(fid (inc i) form) (~form ~y)))))))
+              forms)))))
+
+#?(:clj
+   (defmacro p->>
+     "Profiling spy for forms threaded with ->> or some->>. Wraps each threaded
+      form with p and generates a unique identifier based on id, the form
+      position, and the form fn."
+     [id [op x & forms]]
+     (letfn [(fid [i x] (keyword (str id "-form" i "-" (let [x (if (seq? x) (first (flatten x)) x)] (if (symbol? x) x "data")))))]
+       `(~op (p ~(fid 0 x) ~x)
+          ~@(map-indexed
+              (fn [i form]
+                (let [y (gensym)]
+                  `((fn [~y]
+                      ~(if (seq? form)
+                         (with-meta `(p ~(fid (inc i) form) (~(first form) ~@(rest form) ~y)) (meta form))
+                         `(p ~(fid (inc i) form) (~form ~y)))))))
+              forms)))))
+
 (comment
   (p :p1 "body")
   (profiled {} (p :p1))
