@@ -202,7 +202,7 @@
              handler-fn
              (let [nsf? (-compile-ns-filter ns-pattern)]
                (fn [m]
-                 (when (nsf? (get m :?ns-str))
+                 (when (nsf? (get m :ns-str))
                    (handler-fn m)))))]
      (set (keys (swap! handlers_ assoc handler-id f))))))
 
