@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.1.2 - 2017 Sep 21
+
+```clojure
+[com.taoensso/tufte "1.1.2"]
+```
+
+> This is a non-breaking hotfix release.
+
+**Hotfix**: Fix broken handler namespace filters (@knotschi)
+
 ## v1.1.1 - 2016 Dec 17
 
 ```clojure
