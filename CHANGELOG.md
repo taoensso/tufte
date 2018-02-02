@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.1.3 - 2018 Feb 2
+
+```clojure
+[com.taoensso/tufte "1.1.3"]
+```
+
+> This is a non-breaking hotfix release.
+
+**Hotfix**: Fix broken micro-optimization for conditional profiling (@balajirrao, @kassapo)
+
 ## v1.1.2 - 2017 Sep 21
 
 ```clojure
