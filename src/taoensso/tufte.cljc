@@ -293,7 +293,7 @@
          (if (-elide? level-form ns-str)
            `[(do ~@body)]
            (let [runtime-check
-                 (if (= test true) ; Common case
+                 (if (= test-form true) ; Common case
                    `(may-profile? ~level-form ~ns-str)
                    `(and (may-profile? ~level-form ~ns-str) ~test-form))]
 
