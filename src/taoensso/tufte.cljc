@@ -686,9 +686,9 @@
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn       [x]            (* x x)))
+  (macroexpand '(fn      [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn       [x] {:pre [x]} (* x x))))
+  (macroexpand '(fn      [x] {:pre [x]} (* x x))))
 
 (defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
   {:arglists
