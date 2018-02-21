@@ -298,22 +298,24 @@
                    `(and (may-profile? ~level-form ~ns-str) ~test-form))]
 
              (if dynamic?
-               `(if ~runtime-check
-                  (let [pdata_# (impl/new-pdata-dynamic)]
-                    (binding [impl/*pdata_* pdata_#]
-                      (let [result# (do ~@body)
-                            stats#  (impl/pdata->Stats @pdata_#)]
-                        [result# stats#])))
-                  [(do ~@body)])
+               `(let [result_# (delay ~@body)]
+                  (if ~runtime-check
+                    (let [pdata_# (impl/new-pdata-dynamic)]
+                      (binding [impl/*pdata_* pdata_#]
+                        (let [result# @result_#
+                              stats#  (impl/pdata->Stats @pdata_#)]
+                          [result# stats#])))
+                    [@result_#]))
 
-               `(if ~runtime-check
-                  (try
-                    (impl/pdata-proxy (impl/new-pdata-thread))
-                    (let [result# (do ~@body)
-                          stats#  (impl/pdata->Stats (impl/pdata-proxy))]
-                      [result# stats#])
-                    (finally (impl/pdata-proxy nil)))
-                  [(do ~@body)]))))))))
+               `(let [result_# (delay ~@body)]
+                  (if ~runtime-check
+                    (try
+                      (impl/pdata-proxy (impl/new-pdata-thread))
+                      (let [result# @result_#
+                            stats#  (impl/pdata->Stats (impl/pdata-proxy))]
+                        [result# stats#])
+                      (finally (impl/pdata-proxy nil)))
+                    [@result_#])))))))))
 
 (declare format-stats)
 
@@ -406,15 +408,16 @@
        (if (-elide? level ns-str)
          `(do ~@body)
          ;; Note no runtime `may-profile?` check
-         `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
+         `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))
+                ~'__result_ (delay ~@body)]
             (if ~'__pdata-or-pdata_
               (let [~'__t0     (enc/now-nano*)
-                    ~'__result (do ~@body)
+                    ~'__result @~'__result_
                     ~'__t1     (enc/now-nano*)]
                 (impl/capture-time! ~'__pdata-or-pdata_ ~id-form
                   (- ~'__t1 ~'__t0))
                 ~'__result)
-              (do ~@body)))))))
+              @~'__result_))))))
 
 #?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
 
