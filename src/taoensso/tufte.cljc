@@ -233,8 +233,8 @@
 (comment (enc/qb 1e6 (profiling?))) ; 51.01
 
 (defn start-profiling-thread!
-  "Warning: this is a low-level primitive. Prefer higher-level macros
-  like `profile` when possible.
+  "Warning: this is a low-level primitive for advanced users.
+  Prefer higher-level macros like `profile` when possible.
 
   NB: must be accompanied by a call to `stop-profiling-thread!`
   (e.g. using `try`/`finally`)."
@@ -243,12 +243,27 @@
   nil)
 
 (defn stop-profiling-thread!
-  "Warning: this is a low-level primitive."
+  "Warning: this is a low-level primitive for advanced users."
   []
   (when-let [pdata (impl/pdata-proxy)]
     (let [result (impl/pdata->Stats pdata)]
       (impl/pdata-proxy nil)
       result)))
+
+(defn capture-time!
+  "Warning: this is a low-level primitive for advanced users.
+  Can be useful when tracking time across thread boundaries or for
+  async jobs / callbacks / etc."
+  [id nano-secs-elapsed]
+  (when-let [pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
+    (impl/capture-time! pdata-or-pdata_ id nano-secs-elapsed)))
+
+(comment
+  (profiled {}
+    (let [t0 (System/nanoTime)
+          _  (Thread/sleep 2200)
+          t1 (System/nanoTime)]
+      (capture-time! :foo (- t1 t0)))))
 
 ;;;; Core macros
 
