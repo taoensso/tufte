@@ -1,5 +1,16 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.2.0 - 2018 Mar 8
+
+```clojure
+[com.taoensso/tufte "1.2.0"]
+```
+
+> This is a non-breaking feature release.
+
+**New**: Add low-level `capture-time!` util fn
+**Impl**: Bump dependencies, incl. ClojureScript
+
 ## v1.1.3 - 2018 Feb 2
 
 ```clojure
