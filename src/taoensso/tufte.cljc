@@ -585,10 +585,11 @@
 (defn- ft [nanosecs]
   (let [ns (long nanosecs)] ; Truncate any fractionals
     (cond
-      (>= ns 1000000000) (str (enc/round2 (/ ns 1000000000))  "s") ; 1e9
-      (>= ns    1000000) (str (enc/round2 (/ ns    1000000)) "ms") ; 1e6
-      (>= ns       1000) (str (enc/round2 (/ ns       1000)) "μs") ; 1e3
-      :else              (str                ns              "ns"))))
+      (>= ns 60000000000) (str (enc/round2 (/ ns 60000000000))  "m") ; 6e10
+      (>= ns 1000000000)  (str (enc/round2 (/ ns  1000000000))  "s") ; 1e9
+      (>= ns    1000000)  (str (enc/round2 (/ ns     1000000)) "ms") ; 1e6
+      (>= ns       1000)  (str (enc/round2 (/ ns        1000)) "μs") ; 1e3
+      :else               (str                ns               "ns"))))
 
 (defn format-stats
   ([stats]
