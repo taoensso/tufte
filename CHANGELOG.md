@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.3.0 - 2018 Mar 11
+
+```clojure
+[com.taoensso/tufte "1.3.0"]
+```
+
+> This is a non-breaking feature release.
+
+* [#21] **New**: support minutes in `format-stats` table (@austinhaas)
+
 ## v1.2.0 - 2018 Mar 8
 
 ```clojure
@@ -8,8 +18,8 @@
 
 > This is a non-breaking feature release.
 
-**New**: Add low-level `capture-time!` util fn
-**Impl**: Bump dependencies, incl. ClojureScript
+* **New**: Add low-level `capture-time!` util fn
+* **Impl**: Bump dependencies, incl. ClojureScript
 
 ## v1.1.3 - 2018 Feb 2
 

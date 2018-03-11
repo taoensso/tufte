@@ -4,7 +4,7 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.2.0"] ; Please see CHANGELOG for details
+[com.taoensso/tufte "1.3.0"] ; Please see CHANGELOG for details
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
@@ -64,7 +64,7 @@
 Add the necessary dependency to your project:
 
 ```clojure
-[com.taoensso/tufte "1.2.0"]
+[com.taoensso/tufte "1.3.0"]
 ```
 
 And setup your namespace imports:
