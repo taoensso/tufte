@@ -582,14 +582,19 @@
 (defn- perc [n d] (Math/round (* (/ (double n) (double d)) 100.0)))
 (comment (perc 14 24))
 
-(defn- ft [nanosecs]
-  (let [ns (long nanosecs)] ; Truncate any fractionals
-    (cond
-      (>= ns 60000000000) (str (enc/round2 (/ ns 60000000000))  "m") ; 6e10
-      (>= ns 1000000000)  (str (enc/round2 (/ ns  1000000000))  "s") ; 1e9
-      (>= ns    1000000)  (str (enc/round2 (/ ns     1000000)) "ms") ; 1e6
-      (>= ns       1000)  (str (enc/round2 (/ ns        1000)) "μs") ; 1e3
-      :else               (str                ns               "ns"))))
+(let [round2 #?(:cljs enc/round2 :clj (fn [n] (format "%.2f" n)))]
+  (defn- ft [nanosecs]
+    (let [ns (double nanosecs)]
+      (cond
+        (>= ns 6e10) (str (round2 (/ ns 6e10)) "m ")
+        (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s ")
+        (>= ns 1e6)  (str (round2 (/ ns 1e6))  "ms")
+        (>= ns 1e3)  (str (round2 (/ ns 1e3))  "μs")
+        :else        (str            ns        "ns")))))
+
+(comment
+  (format "%.2f" 40484.005)
+  (ft 2387387870))
 
 (defn format-stats
   ([stats]
@@ -645,8 +650,8 @@
             (str           sb)))
 
        #?(:clj
-          (let [pattern   (str "%" max-id-width "s %,11d %9s %10s %9s %9s %7d %1s%n")
-                s-pattern (str "%" max-id-width  "s %11s %9s %10s %9s %9s %7s %1s%n")
+          (let [pattern   (str "%" max-id-width "s %,11d %10s %10s %10s %10s %7d %11s" "\n")
+                s-pattern (str "%" max-id-width  "s %11s %10s %10s %10s %10s %7s %11s" "\n")
                 sb
                 (reduce
                   (fn [acc id]
@@ -654,7 +659,7 @@
                           time (.-time id-stats)]
                       (enc/sb-append acc
                         (format pattern id
-                          (.-count id-stats)
+                              (.-count id-stats)
                           (ft (.-min   id-stats))
                           (ft (.-max   id-stats))
                           (ft (.-mad   id-stats))
@@ -662,12 +667,22 @@
                           (perc time clock-total)
                           (ft   time)))))
 
-                  (enc/str-builder (format s-pattern "pId" "nCalls" "Min" "Max" "MAD" "Mean" "Time%" "Time"))
+                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "Max" "MAD" "Mean" "Time%" "Time") "\n"))
                   sorted-ids)]
 
-            (enc/sb-append sb (format s-pattern "Clock Time"     "" "" "" "" "" 100 (ft clock-total)))
+            (enc/sb-append sb "\n")
+            (enc/sb-append sb (format s-pattern     "Clock Time" "" "" "" "" "" 100 (ft clock-total)))
             (enc/sb-append sb (format s-pattern "Accounted Time" "" "" "" "" "" (perc accounted clock-total) (ft accounted)))
             (str sb)))))))
+
+(comment
+  (println
+    (str "\n"
+      (format-stats
+        (second
+          (profiled {}
+            (p :foo (Thread/sleep 200))
+            (p :bar (Thread/sleep 1000))))))))
 
 ;;;; fnp stuff
 
