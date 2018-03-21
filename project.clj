@@ -26,7 +26,7 @@
    :1.8      {:dependencies [[org.clojure/clojure "1.8.0"]]}
    :1.9      {:dependencies [[org.clojure/clojure "1.9.0"]]}
    :test     {:dependencies [[org.clojure/test.check "0.9.0"]]}
-   :provided {:dependencies [[org.clojure/clojurescript "1.10.145"]]}
+   :provided {:dependencies [[org.clojure/clojurescript "1.10.217"]]}
    :dev
    [:1.9 :test :server-jvm
     {:dependencies [[com.taoensso/timbre "4.10.0"]]}]}
