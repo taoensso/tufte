@@ -1,12 +1,22 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v1.4.0 - 2018 Mar 21
+
+```clojure
+[com.taoensso/tufte "1.4.0"]
+```
+
+> This is a minor, non-breaking feature release
+
+* **Impl**: tweak `format-stats` output spacing (@kassapo)
+
 ## v1.3.0 - 2018 Mar 11
 
 ```clojure
 [com.taoensso/tufte "1.3.0"]
 ```
 
-> This is a non-breaking feature release.
+> This is a minor, non-breaking feature release
 
 * [#21] **New**: support minutes in `format-stats` table (@austinhaas)
 
@@ -16,7 +26,7 @@
 [com.taoensso/tufte "1.2.0"]
 ```
 
-> This is a non-breaking feature release.
+> This is a minor, non-breaking feature release
 
 * **New**: Add low-level `capture-time!` util fn
 * **Impl**: Bump dependencies, incl. ClojureScript

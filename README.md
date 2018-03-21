@@ -4,7 +4,7 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.3.0"] ; Please see CHANGELOG for details
+[com.taoensso/tufte "1.4.0"] ; Please see CHANGELOG for details
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
@@ -43,11 +43,13 @@
 
 ;; The following will be printed to *out*:
 ;;
-;;            pId      nCalls       Min        Max       MAD      Mean   Time% Time
-;;         :get-y           5  171.68ms   940.84ms  264.82ms  541.28ms      52 2.71s
-;;         :get-x           5   502.3ms   505.07ms    1.17ms   503.4ms      48 2.52s
-;;     Clock Time                                                          100 5.22s
-;; Accounted Time                                                          100 5.22s
+;;            pId    nCalls       Min        Max       MAD      Mean   Time%    Time
+;;
+;;         :get-y         5  171.68ms   940.84ms  264.82ms  541.28ms      52   2.71s
+;;         :get-x         5  502.30ms   505.07ms    1.17ms  503.40ms      48   2.52s
+;;
+;;     Clock Time                                                        100   5.22s
+;; Accounted Time                                                        100   5.22s
 ```
 
 ## Features
@@ -64,7 +66,7 @@
 Add the necessary dependency to your project:
 
 ```clojure
-[com.taoensso/tufte "1.3.0"]
+[com.taoensso/tufte "1.4.0"]
 ```
 
 And setup your namespace imports:
