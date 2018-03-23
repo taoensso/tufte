@@ -507,8 +507,8 @@
                             s2-count   (.-count   sid2)
                             s2-time    (.-time    sid2)
                             s2-mad-sum (.-mad-sum sid2)
-                            s2-min     (.-min      sid2)
-                            s2-max     (.-max      sid2)
+                            s2-min     (.-min     sid2)
+                            s2-max     (.-max     sid2)
 
                             s3-count   (+ s1-count   s2-count)
                             s3-time    (+ s1-time    s2-time)
@@ -579,22 +579,23 @@
 
 ;;;; Stats formatting
 
-(defn- perc [n d] (Math/round (* (/ (double n) (double d)) 100.0)))
-(comment (perc 14 24))
+(defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
+
+(comment [(perc 1 1) (perc 1 100) (perc 12 44)])
 
 (let [round2 #?(:cljs enc/round2 :clj (fn [n] (format "%.2f" n)))]
-  (defn- ft [nanosecs]
+  (defn- fmt [nanosecs]
     (let [ns (double nanosecs)]
       (cond
         (>= ns 6e10) (str (round2 (/ ns 6e10)) "m ")
         (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s ")
         (>= ns 1e6)  (str (round2 (/ ns 1e6))  "ms")
         (>= ns 1e3)  (str (round2 (/ ns 1e3))  "μs")
-        :else        (str            ns        "ns")))))
+        :else        (str (round2    ns)       "ns")))))
 
 (comment
   (format "%.2f" 40484.005)
-  (ft 2387387870))
+  (fmt 2387387870))
 
 (defn format-stats
   ([stats]
@@ -632,47 +633,48 @@
                           time (.-time id-stats)]
                       (enc/sb-append acc
                         (str
-                          {:id      id
-                           :n-calls     (.-count id-stats)
-                           :min     (ft (.-min   id-stats))
-                           :max     (ft (.-max   id-stats))
-                           :mad     (ft (.-mad   id-stats))
-                           :mean    (ft (.-mean  id-stats))
-                           :time%   (perc time clock-total)
-                           :time    (ft   time)}
+                          {:id    id
+                           :n-calls    (.-count id-stats)
+                           :min   (fmt (.-min   id-stats))
+                           :max   (fmt (.-max   id-stats))
+                           :mean  (fmt (.-mean  id-stats))
+                           :mad   (str "±" (perc (.-mad id-stats) (.-mean id-stats)))
+                           :total (fmt  time)
+                           :clock (perc time clock-total)}
                           "\n"))))
                   (enc/str-builder)
                   sorted-ids)]
 
             (enc/sb-append sb "\n")
-            (enc/sb-append sb (str "Clock Time: (100%) " (ft clock-total) "\n"))
-            (enc/sb-append sb (str "Accounted Time: (" (perc accounted clock-total) "%) " (ft accounted) "\n"))
+            (enc/sb-append sb (str "Accounted: (" (perc accounted clock-total) ") " (fmt accounted) "\n"))
+            (enc/sb-append sb (str "Clock: (100%) " (fmt clock-total) "\n"))
             (str           sb)))
 
        #?(:clj
-          (let [pattern   (str "%" max-id-width "s %,11d %10s %10s %10s %10s %7d %11s" "\n")
-                s-pattern (str "%" max-id-width  "s %11s %10s %10s %10s %10s %7s %11s" "\n")
+          (let [n-pattern (str "%" max-id-width "s %,11d %10s %10s %10s %5s %11s %7s" "\n")
+                s-pattern (str "%" max-id-width  "s %11s %10s %10s %10s %5s %11s %7s" "\n")
                 sb
                 (reduce
                   (fn [acc id]
                     (let [^IdStats id-stats (get m-id-stats id)
                           time (.-time id-stats)]
                       (enc/sb-append acc
-                        (format pattern id
-                              (.-count id-stats)
-                          (ft (.-min   id-stats))
-                          (ft (.-max   id-stats))
-                          (ft (.-mad   id-stats))
-                          (ft (.-mean  id-stats))
-                          (perc time clock-total)
-                          (ft   time)))))
+                        (format n-pattern id
+                                  (.-count id-stats)
+                          (fmt    (.-min   id-stats))
+                          (fmt    (.-max   id-stats))
+                          (fmt    (.-mean  id-stats))
+                          ;; (fmt (.-mad   id-stats))
+                          (str "±" (perc (.-mad id-stats) (.-mean id-stats)))
+                          (fmt  time)
+                          (perc time clock-total)))))
 
-                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "Max" "MAD" "Mean" "Time%" "Time") "\n"))
+                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "Max" "Mean" "MAD" "Total" "Clock") "\n"))
                   sorted-ids)]
 
             (enc/sb-append sb "\n")
-            (enc/sb-append sb (format s-pattern     "Clock Time" "" "" "" "" "" 100 (ft clock-total)))
-            (enc/sb-append sb (format s-pattern "Accounted Time" "" "" "" "" "" (perc accounted clock-total) (ft accounted)))
+            (enc/sb-append sb (format s-pattern "Accounted" "" "" "" "" "" (fmt accounted)   (perc accounted clock-total)))
+            (enc/sb-append sb (format s-pattern "Clock"     "" "" "" "" "" (fmt clock-total) "100%"))
             (str sb)))))))
 
 (comment
@@ -682,7 +684,8 @@
         (second
           (profiled {}
             (p :foo (Thread/sleep 200))
-            (p :bar (Thread/sleep 1000))))))))
+            (p :bar (Thread/sleep 500))
+            (Thread/sleep 800)))))))
 
 ;;;; fnp stuff
 
@@ -717,9 +720,9 @@
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn      [x]            (* x x)))
+  (macroexpand '(fn       [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn      [x] {:pre [x]} (* x x))))
+  (macroexpand '(fn       [x] {:pre [x]} (* x x))))
 
 (defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
   {:arglists
