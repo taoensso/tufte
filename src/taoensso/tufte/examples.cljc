@@ -22,11 +22,13 @@
 
 ;; The following will be printed to *out*:
 ;;
-;;            pId      nCalls       Min        Max       MAD      Mean   Time% Time
-;;         :get-y           5  171.68ms   940.84ms  264.82ms  541.28ms      52 2.71s
-;;         :get-x           5   502.3ms   505.07ms    1.17ms   503.4ms      48 2.52s
-;;     Clock Time                                                          100 5.22s
-;; Accounted Time                                                          100 5.22s
+;;       pId  nCalls       Min    50% <=    90% <=    95% <=    99% <=       Max      Mean  MAD  Total Clock
+;;
+;;    :get-y       5   94.01ms  500.99ms  910.14ms  910.14ms  910.14ms  910.14ms  580.49ms ±45%  2.90s   53%
+;;    :get-x       5  503.05ms  504.68ms  504.86ms  504.86ms  504.86ms  504.86ms  504.37ms  ±0%  2.52s   46%
+;;
+;; Accounted                                                                                     5.42s  100%
+;;     Clock                                                                                     5.43s  100%
 )
 
 (comment

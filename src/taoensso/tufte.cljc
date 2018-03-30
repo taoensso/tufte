@@ -4,9 +4,9 @@
   Usage: wrap+name interesting body exprs with the `p` macro. Then activate
   profiling of these wrapped exprs using the `profiled` or `profile` macros:
 
-    (profiled {} (p :my-fn (my-fn))) ; Returns [<body-result> <?stats-map>]
+    (profiled {} (p :my-fn (my-fn))) ; Returns [<body-result> <?pstats>]
     (profile  {} (p :my-fn (my-fn))) ; Returns  <body-result>, dispatches
-                                     ; ?stats-map to any registered handlers.
+                                     ; ?pstats to any registered handlers.
 
   Extensive facilities are provided for compile-time elision and runtime
   filtering.
@@ -21,24 +21,26 @@
     (add-handler! [handler-id ns-pattern handler-fn])
 
   How/where to use this library:
-    Tufte is highly optimized: even without elision, you can usually leave
-    profiling code in production (e.g. for sampled profiling, or to detect
-    unusual performance behaviour). Tufte's stats maps are well suited to
-    programmatic inspection + analysis."
+    Tufte profiling is inexpensive: even without elision, you can usually
+    leave profiling enabled in production (e.g. for sampled profiling, or to
+    detect unusual performance behaviour). Tufte's stats maps are well suited
+    to programmatic monitoring."
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
   #?(:clj
      (:require
-      [taoensso.encore     :as enc]
-      [taoensso.tufte.impl :as impl]))
+      [taoensso.encore      :as enc]
+      [taoensso.tufte.stats :as stats]
+      [taoensso.tufte.impl  :as impl]))
 
-  #?(:clj (:import [taoensso.tufte.impl IdStats Stats Clock]))
+  #?(:clj (:import [taoensso.tufte.impl PStats]))
 
   #?(:cljs
      (:require
-      [taoensso.encore     :as enc  :refer-macros []]
-      [taoensso.tufte.impl :as impl :refer [IdStats Stats Clock]]))
+      [taoensso.encore      :as enc  :refer-macros []]
+      [taoensso.tufte.stats :as stats]
+      [taoensso.tufte.impl  :as impl :refer [PStats]]))
 
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
@@ -156,28 +158,28 @@
      (if (*ns-filter* ns) true false)
      false)))
 
-(comment (enc/qb 1e5 (may-profile? 2))) ; 17.74
+(comment (enc/qb 1e5 (may-profile? 2))) ; 14.09
 
 ;;;; Output handlers
 ;; Handlers are used for `profile` output, let us nicely decouple stat
 ;; creation and consumption.
 
-(defrecord HandlerVal [ns-str level ?id ?data stats stats-str_ ?file ?line])
+(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line])
 
 (def      handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
 (defn add-handler!
   "Use this to register interest in stats output produced by `profile` calls.
   Each registered `handler-fn` will be called as:
 
-    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :stats _ :stats-str_ _})
+    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :pstats _ :pstats-str_ _})
 
   Map args:
-    :ns-str     - Namespace string where `profile` call took place
-    :level      - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
-    :?id        - Optional id,              given in `(profile {:id    _} ...)`
-    :?data      - Optional arb data,        given in `(profile {:data  _} ...)`
-    :stats      - Stats map as in `(second (profiled ...))`
-    :stats-str_ - `(delay (format-stats stats))`
+    :ns-str      - Namespace string where `profile` call took place
+    :level       - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
+    :?id         - Optional id,              given in `(profile {:id    _} ...)`
+    :?data       - Optional arb data,        given in `(profile {:data  _} ...)`
+    :pstats      - As in `(second (profiled ...))`. Derefable, mergeable.
+    :pstats-str_ - `(delay (format-pstats pstats))
 
   Error handling (NB):
     Handler errors will be silently swallowed. Please `try`/`catch` and
@@ -215,61 +217,53 @@
   (add-handler! :basic-println
     ns-pattern
     (fn [m]
-      (let [{:keys [stats-str_ ?id ?data]} m
-            stats-str (force stats-str_)]
+      (let [{:keys [?id ?data pstats-str_]} m]
         (println
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" stats-str))))))
+            "\n" @pstats-str_))))))
 
 (comment (add-basic-println-handler! {}))
 
 ;;;; Some low-level primitives
 
-(defn profiling? "Returns e/o #{nil :thread :dynamic}."
-  [] (if impl/*pdata_* :dynamic (if (impl/pdata-proxy) :thread)))
+(defn profiling?
+  "Returns truthy iff profiling is active on current thread."
+  [] (if impl/*pdata* true false))
 
-(comment (enc/qb 1e6 (profiling?))) ; 51.01
+(comment (enc/qb 1e6 (profiling?))) ; 43.17
 
-(defn start-profiling-thread!
+(defn new-pdata
   "Warning: this is a low-level primitive for advanced users.
-  Prefer higher-level macros like `profile` when possible.
+  Can be useful when tracking time across arbitrary thread boundaries
+  or for async jobs / callbacks / etc."
+  ;; Note `pdata` is safe for passing around since v2 API
+  ([    ] (impl/new-pdata))
+  ([nmax] (impl/new-pdata nmax)))
 
-  NB: must be accompanied by a call to `stop-profiling-thread!`
-  (e.g. using `try`/`finally`)."
-  []
-  (impl/pdata-proxy (impl/new-pdata-thread))
-  nil)
-
-(defn stop-profiling-thread!
-  "Warning: this is a low-level primitive for advanced users."
-  []
-  (when-let [pdata (impl/pdata-proxy)]
-    (let [result (impl/pdata->Stats pdata)]
-      (impl/pdata-proxy nil)
-      result)))
+(comment (enc/qb 1e6 (new-pdata))) ; 129.01
 
 (defn capture-time!
   "Warning: this is a low-level primitive for advanced users.
-  Can be useful when tracking time across thread boundaries or for
-  async jobs / callbacks / etc."
-  [id nano-secs-elapsed]
-  (when-let [pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
-    (impl/capture-time! pdata-or-pdata_ id nano-secs-elapsed)))
+  Can be useful when tracking time across arbitrary thread boundaries
+  or for async jobs / callbacks / etc."
+  ([      id nano-secs-elapsed] (impl/capture-time! impl/*pdata* id nano-secs-elapsed))
+  ([pdata id nano-secs-elapsed] (impl/capture-time!       pdata  id nano-secs-elapsed)))
 
 (comment
-  (profiled {}
-    (let [t0 (System/nanoTime)
-          _  (Thread/sleep 2200)
-          t1 (System/nanoTime)]
-      (capture-time! :foo (- t1 t0)))))
+  @(second
+     (profiled {}
+       (let [t0 (System/nanoTime)
+             _  (Thread/sleep 2200)
+             t1 (System/nanoTime)]
+         (capture-time! :foo (- t1 t0))))))
 
 ;;;; Core macros
 
 #?(:clj
    (defmacro profiled
-     "Always executes body, and always returns [<body-result> ?<stats>].
+     "Always executes body, and always returns [<body-result> <?pstats>].
 
      When [ns level] unelided and [ns level `when`] unfiltered, executes body
      with profiling active.
@@ -277,10 +271,16 @@
      Handy if you'd like to consume stats output directly.
      Otherwise see `profile`.
 
+     `pstats` objects are derefable and mergeable:
+       - @pstats                 -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _)}}
+       - @(merge-pstats ps1 ps2) -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
+
+     Full set of `:stats` keys:
+       :n :min :max :mean :mad :sum :p50 :p90 :p95 :p99
+
      Compile-time opts:
-       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
-       :dynamic? - Use multi-threaded profiling? ; Default is `false`
-       :when     - Optional arbitrary conditional form (e.g. boolean expr)
+       :level - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :when  - Optional arbitrary conditional form (e.g. boolean expr)
 
      A comment on laziness:
        Please note that lazy seqs and other forms of laziness (e.g. delays)
@@ -299,9 +299,10 @@
              {:ns-str ns-str :line (:line (meta &form))
               :form (cons 'profiled (cons opts body))})))
 
-       (let [level-form (get opts :level    5)
-             dynamic?   (get opts :dynamic? false)
-             test-form  (get opts :when     true)]
+       (let [level-form (get opts :level 5)
+             test-form  (get opts :when  true)
+             nmax       (get opts :nmax  2e6) ; Experimental, undocumented
+             ]
 
          (when (integer? level-form) (valid-run-level level-form))
 
@@ -309,28 +310,18 @@
            `[(do ~@body)]
            (let [runtime-check
                  (if (= test-form true) ; Common case
-                   `(may-profile? ~level-form ~ns-str)
+                        `(may-profile? ~level-form ~ns-str)
                    `(and (may-profile? ~level-form ~ns-str) ~test-form))]
 
-             (if dynamic?
-               `(if ~runtime-check
-                  (let [pdata_# (impl/new-pdata-dynamic)]
-                    (binding [impl/*pdata_* pdata_#]
-                      (let [result# (do ~@body)
-                            stats#  (impl/pdata->Stats @pdata_#)]
-                        [result# stats#])))
-                  [(do ~@body)])
+             `(if ~runtime-check
+                (let [pd# (new-pdata ~nmax)]
+                  (binding [impl/*pdata* pd#]
+                    [(do ~@body) @pd#]))
+                [(do ~@body)])))))))
 
-               `(if ~runtime-check
-                  (try
-                    (impl/pdata-proxy (impl/new-pdata-thread))
-                    (let [result# (do ~@body)
-                          stats#  (impl/pdata->Stats (impl/pdata-proxy))]
-                      [result# stats#])
-                    (finally (impl/pdata-proxy nil)))
-                  [(do ~@body)]))))))))
+(comment (enc/qb 1e6 (profiled {}))) ; 866.61
 
-(declare format-stats)
+(declare format-pstats)
 
 #?(:clj
    (defmacro profile
@@ -344,11 +335,10 @@
      Otherwise see `profiled`.
 
      Compile-time opts:
-       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
-       :dynamic? - Use multi-threaded profiling? ; Default is `false`
-       :when     - Optional arbitrary conditional form (e.g. boolean expr)
-       :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
-       :data     - Optional, any other arbitrary data provided to handlers
+       :level - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :when  - Optional arbitrary conditional form (e.g. boolean expr)
+       :id    - Optional stats id provided to handlers (e.g. `::my-stats-1`)
+       :data  - Optional, any other arbitrary data provided to handlers
 
      A comment on laziness:
        Please note that lazy seqs and other forms of laziness (e.g. delays)
@@ -367,22 +357,20 @@
              {:ns-str ns-str :line (:line (meta &form))
               :form (cons 'profile (cons opts body))})))
 
-       (let [level-form (get opts :level    5)
-             dynamic?   (get opts :dynamic? false)
-             test-form  (get opts :when     true)
+       (let [level-form (get opts :level 5)
+             test-form  (get opts :when  true)
              id-form    (get opts :id)
              data-form  (get opts :data)]
 
          (when (integer? level-form) (valid-run-level level-form))
 
-         `(let [[result# stats#] (profiled ~opts ~@body)]
-            (when stats#
+         `(let [[result# pstats#] (profiled ~opts ~@body)]
+            (when pstats#
               (impl/handle!
-                (->HandlerVal ~ns-str ~level-form ~id-form ~data-form
-                  stats# (delay (format-stats stats#))
+                (HandlerVal. ~ns-str ~level-form ~id-form ~data-form
+                  pstats# (delay (format-pstats pstats#))
                   ~*file* ~(:line (meta &form)))))
             result#)))))
-
 
 (comment
   (profiled {} "body")
@@ -421,15 +409,14 @@
        (if (-elide? level ns-str)
          `(do ~@body)
          ;; Note no runtime `may-profile?` check
-         `(let [~'__pdata-or-pdata_ (or impl/*pdata_* (impl/pdata-proxy))]
-            (if ~'__pdata-or-pdata_
-              (let [~'__t0     (enc/now-nano*)
-                    ~'__result (do ~@body)
-                    ~'__t1     (enc/now-nano*)]
-                (impl/capture-time! ~'__pdata-or-pdata_ ~id-form
-                  (- ~'__t1 ~'__t0))
-                ~'__result)
-              (do ~@body)))))))
+         `(if-let [~'__pd impl/*pdata*]
+            (let [~'__t0     (enc/now-nano*)
+                  ~'__result (do ~@body)
+                  ~'__t1     (enc/now-nano*)]
+              ;; Note that `capture-time!` expense is excl. from p time
+              (impl/capture-time! ~'__pd ~id-form (- ~'__t1 ~'__t0))
+              ~'__result)
+            (do ~@body))))))
 
 #?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
 
@@ -438,8 +425,8 @@
   (profiled {} (p :p1))
   (profiled {} (p {:level 5 :id :p1}))
   (profiled {} (p (let [x :foo/id] x) "body"))
-  (enc/qb 1e5  (profiled {} 2 (p :p1))) ; 195.56
-  (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 2485
+  (enc/qb 1e5  (profiled {} 2 (p :p1))) ; 137.48
+  (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 2790
   (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
   (profiled {} (p :foo (p :bar))))
 
@@ -454,122 +441,6 @@
 (defn chance "Returns true with 0<`p`<1 probability."
   [p] (< ^double (rand) (double p)))
 
-(defn merge-stats
-  "Merges stats maps from multiple runs or threads.
-  Automatically identifies and merges concurrent time windows."
-  [s1 s2]
-  (if s1
-    (if s2
-      (let [^Stats s1 s1
-            ^Stats s2 s2
-            ^Clock clock1 (.-clock s1)
-            ^Clock clock2 (.-clock s2)
-            s1-t0 (.-t0 clock1)
-            s1-t1 (.-t1 clock1)
-            s2-t0 (.-t0 clock2)
-            s2-t1 (.-t1 clock2)
-            clock-overlap?
-            (and
-              (not (zero? s1-t0))
-              (not (zero? s2-t0))
-              (or
-                (and (<= s2-t0 s1-t1)
-                     (>= s2-t1 s1-t0))
-                (and (<= s1-t0 s2-t1)
-                     (>= s1-t1 s2-t0))))
-
-            ^Clock clock3
-            (if clock-overlap?
-              (let [s3-t0 (if (< s1-t0 s2-t0) s1-t0 s2-t0)
-                    s3-t1 (if (< s1-t1 s2-t1) s1-t1 s2-t1)]
-                (Clock. s3-t0 s3-t1 (- s3-t1 s3-t0)))
-              (Clock. 0 0 (+ (.-total clock1) (.-total clock2))))
-
-            m-id-stats1 (.-id-stats-map s1)
-            m-id-stats2 (.-id-stats-map s2)
-            all-ids (into (set (keys m-id-stats1)) (keys m-id-stats2))
-
-            m-id-stats3
-            (reduce
-              (fn [m id]
-                (let [sid1 (get m-id-stats1 id)
-                      sid2 (get m-id-stats2 id)]
-                  (if sid1
-                    (if sid2
-                      (let [^IdStats sid1 sid1
-                            ^IdStats sid2 sid2
-                            s1-count   (.-count   sid1)
-                            s1-time    (.-time    sid1)
-                            s1-mad-sum (.-mad-sum sid1)
-                            s1-min     (.-min     sid1)
-                            s1-max     (.-max     sid1)
-
-                            s2-count   (.-count   sid2)
-                            s2-time    (.-time    sid2)
-                            s2-mad-sum (.-mad-sum sid2)
-                            s2-min     (.-min     sid2)
-                            s2-max     (.-max     sid2)
-
-                            s3-count   (+ s1-count   s2-count)
-                            s3-time    (+ s1-time    s2-time)
-                            s3-mad-sum (+ s1-mad-sum s2-mad-sum)]
-
-                        (assoc m id
-                          (IdStats.
-                            s3-count
-                            s3-time
-                            (/ (double s3-time) (double s3-count))
-                            s3-mad-sum
-                            (/ (double s3-mad-sum) (double s3-count))
-                            (if (< s1-min s2-min) s1-min s2-min)
-                            (if (> s1-max s2-max) s1-max s2-max))))
-                      m #_(assoc m id sid1))
-                    (assoc m id sid2))))
-              #_(transient m-id-stats1) m-id-stats1 ; Usu. <10 entries
-              all-ids)]
-        (Stats. clock3 m-id-stats3))
-      s1)
-    s2))
-
-(defn accounted-time [^Stats stats]
-  (reduce-kv
-    (fn [^long acc id ^IdStats v]
-      (+ acc ^long (.-time v)))
-    0 (.-id-stats-map stats)))
-
-(comment
-  (accounted-time (second (profiled {})))
-  (accounted-time (second (profiled {} (p :p1)))))
-
-(defn stats-accumulator
-  "Experimental, subject to change!
-  Small util to help merge stats maps from multiple runs or threads.
-  Returns a stateful fn with arities:
-    ([stats]) ; Accumulates the given stats (you may call this from any thread)
-    ([])      ; Deref: returns the merged value of all accumulated stats"
-  []
-  (let [acc_ (atom nil)
-        reduce-stats_
-        (delay
-          (let [merge-stats (enc/memoize_ merge-stats)]
-            (enc/memoize_ (fn [acc] (reduce merge-stats nil acc)))))]
-
-    (fn stats-accumulator
-      ([stats] (when stats (swap! acc_ conj stats)))
-      ([] (when-let [acc @acc_] (@reduce-stats_ acc))))))
-
-(defn accumulate-stats "Experimental, subject to change!"
-  [stats-accumulator [profiled-result profiled-?stats]]
-  (when profiled-?stats (stats-accumulator profiled-?stats))
-  profiled-result)
-
-(comment
-  (enc/qb 1e5 (stats-accumulator)) ; 5.87
-  (let [sacc (stats-accumulator)]
-    (accumulate-stats sacc (profiled {} (p :p1)))
-    (accumulate-stats sacc (profiled {} (p :p2)))
-    (sacc)))
-
 #?(:clj
    (defn refer-tufte
      "(require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])"
@@ -577,115 +448,30 @@
 
 (comment (refer-tufte))
 
-;;;; Stats formatting
+(defn merge-pstats
+  "Lossless unless data to merge are very large."
+  ([       ] nil)
+  ([ps0    ] ps0)
+  ([ps0 ps1] (impl/merge-pstats ps0 ps1)))
 
-(defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
-
-(comment [(perc 1 1) (perc 1 100) (perc 12 44)])
-
-(let [round2 #?(:cljs enc/round2 :clj (fn [n] (format "%.2f" n)))]
-  (defn- fmt [nanosecs]
-    (let [ns (double nanosecs)]
-      (cond
-        (>= ns 6e10) (str (round2 (/ ns 6e10)) "m ")
-        (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s ")
-        (>= ns 1e6)  (str (round2 (/ ns 1e6))  "ms")
-        (>= ns 1e3)  (str (round2 (/ ns 1e3))  "μs")
-        :else        (str (round2    ns)       "ns")))))
-
-(comment
-  (format "%.2f" 40484.005)
-  (fmt 2387387870))
-
-(defn format-stats
-  ([stats]
-   (format-stats stats
-     (fn [id ^IdStats id-stats] (.-time id-stats))))
-
-  ([stats sort-fn]
-   (when stats
-     (let [^Stats stats stats
-           ^Clock clock (.-clock        stats)
-           m-id-stats   (.-id-stats-map stats)
-           clock-total  (.-total clock)
-
-           ^long accounted (accounted-time stats)
-
-           sorted-ids
-           (sort-by
-             (fn [id] (sort-fn id (get m-id-stats id)))
-             enc/rcompare
-             (keys m-id-stats))
-
-           ^long max-id-width
-           (reduce-kv
-             (fn [^long acc k v]
-               (let [c (count (str k))]
-                 (if (> c acc) c acc)))
-             #=(count "Accounted Time")
-             m-id-stats)]
-
-       #?(:cljs
-          (let [sb
-                (reduce
-                  (fn [acc id]
-                    (let [^IdStats id-stats (get m-id-stats id)
-                          time (.-time id-stats)]
-                      (enc/sb-append acc
-                        (str
-                          {:id    id
-                           :n-calls    (.-count id-stats)
-                           :min   (fmt (.-min   id-stats))
-                           :max   (fmt (.-max   id-stats))
-                           :mean  (fmt (.-mean  id-stats))
-                           :mad   (str "±" (perc (.-mad id-stats) (.-mean id-stats)))
-                           :total (fmt  time)
-                           :clock (perc time clock-total)}
-                          "\n"))))
-                  (enc/str-builder)
-                  sorted-ids)]
-
-            (enc/sb-append sb "\n")
-            (enc/sb-append sb (str "Accounted: (" (perc accounted clock-total) ") " (fmt accounted) "\n"))
-            (enc/sb-append sb (str "Clock: (100%) " (fmt clock-total) "\n"))
-            (str           sb)))
-
-       #?(:clj
-          (let [n-pattern (str "%" max-id-width "s %,11d %10s %10s %10s %5s %11s %7s" "\n")
-                s-pattern (str "%" max-id-width  "s %11s %10s %10s %10s %5s %11s %7s" "\n")
-                sb
-                (reduce
-                  (fn [acc id]
-                    (let [^IdStats id-stats (get m-id-stats id)
-                          time (.-time id-stats)]
-                      (enc/sb-append acc
-                        (format n-pattern id
-                                  (.-count id-stats)
-                          (fmt    (.-min   id-stats))
-                          (fmt    (.-max   id-stats))
-                          (fmt    (.-mean  id-stats))
-                          ;; (fmt (.-mad   id-stats))
-                          (str "±" (perc (.-mad id-stats) (.-mean id-stats)))
-                          (fmt  time)
-                          (perc time clock-total)))))
-
-                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "Max" "Mean" "MAD" "Total" "Clock") "\n"))
-                  sorted-ids)]
-
-            (enc/sb-append sb "\n")
-            (enc/sb-append sb (format s-pattern "Accounted" "" "" "" "" "" (fmt accounted)   (perc accounted clock-total)))
-            (enc/sb-append sb (format s-pattern "Clock"     "" "" "" "" "" (fmt clock-total) "100%"))
-            (str sb)))))))
+(defn format-pstats
+  "Formats given pstats to a string table.
+    Accounted < Clock => Some work was done that wasn't tracked by any p forms.
+    Accounted > Clock => Nested p forms, and/or parallel threads."
+  [ps]
+  (when ps
+    (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
+      (stats/format-stats (get clock :total) stats))))
 
 (comment
   (println
     (str "\n"
-      (format-stats
+      (format-pstats
         (second
           (profiled {}
             (p :foo (Thread/sleep 200))
             (p :bar (Thread/sleep 500))
-            (Thread/sleep 800)))))))
+            (do     (Thread/sleep 800))))))))
 
 ;;;; fnp stuff
 
@@ -720,9 +506,9 @@
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn       [x]            (* x x)))
+  (macroexpand '(fn      [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn       [x] {:pre [x]} (* x x))))
+  (macroexpand '(fn      [x] {:pre [x]} (* x x))))
 
 (defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
   {:arglists
@@ -757,12 +543,8 @@
       (p :10ms (Thread/sleep 10))
       "Result"))
 
-  (profile {:level 2 :id ::sleepy-threads} (sleepy-threads))
-  (profile {:level 2 :id ::sleepy-thread :dynamic? true
-            :data "foo"}
-    (sleepy-threads))
-
-  (p :hello "Hello, this is a result") ; Falls through (no data context)
+  (profile {:level 2 :id ::sleepy-threads :data "foo"} (sleepy-threads))
+  (p :hello "Hello, this is a result") ; Falls through (no pdata context)
 
   (defnp arithmetic
     []
@@ -774,8 +556,29 @@
          (p :mult (reduce * nums))
          (p :div  (reduce / nums)))))
 
+  (profiled {} "foo")
   (profile  {} (dotimes [n 100] (arithmetic)))
-  (profile  {} (dotimes [n 1e5] (p :p1 nil))) ; 29.37ms
-  (profile  {} (dotimes [n 1e6] (p :p1 nil))) ; 181.65ms
+  (profile  {} (dotimes [n 1e5] (p :p1 nil)))
+  (profile  {} (dotimes [n 1e6] (p :p1 nil)))
   (profiled {} (dotimes [n 1e6] (p :p1 nil)))
-  (profiled {:level 2 :when (chance 0.5)} "body"))
+  (profiled {:level 2 :when (chance 0.5)} "body")
+
+  (profile {:nmax 10} (dotimes [n 1e5] (p :p1 nil)))
+  (profile {}
+    (p :foo
+      (do       (Thread/sleep 100))
+      (p :foo/a (Thread/sleep 120))
+      (p :foo/b (Thread/sleep 220))))
+
+  (println "\n"
+    (time
+      (format-pstats
+        @(let [[_ ps0] (profiled {} (dotimes [_ 1e6] (p :foo "foo")))
+               [_ ps1] (profiled {} (dotimes [_ 1e6] (p :foo "foo")))
+               [_ ps2] (profiled {} (dotimes [_ 500] (p :bar "bar")))]
+           (reduce (partial impl/merge-pstats 1e4) [ps0 ps1 ps2])))))
+
+  (println
+    (format-pstats
+      (second
+        (profiled {} (p :foo (Thread/sleep 100)))))))

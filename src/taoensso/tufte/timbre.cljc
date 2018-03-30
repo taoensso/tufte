@@ -18,8 +18,7 @@
 
   (tufte/add-handler! handler-id ns-pattern
     (fn [m]
-      (let [{:keys [ns-str level ?id ?data stats stats-str_ ?file ?line]} m
-            stats-str (force stats-str_)
+      (let [{:keys [ns-str level ?id ?data pstats pstats-str_ ?file ?line]} m
             profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
             timbre-level
             (cond
@@ -28,7 +27,7 @@
               :else timbre-level)]
 
         (log! timbre-level :p
-          [(str "Tufte `profile` output " profile-opts ":\n\n" stats-str "\n")]
+          [(str "Tufte `profile` output " profile-opts ":\n\n" @pstats-str_ "\n")]
           {:?ns-str ns-str :?file ?file :?line ?line})))))
 
 (comment (add-timbre-logging-handler! {}))

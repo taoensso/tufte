@@ -1,168 +1,171 @@
 (ns taoensso.tufte.impl
-  "Private implementation details."
+  "Private implementation details.
+  `profiled` -> [<result> <derefable-and-mergeable-pstats>]."
   (:require [clojure.string  :as str]
-            [taoensso.encore :as enc :refer-macros []])
-  #?(:clj
-     (:import [java.util LinkedList]
-              [java.util.concurrent ArrayBlockingQueue]))
+            [taoensso.encore :as enc :refer-macros []]
+            [taoensso.tufte.stats :as stats])
 
-  #?(:cljs
-     (:require-macros
-      [taoensso.tufte.impl :refer
-       [mutable-times mt-add mt-count atom?]])))
+  #?(:clj (:import [java.util.concurrent ArrayBlockingQueue])))
 
-;;;; Pdata
+;;;; PData (Profiling Data)
+;; Implementation-level ~mutable state while profiling.
 
-(defrecord PData [^long __t0]) ; + {<id> <times> :__m-id-stats {<id> <IdStats>}}
-(def ^:dynamic *pdata_* "Non-nil iff dynamic profiling active." nil)
+(def ^:dynamic *pdata* "nnil iff profiling active" nil)
 
-;; Would esp. benefit from ^:static support / direct linking / a Java class
-(def ^:static pdata-proxy "Non-nil iff thread-local profiling active."
-  #?(:clj
-     (let [^ThreadLocal proxy (proxy [ThreadLocal] [])]
-       (fn
-         ([]        (.get proxy))
-         ([new-val] (.set proxy new-val) new-val)))
+(declare ^:private pdata->pstats)
 
-     :cljs
-     (let [state_ (volatile! false)] ; Automatically thread-local in js
-       (fn
-         ([]                @state_)
-         ([new-val] (vreset! state_ new-val))))))
+;; Created once per `profiled` run, etc.
+;; id-times: {<id> (<time> ...)_}_ -> {<id> (<time> ...)}
+;; id-stats: {<id> (<map>  ...) }_ -> {<id> (<map>  ...)}
+#?(:clj
+   (deftype PData [^long nmax ^long t0 ^long t1 id-times id-stats]
+     clojure.lang.IDeref (deref [this] (pdata->pstats this)))
 
-(comment (enc/qb 1e6 (pdata-proxy))) ; 48.39
+   :cljs
+   (deftype PData [^long nmax ^long t0 ^long t1 id-times id-stats]
+     IDeref (-deref [this] (pdata->pstats this))))
 
-(defmacro new-pdata-thread  []       `(PData. (enc/now-nano*)))
-(defmacro new-pdata-dynamic [] `(atom (PData. (enc/now-nano*))))
-(comment (macroexpand '(new-pdata-thread)))
+(defmacro new-pdata
+  ([    ] `(new-pdata 2e6))
+  ([nmax] `(PData. ~nmax (enc/now-nano*) -1 (atom {}) (atom nil))))
 
-;;;; Stats
+(comment
+  (enc/qb 1e6 (new-pdata)) ; 217.91
+  @(new-pdata))
 
-(defrecord   Clock [^long t0 ^long t1 ^long total])
-(defrecord IdStats [^long count ^long time ^long mean ^long mad-sum
-                    ^double mad ^long min ^long max])
-(defrecord   Stats [clock id-stats-map])
+;;;; PStats (Profiling Stats)
+;; API-level state we'll return from `profiled`: derefable, mergeable.
 
-;;;; Time tracking
-;; We can use mutable time accumulators when thread-local.
-;; Note that LinkedList uses more mem but is faster than
-;; java.util.ArrayList.
+#?(:clj
+   (deftype PStats [pdata realized_]
+     clojure.lang.IDeref   (deref      [_]           @realized_)
+     clojure.lang.IPending (isRealized [_] (realized? realized_)))
 
-(defmacro ^:private mutable-times [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
-(defmacro ^:private mt-add     [x t] `(enc/if-cljs (.push   ~x ~t) (.add ~(with-meta x {:tag 'LinkedList}) ~t)))
-(defmacro ^:private mt-count     [x] `(enc/if-cljs (alength ~x)   (.size ~(with-meta x {:tag 'LinkedList}))))
+   :cljs
+   (deftype PStats [pdata realized_]
+     IDeref   (-deref     [_]           @realized_)
+     IPending (-realized? [_] (realized? realized_))))
 
-;; Compaction (times->interim-stats) helps to prevent OOMs:
-(def      ^:private ^:const nmax-times ">n will trigger compaction" (long 2e6))
-(declare  ^:private times->IdStats)
-(defmacro ^:private atom? [x]
-  `(enc/if-cljs
-     (instance?    cljs.core.Atom ~x)
-     (instance? clojure.lang.Atom ~x)))
+(declare ^:private realize-pstats)
+(defn- deref-vals [m] (reduce-kv (fn [m k v] (assoc m k @v)) m m))
+(defn- pdata->pstats [^PData pd0]
+  (let [id-times (deref-vals @(.-id-times pd0))
+        id-stats             @(.-id-stats pd0)
+        pd1 (PData. (.-nmax pd0) (.-t0 pd0) (enc/now-nano*) id-times id-stats)]
+    (PStats. pd1 (delay (realize-pstats pd1)))))
 
-(defn ^:static capture-time! [pdata-or-pdata_ id t-elapsed]
-  (if (atom? pdata-or-pdata_)
+(comment (enc/qb 1e6 @(new-pdata))) ; 394.0
 
-    ;; Using immutable thread-safe times, atom for coordination
-    (let [pdata_ pdata-or-pdata_
-          ?pulled-times
-          (loop []
-            (let [pdata @pdata_]
-              (let [times (get pdata id ())]
-                (if (>= (count times) nmax-times)
-                  (if (compare-and-set! pdata_ pdata ; Never leave empty
-                        (assoc pdata id (conj () t-elapsed)))
-                    times ; Pull accumulated times
-                    (recur))
+(defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
+(comment (fast-into nil nil))
 
-                  (if (compare-and-set! pdata_ pdata
-                        (assoc pdata id (conj times t-elapsed)))
-                    nil
-                    (recur))))))]
+(defn merge-pstats
+  ([     ps0 ps1] (merge-pstats nil ps0 ps1))
+  ([nmax ps0 ps1]
+   (if ps0
+     (if ps1
+       (let [^PData pd0 (.-pdata ^PStats ps0)
+             ^PData pd1 (.-pdata ^PStats ps1)
+             nmax (long (or nmax (.-nmax pd0)))
 
-      (when-let [times ?pulled-times] ; Compact
-        (let [id-stats (get-in @pdata_ [:__m-id-stats id])
-              id-stats (times->IdStats times id-stats)]
-          ;; Can reasonably assume that our id-stats key is
-          ;; uncontended atm:
-          (swap! pdata_ assoc-in [:__m-id-stats id] id-stats))))
+             pd0-t0 (.-t0 pd0)
+             pd0-t1 (.-t1 pd0)
+             pd1-t0 (.-t0 pd1)
+             pd1-t1 (.-t1 pd1)
 
-    ;; Using mutable thread-local times (cheap), no coordination
-    (let [pdata pdata-or-pdata_
-          pdata (pdata-proxy) ; Must refresh to support p-nesting
-          ]
-      (if-let [times (get pdata id)]
-        (if (>= (long (mt-count times)) nmax-times) ; Compact
-          (let [m-id-stats (get pdata :__m-id-stats)
-                id-stats   (get m-id-stats id)
-                id-stats   (times->IdStats times id-stats)
-                m-id-stats (assoc m-id-stats id id-stats)
-                times      (mutable-times)]
+             pd2-t0 (if (< pd0-t0 pd1-t0) pd0-t0 pd1-t0)
+             pd2-t1 (if (> pd0-t1 pd1-t1) pd0-t1 pd1-t1)
 
-            (mt-add times t-elapsed) ; Never leave empty
-            (pdata-proxy (assoc pdata id times :__m-id-stats m-id-stats)))
+             pd0-id-times (.-id-times pd0)
+             pd0-id-stats (.-id-stats pd0)
+             pd1-id-times (.-id-times pd1)
+             pd1-id-stats (.-id-stats pd1)
 
-          ;; Common case
-          (mt-add times t-elapsed))
+             [pd2-id-times pd2-id-stats] ; Merged with compaction
+             (reduce-kv
+               (fn [[pd2-id-times pd2-id-stats] id pd1-times]
+                 (let [pd0-times (get pd0-id-times id)
+                       pd0-stats (get pd0-id-stats id)
+                       pd1-stats (get pd1-id-stats id)
 
-        ;; Init case
-        (let [times (mutable-times)]
-          (mt-add times t-elapsed)
-          (pdata-proxy (assoc pdata id times))))))
+                       pd2-times (fast-into pd0-times pd1-times)
+                       pd2-stats (fast-into pd0-stats pd1-stats)]
 
-  nil)
+                   (if (< (count pd2-times) nmax) ; Common case
+                     [(assoc pd2-id-times id pd2-times)
+                      (assoc pd2-id-stats id pd2-stats)]
 
-(defn- times->IdStats [times ?interim-id-stats]
-  (let [times      (vec   times) ; Faster to reduce
-        ts-count   (count times)
-        _          (assert (not (zero? ts-count)))
-        ts-time    (reduce (fn [^long acc ^long in] (+ acc in)) 0 times)
-        ts-mean    (/ (double ts-time) (double ts-count))
-        ts-mad-sum (reduce (fn [^long acc ^long in] (+ acc (Math/abs (- in ts-mean)))) 0 times)
-        ts-min     (reduce (fn [^long acc ^long in] (if (< in acc) in acc)) enc/max-long times)
-        ts-max     (reduce (fn [^long acc ^long in] (if (> in acc) in acc)) 0            times)]
+                     ;; Times need compaction
+                     (let [stats<times (stats/stats pd2-times)]
+                       [(assoc pd2-id-times id nil)
+                        (assoc pd2-id-stats id (conj pd2-stats stats<times))]))))
 
-    (if-let [^IdStats id-stats ?interim-id-stats] ; Merge over previous stats
-      (let [s-count   (+ (.-count id-stats) ts-count)
-            s-time    (+ (.-time  id-stats) ^long ts-time)
-            s-mean    (/ (double s-time) (double s-count))
-            s-mad-sum (+ (.mad-sum id-stats) ^long ts-mad-sum)
-            s0-min    (.-min id-stats)
-            s0-max    (.-max id-stats)]
+               [pd0-id-times pd0-id-stats]
+               pd1-id-times)
 
-        ;; Batched "online" MAD calculation here is better= the standard
-        ;; Knuth/Welford method, Ref. http://goo.gl/QLSfOc,
-        ;;                            http://goo.gl/mx5eSK.
+             pd2 (PData. nmax pd2-t0 pd2-t1 pd2-id-times pd2-id-stats)]
+         (PStats. pd2 (delay (realize-pstats pd2))))
+       ps0)
+     ps1)))
 
-        (IdStats. s-count s-time s-mean s-mad-sum
-          (/ (double s-mad-sum) (double s-count))
-          (if (< s0-min ^long ts-min) s0-min ts-min)
-          (if (> s0-max ^long ts-max) s0-max ts-max)))
+(defn- realize-pstats
+  "Returns final API-level output."
+  [^PData pd]
+  (let [pd-t0 (.-t0 pd)
+        pd-t1 (.-t1 pd)
+        pd-id-times (.-id-times pd)
+        pd-id-stats (.-id-stats pd)
 
-      (IdStats. ts-count ts-time ts-mean ts-mad-sum
-        (/ (double ts-mad-sum) (double ts-count))
-        ts-min
-        ts-max))))
+        id-stats ; {<id> <stats/stats-map>}
+        (reduce-kv
+          (fn [m id times]
+            (let [stats<times (stats/stats times)
+                  merged (reduce stats/merge-stats stats<times (get pd-id-stats id))]
+              (assoc m id merged)))
 
-(comment (times->IdStats (mutable-times) nil)) ; Should throw
+          pd-id-times
+          pd-id-times)]
 
-;;;;
+    {:clock {:t0 pd-t0 :t1 pd-t1 :total (- pd-t1 pd-t0)}
+     :stats id-stats}))
 
-(defn pdata->Stats
-  "Wraps up a pdata run. Nb: recall that we need a *fresh* `(pdata-proxy)`
-  here for thread-local profiling."
-  [^PData current-pdata]
-  (let [t1         (enc/now-nano*)
-        t0         (.-__t0 current-pdata)
-        m-id-stats (get    current-pdata :__m-id-stats)
-        m-times    (dissoc current-pdata :__m-id-stats :__t0)]
-    (Stats.
-      (Clock. t0 t1 (- t1 t0))
-      (reduce-kv
-        (fn [m id times]
-          (assoc m id (times->IdStats times (get m-id-stats id))))
-        #_(transient {}) {} ; Usu. <10 entries
-        m-times))))
+;;;; Time capture
+
+(defn capture-time! [^PData pd id ns-elapsed]
+  (let [nmax      (.-nmax     pd)
+        id-times_ (.-id-times pd) ; {<id> (<time> ...)}
+
+        ;; Get the id'd atom (accumulator)
+        times_
+        (or (get @id-times_ id) ; Common case
+            (get (swap! id-times_ (fn [m] (assoc m id (get m id (atom nil))))) id))
+
+        ?pulled-times
+        (loop []
+          (let [times0 @times_
+                times1 (conj times0 ns-elapsed)]
+            (if (< (count times1) nmax) ; Times need compaction
+              (if (compare-and-set! times_ times0 times1) ; Does == comparison, fast
+                nil ; Common case
+                (recur))
+
+              (if (compare-and-set! times_ times0 nil) ; ''
+                times1 ; Pull accumulated times, rare
+                (recur)))))]
+
+    ;; Do compaction, rare but expensive.
+    ;; Though note that expense doesn't generally distort p times unless there's
+    ;; p nesting (in which case outside p time will include inside p's capture
+    ;; time).
+    (when-let [times ?pulled-times]
+      (let [t0          (enc/now-nano*)
+            stats<times (stats/stats times)
+            id-stats_   (.-id-stats pd)]
+
+        (swap! id-stats_ (fn [m] (assoc m id (conj (get m id) stats<times))))
+        (recur pd :tufte/compaction (- (enc/now-nano*) t0))))))
+
+(comment (let [pd (new-pdata)] (enc/qb 1e6 (capture-time! pd :foo 1)))) ; 175.27
 
 ;;;; Output handlers
 
