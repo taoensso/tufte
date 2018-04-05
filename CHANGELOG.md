@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v2.0.0-alpha4 - 2018 Apr 6
+
+```clojure
+[com.taoensso/tufte "2.0.0-alpha4"]
+```
+
+> This is a major, **breaking** feature release
+
+See [v2-api.md](https://github.com/ptaoussanis/tufte/blob/master/v2-api.md) for changes and migration guide.
+
 ## v1.4.0 - 2018 Mar 21
 
 ```clojure

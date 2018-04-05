@@ -4,7 +4,8 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.4.0"] ; Please see CHANGELOG for details
+[com.taoensso/tufte "1.4.0"]        ; Stable
+[com.taoensso/tufte "2.0.0-alpha4"] ; BREAKING changes, see CHANGELOG for details
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
