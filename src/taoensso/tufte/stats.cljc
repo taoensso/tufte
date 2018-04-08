@@ -3,10 +3,15 @@
   (:require [taoensso.encore :as enc]
    #?(:cljs [goog.array])))
 
+
+#?(:clj (def ^:const longs-class (Class/forName "[J")))
+#?(:clj (defn- longs? [x] (instance? longs-class x)))
+(comment (longs? (long-array 10)))
+
 (defn long-percentiles "Returns [min p50 p90 p95 p99 max]"
   [longs]
   #?(:cljs
-     (let [a (to-array longs)
+     (let [a (if (array? longs) longs (to-array longs))
            max-idx (dec (alength a))]
 
        (assert (>= max-idx 0))
@@ -20,7 +25,7 @@
         (aget a                     max-idx)])
 
      :clj
-     (let [a (long-array longs)
+     (let [^longs a (if (longs? longs) longs (long-array longs))
            max-idx (dec (alength a))]
 
        (assert (>= max-idx 0))
