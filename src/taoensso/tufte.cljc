@@ -21,7 +21,7 @@
     (add-handler! [handler-id ns-pattern handler-fn])
 
   How/where to use this library:
-    Tufte profiling is inexpensive: even without elision, you can usually
+    Tufte profiling is highly optimized: even without elision, you can usually
     leave profiling enabled in production (e.g. for sampled profiling, or to
     detect unusual performance behaviour). Tufte's stats maps are well suited
     to programmatic monitoring."
@@ -228,28 +228,19 @@
 
 ;;;; Some low-level primitives
 
-(defn profiling?
-  "Returns truthy iff profiling is active on current thread."
-  [] (if impl/*pdata* true false))
+(defn profiling? "Returns e/o #{nil :thread :dynamic}."
+  [] (if impl/*pdata_* :dynamic (when (impl/pdata-proxy) :thread)))
 
-(comment (enc/qb 1e6 (profiling?))) ; 43.17
-
-(defn new-pdata
-  "Warning: this is a low-level primitive for advanced users.
-  Can be useful when tracking time across arbitrary thread boundaries
-  or for async jobs / callbacks / etc."
-  ;; Note `pdata` is safe for passing around since v2 API
-  ([    ] (impl/new-pdata))
-  ([nmax] (impl/new-pdata nmax)))
-
-(comment (enc/qb 1e6 (new-pdata))) ; 129.01
+(comment (enc/qb 1e6 (profiling?))) ; 49.69
 
 (defn capture-time!
   "Warning: this is a low-level primitive for advanced users.
   Can be useful when tracking time across arbitrary thread boundaries
   or for async jobs / callbacks / etc."
-  ([      id nano-secs-elapsed] (impl/capture-time! impl/*pdata* id nano-secs-elapsed))
-  ([pdata id nano-secs-elapsed] (impl/capture-time!       pdata  id nano-secs-elapsed)))
+  ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
+  ([      id nano-secs-elapsed]
+   (when-let [pd (or impl/*pdata_* (impl/pdata-proxy))]
+     (impl/capture-time! pd id nano-secs-elapsed))))
 
 (comment
   @(second
@@ -272,23 +263,25 @@
      Otherwise see `profile`.
 
      `pstats` objects are derefable and mergeable:
-       - @pstats                 -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _)}}
+       - @pstats                 -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
        - @(merge-pstats ps1 ps2) -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
 
      Full set of `:stats` keys:
        :n :min :max :mean :mad :sum :p50 :p90 :p95 :p99
 
      Compile-time opts:
-       :level - e/o #{0 1 2 3 4 5} ; Default is `5`
-       :when  - Optional arbitrary conditional form (e.g. boolean expr)
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :dynamic? - Use multi-threaded profiling? ; Default is `false`
+       :nmax     - ~Max captures per id before compaction ; Default is 8e5
+       :when     - Optional arbitrary conditional form (e.g. boolean expr)
 
-     A comment on laziness:
+     Note on laziness:
        Please note that lazy seqs and other forms of laziness (e.g. delays)
        will only contribute to profiling results if/when evaluation actually
        occurs. This is intentional and a useful property. Compare:
 
        (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-       (profiled {} @(delay (Thread/sleep 2000))) ; Counts sleep"
+       (profiled {} @(delay (Thread/sleep 2000))) ; Does counts sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
@@ -299,10 +292,10 @@
              {:ns-str ns-str :line (:line (meta &form))
               :form (cons 'profiled (cons opts body))})))
 
-       (let [level-form (get opts :level 5)
-             test-form  (get opts :when  true)
-             nmax       (get opts :nmax  2e6) ; Experimental, undocumented
-             ]
+       (let [level-form (get opts :level    5)
+             dynamic?   (get opts :dynamic? false)
+             test-form  (get opts :when     true)
+             nmax (long (get opts :nmax     8e5))]
 
          (when (integer? level-form) (valid-run-level level-form))
 
@@ -313,13 +306,21 @@
                         `(may-profile? ~level-form ~ns-str)
                    `(and (may-profile? ~level-form ~ns-str) ~test-form))]
 
-             `(if ~runtime-check
-                (let [pd# (new-pdata ~nmax)]
-                  (binding [impl/*pdata* pd#]
-                    [(do ~@body) @pd#]))
-                [(do ~@body)])))))))
+             (if dynamic?
+               `(if ~runtime-check
+                  (let [pd_# (atom (impl/new-pdata-dynamic ~nmax))]
+                    (binding [impl/*pdata_* pd_#]
+                      [(do ~@body) @@pd_#])) ; Nb deref latest pdata
+                  [(do ~@body)])
 
-(comment (enc/qb 1e6 (profiled {}))) ; 866.61
+               `(if ~runtime-check
+                  (try
+                    (impl/pdata-proxy (impl/new-pdata-local ~nmax))
+                    [(do ~@body) @(impl/pdata-proxy)] ; Nb fetch latest pdata
+                    (finally (impl/pdata-proxy nil)))
+                  [(do ~@body)]))))))))
+
+(comment (enc/qb 1e6 (profiled {}))) ; 277.51
 
 (declare format-pstats)
 
@@ -335,18 +336,20 @@
      Otherwise see `profiled`.
 
      Compile-time opts:
-       :level - e/o #{0 1 2 3 4 5} ; Default is `5`
-       :when  - Optional arbitrary conditional form (e.g. boolean expr)
-       :id    - Optional stats id provided to handlers (e.g. `::my-stats-1`)
-       :data  - Optional, any other arbitrary data provided to handlers
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
+       :dynamic? - Use multi-threaded profiling? ; Default is `false`
+       :nmax     - ~Max captures per id before compaction ; Default is 8e5
+       :when     - Optional arbitrary conditional form (e.g. boolean expr)
+       :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
+       :data     - Optional arbitrary data provided to handlers
 
-     A comment on laziness:
+     Note on laziness:
        Please note that lazy seqs and other forms of laziness (e.g. delays)
        will only contribute to profiling results if/when evaluation actually
        occurs. This is intentional and a useful property. Compare:
 
        (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-       (profiled {} @(delay (Thread/sleep 2000))) ; Counts sleep"
+       (profiled {} @(delay (Thread/sleep 2000))) ; Does count sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
@@ -358,7 +361,6 @@
               :form (cons 'profile (cons opts body))})))
 
        (let [level-form (get opts :level 5)
-             test-form  (get opts :when  true)
              id-form    (get opts :id)
              data-form  (get opts :data)]
 
@@ -409,14 +411,19 @@
        (if (-elide? level ns-str)
          `(do ~@body)
          ;; Note no runtime `may-profile?` check
-         `(if-let [~'__pd impl/*pdata*]
-            (let [~'__t0     (enc/now-nano*)
-                  ~'__result (do ~@body)
-                  ~'__t1     (enc/now-nano*)]
-              ;; Note that `capture-time!` expense is excl. from p time
-              (impl/capture-time! ~'__pd ~id-form (- ~'__t1 ~'__t0))
-              ~'__result)
-            (do ~@body))))))
+         `(let [~'__pd-dynamic impl/*pdata_*]
+            (if-let [~'__pd (or ~'__pd-dynamic (impl/pdata-proxy))]
+              (let [~'__t0     (enc/now-nano*)
+                    ~'__result (do ~@body)
+                    ~'__t1     (enc/now-nano*)]
+
+                ;; Note that `capture-time!` expense is excl. from p time
+                (impl/capture-time!
+                  (or ~'__pd-dynamic (impl/pdata-proxy)) ; Support `p` nesting
+                  ~id-form (- ~'__t1 ~'__t0))
+
+                ~'__result)
+              (do ~@body)))))))
 
 #?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
 
@@ -425,8 +432,8 @@
   (profiled {} (p :p1))
   (profiled {} (p {:level 5 :id :p1}))
   (profiled {} (p (let [x :foo/id] x) "body"))
-  (enc/qb 1e5  (profiled {} 2 (p :p1))) ; 137.48
-  (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 2790
+  (enc/qb 1e5  (profiled {} 2 (p :p1))) ; 39.5
+  (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 3296
   (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
   (profiled {} (p :foo (p :bar))))
 
@@ -527,6 +534,39 @@
                                        ([x y] (* x y))))
   (profiled {} (foo 5)))
 
+;;;; Stats accumulators (experimental)
+
+(deftype StatsAccumulator [pstats_]
+  #?@(:clj  [clojure.lang.IDeref  (deref [_] @pstats_)]
+      :cljs [             IDeref (-deref [_] @pstats_)])
+  #?@(:clj  [clojure.lang.IFn  (invoke [_ ps1] (swap! pstats_ (fn [ps0] (merge-pstats ps0 ps1))))]
+      :cljs [             IFn (-invoke [_ ps1] (swap! pstats_ (fn [ps0] (merge-pstats ps0 ps1))))]))
+
+(defn stats-accumulator
+  "Experimental, subject to change!
+  Small util to help collect (merge) pstats from multiple runs or threads.
+
+  Returns a stateful StatsAccumulator, `acc`:
+    - `@acc`           ; Returns current pstats
+    - `(acc <pstats>)` ; Synchronously merges given pstats into accumulator
+
+  Note that you may want some kind of async/buffer/serialization mechanism in
+  front of merge calls (e.g. an agent)."
+  ([init-pstats] (StatsAccumulator. (atom init-pstats)))
+  ([           ] (StatsAccumulator. (atom nil))))
+
+(defn accumulate-stats "Experimental, subject to change!"
+  [stats-accumulator [result ?pstats]]
+  (when ?pstats (stats-accumulator ?pstats))
+  result)
+
+(comment
+  (enc/qb 1e6 (stats-accumulator)) ; 66.75
+  (let [sacc (stats-accumulator)]
+    (accumulate-stats sacc (profiled {} (p :p1)))
+    (accumulate-stats sacc (profiled {} (p :p2)))
+    @@sacc))
+
 ;;;;
 
 (comment
@@ -543,7 +583,8 @@
       (p :10ms (Thread/sleep 10))
       "Result"))
 
-  (profile {:level 2 :id ::sleepy-threads :data "foo"} (sleepy-threads))
+  (profile {:level 2 :id ::sleepy :data "foo"}    (sleepy-threads))
+  (profile {:level 2 :id ::sleepy :dynamic? true} (sleepy-threads))
   (p :hello "Hello, this is a result") ; Falls through (no pdata context)
 
   (defnp arithmetic
@@ -563,13 +604,18 @@
   (profiled {} (dotimes [n 1e6] (p :p1 nil)))
   (profiled {:level 2 :when (chance 0.5)} "body")
 
-  (profile {:nmax 10} (dotimes [n 1e5] (p :p1 nil)))
+  @(second (profiled {:nmax 10000 :dynamic? true} (dotimes [n 200] (p :p1 nil))))
+
+  (profile {})
+  (profile {:nmax 10}                (dotimes [n 200] (p :p1 nil)))
+  (profile {:nmax 10 :dynamic? true} (dotimes [n 200] (p :p1 nil)))
   (profile {}
     (p :foo
       (do       (Thread/sleep 100))
       (p :foo/a (Thread/sleep 120))
       (p :foo/b (Thread/sleep 220))))
 
+  (println "\n" (format-pstats (second (profiled {} (p :p1 (p :p2 (p :p3 "foo")))))))
   (println "\n"
     (time
       (format-pstats

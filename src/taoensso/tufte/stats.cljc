@@ -207,7 +207,7 @@
              (fn [^long acc k v]
                (let [c (count (str k))]
                  (if (> c acc) c acc)))
-             #=(count "Accounted Time")
+             #=(count "Accounted")
              id-stats)]
 
        #?(:cljs ; Simplified output w/o table
@@ -241,8 +241,8 @@
             (str           sb))
 
           :clj
-          (let [n-pattern (str "%" max-id-width "s %,11d %10s %10s %10s %10s %10s %10s %10s %5s %11s %7s" "\n")
-                s-pattern (str "%" max-id-width  "s %11s %10s %10s %10s %10s %10s %10s %10s %5s %11s %7s" "\n")
+          (let [n-pattern (str "%" max-id-width "s %,10d %10s %10s %10s %10s %10s %10s %10s %5s %11s %7s" "\n")
+                s-pattern (str "%" max-id-width  "s %10s %10s %10s %10s %10s %10s %10s %10s %5s %11s %7s" "\n")
                 sb
                 (reduce
                   (fn [acc id]

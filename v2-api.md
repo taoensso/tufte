@@ -36,7 +36,7 @@ The computational **cost is paid only on deref**, and can be paid on a separate 
 - If you use `profiled`, see **1, 3, 4** below.
 
 
-### Major changes (may be breaking)
+### Breaking changes
 
 1. `profiled` used to return `[<result> <?stats-map>]`, but will now return `[<result> <?pstats-obj>]`.
 
@@ -44,14 +44,4 @@ The computational **cost is paid only on deref**, and can be paid on a separate 
 
 3. Utils were renamed: `merge-stats` ->  `merge-pstats`, `format-stats` -> `format-pstats`.
 
-4. The new (derefed) stats maps keys have changed: `#{:count :min :max :mean :mad :time}` -> `#{:n :min :max :mean :mad :sum :p50 :p90 :p95 :p99}`
-
-### Other minor changes (usu. non-breaking)
-
-1. Experimental accumulator utils were removed. The functionality they attempted to provide is now better provided natively by the new PStats objects.
-
-2. Thread-local profiling and related utils were removed.
-
-> Optimizations to the dynamic profiling code made dynamic profiling reasonably competitive with thread-local code. So as a simplification, the thread-local stuff was removed.
->
-> Effectively, this means that `profiled` and `profile` calls now always behave as the older version would with `{:dynamic? true}` opts.
+4. The new (derefed) stats maps keys have changed: `#{:count :min :max :mean :mad :time}` -> `#{:n :min :max :mean :mad :sum :p50 :p90 :p95 :p99}`.
