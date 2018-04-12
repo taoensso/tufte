@@ -3,72 +3,118 @@
   (:require [taoensso.encore :as enc]
    #?(:cljs [goog.array])))
 
+(comment
+  (do
+    (defn rand-vs [n & [max]] (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
+    (def v1 (rand-vs 1e5))
+    (def v1-sorted (sort-longs v1))))
 
 #?(:clj (def ^:const longs-class (Class/forName "[J")))
 #?(:clj (defn- longs? [x] (instance? longs-class x)))
 (comment (longs? (long-array 10)))
 
-(defn long-percentiles "Returns [min p50 p90 p95 p99 max]"
-  [longs]
-  #?(:cljs
-     (let [a (if (array? longs) longs (to-array longs))
-           max-idx (dec (alength a))]
+(deftype SortedLongs [^longs a]
+  #?@(:clj  [clojure.lang.Counted  (count [_] (alength a))]
+      :cljs [            ICounted (-count [_] (alength a))]))
 
-       (assert (>= max-idx 0))
-       (goog.array/sort a)
+(defn sorted-longs? [x] (instance? SortedLongs x))
+(defn sort-longs ^SortedLongs [longs]
+  (if (sorted-longs? longs)
+    longs
+    #?(:cljs
+       (let [a (if (array? longs) longs (to-array longs))]
+         (goog.array/sort a)
+         (SortedLongs. a))
 
-       [(aget a 0)
-        (aget a (Math/round (* 0.50 max-idx)))
-        (aget a (Math/round (* 0.90 max-idx)))
-        (aget a (Math/round (* 0.95 max-idx)))
-        (aget a (Math/round (* 0.99 max-idx)))
-        (aget a                     max-idx)])
-
-     :clj
-     (let [^longs a (if (longs? longs) longs (long-array longs))
-           max-idx (dec (alength a))]
-
-       (assert (>= max-idx 0))
-       (java.util.Arrays/sort a)
-
-       [(aget a 0)
-        (aget a (Math/round (* 0.50 max-idx)))
-        (aget a (Math/round (* 0.90 max-idx)))
-        (aget a (Math/round (* 0.95 max-idx)))
-        (aget a (Math/round (* 0.99 max-idx)))
-        (aget a                     max-idx)])))
+       :clj
+       (let [^longs a (if (longs? longs) longs (long-array longs))]
+         (java.util.Arrays/sort a) ; O(n.log(n)) on JDK 7+
+         (SortedLongs. a)))))
 
 (comment
+  (vec (.-a (sort-longs nil)))
+  (vec (.-a (sort-longs [])))
+  (vec (.-a (sort-longs (rand-vs 10)))))
+
+(defn long-percentiles
+  "Returns ?[min p50 p90 p95 p99 max]"
+  [longs]
+  (let [^longs a (.-a (sort-longs longs))
+        max-idx (dec (alength a))]
+    (if (< max-idx 0)
+      nil
+      [(aget a 0)
+       (aget a (Math/round (* 0.50 max-idx)))
+       (aget a (Math/round (* 0.90 max-idx)))
+       (aget a (Math/round (* 0.95 max-idx)))
+       (aget a (Math/round (* 0.99 max-idx)))
+       (aget a                     max-idx)])))
+
+(comment
+  (long-percentiles nil)
   (long-percentiles [])
-  (defn rand-vs [n & [max]] (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
-  (def v1 (rand-vs 1e5))
-  (enc/qb 100 (long-percentiles v1)) ; 1505.91
+  (enc/qb 100
+    (long-percentiles v1)
+    (long-percentiles v1-sorted)) ; [1580.76 0.02]
   )
+
+(deftype MinMax [^long vmin ^long vmax])
+(defn min-max "Returns ?[<min> <max>]" [longs]
+  (if (sorted-longs? longs)
+    (let [^longs a (.-a ^SortedLongs longs)
+          max-idx (dec (alength a))]
+      (if (< max-idx 0)
+        nil
+        [(aget a 0) (aget a max-idx)]))
+
+    (if (zero? (count longs))
+      nil
+      (let [[v1] longs
+            ^MinMax min-max
+            (reduce
+              (fn [^MinMax acc ^long in]
+                (let [vmin (.-vmin acc)
+                      vmax (.-vmax acc)]
+                  (if (> in vmax)
+                    (MinMax. vmin in)
+                    (if (< in vmin)
+                      (MinMax. in vmin)
+                      acc))))
+              (MinMax. v1 v1)
+              longs)]
+        [(.-vmin min-max) (.-vmax min-max)]))))
+
+(comment (enc/qb 1e6 (min-max [10 9 -3 12]))) ; 267.25
+
+(comment
+  (let [a (long-array v1)]
+    (enc/qb 1e2
+      (reduce (fn [^long acc ^long in] (unchecked-add acc in)) v1)
+      (areduce a idx ret 0 (unchecked-add ret (aget a idx))))))
 
 (defn stats
   "Given a collection of longs, returns map with keys:
   #{:n :min :max :sum :mean :mad-sum :mad :p50 :p90 :p95 :p99}, or nil if
   collection is empty."
-  ;; ([longs {:keys [incl-percentiles?]}])
   [longs]
   (when longs
-    (let [vs longs
-          nv (count vs)]
-      (when (pos? nv)
-        (let [sum     (reduce (fn [^long acc in] (+ acc (long in))) 0 vs)
-              ;; vmin (reduce (fn [^long acc ^long in] (if (< in acc) in acc)) enc/max-long vs)
-              ;; vmax (reduce (fn [^long acc ^long in] (if (> in acc) in acc)) enc/min-long vs)
-              mean    (/ (double sum) (double nv))
-              mad-sum (reduce (fn [^double acc in] (+ acc (Math/abs (- (double in) mean)))) 0.0 vs)
-              mad     (/ (double mad-sum) (double nv))
+    (let [sorted-longs (sort-longs longs)
+          ^longs a (.-a sorted-longs)
+          n (alength a)]
+      (if (zero? n)
+        nil
+        (let [sum     (areduce a i acc 0 (+ acc (aget a i)))
+              mean    (/ (double sum) (double n))
+              mad-sum (areduce a i acc 0.0 (+ acc (Math/abs (- (double (aget a i)) mean))))
+              mad     (/ (double mad-sum) (double n))
 
-              [vmin p50 p90 p95 p99 vmax] (long-percentiles vs)]
+              [vmin p50 p90 p95 p99 vmax] (long-percentiles sorted-longs)]
 
-          {:n nv :min vmin :max vmax :sum sum :mean mean
+          {:n n :min vmin :max vmax :sum sum :mean mean
            :mad-sum mad-sum :mad mad
            :p50 p50 :p90 p90 :p95 p95 :p99 p99})))))
 
-(comment (enc/qb 100 (stats v1)) 1410.6)
+(comment (enc/qb 100 (stats v1) (stats v1-sorted))) ; [1604.23 38.3]
 
 (defn merge-stats
   "`(merge-stats (stats c0) (stats c1))` is a basic approximation of `(stats (into c0 c1)))`."
@@ -264,7 +310,7 @@
                           (perc sum clock-total)))))
 
                   ;; (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "p50" "p90" "p95" "p99" "Max" "Mean" "MAD" "Total" "Clock" ) "\n"))
-                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "50% <=" "90% <=" "95% <=" "99% <=" "Max" "Mean" "MAD" "Total" "Clock" ) "\n"))
+                  (enc/str-builder (str (format s-pattern "pId" "nCalls" "Min" "50% ≤" "90% ≤" "95% ≤" "99% ≤" "Max" "Mean" "MAD" "Total" "Clock" ) "\n"))
                   sorted-ids)]
 
             (enc/sb-append sb "\n")
