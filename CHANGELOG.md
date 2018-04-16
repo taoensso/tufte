@@ -1,9 +1,9 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.0.0-RC1 - 2018 Apr 15
+## v2.0.0-RC2 - 2018 Apr 16
 
 ```clojure
-[com.taoensso/tufte "2.0.0-RC1"]
+[com.taoensso/tufte "2.0.0-RC2"]
 ```
 
 > This is a major, **breaking** feature release. Please report any issues, thank you!
