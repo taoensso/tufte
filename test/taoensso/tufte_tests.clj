@@ -2,7 +2,7 @@
   (:require
    [clojure.test   :as test  :refer [is]]
    [taoensso.tufte :as tufte :refer [profiled profile p]])
-  (:import [taoensso.tufte.impl PData PStats]))
+  (:import [taoensso.tufte.impl PState PData PStats]))
 
 (comment
   (remove-ns      'taoensso.tufte-tests)
@@ -159,7 +159,7 @@
       (is (= (get-in @ps [:stats :bar :n])  50))
       (is (= (get-in @ps [:stats :baz :n])  50))
       (is (= (get-in @ps [:stats :tufte/compaction :n]) (/ 250 10)))
-      (is (= (count (.-acc ^PData (.-pd ^PStats ps))) 2)))
+      (is (= (count (.-acc ^PState @(.-pstate_ ^PData (.-pd ^PStats ps)))) 2)))
 
     (let [[r ps]
           (profiled {:nmax 10 :dynamic? true}
@@ -173,7 +173,7 @@
       (is (= (get-in @ps [:stats :bar :n])  50))
       (is (= (get-in @ps [:stats :baz :n])  50))
       (is (= (get-in @ps [:stats :tufte/compaction :n]) (/ 250 10)))
-      (is (= (count @(.-acc ^PData (.-pd ^PStats ps))) 2)))))
+      (is (= (count @(.-acc ^PState @(.-pstate_ ^PData (.-pd ^PStats ps)))) 2)))))
 
 (test/deftest compaction-merge
   (test/testing "Compaction/merge"

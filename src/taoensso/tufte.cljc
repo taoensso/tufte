@@ -229,7 +229,7 @@
 ;;;; Some low-level primitives
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
-  [] (if impl/*pdata_* :dynamic (when (impl/pdata-proxy) :thread)))
+  [] (if impl/*pdata* :dynamic (when (impl/pdata-proxy) :thread)))
 
 (comment (enc/qb 1e6 (profiling?))) ; 49.69
 
@@ -239,7 +239,7 @@
   or for async jobs / callbacks / etc."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
   ([      id nano-secs-elapsed]
-   (when-let [pd (or impl/*pdata_* (impl/pdata-proxy))]
+   (when-let [pd (or impl/*pdata* (impl/pdata-proxy))]
      (impl/capture-time! pd id nano-secs-elapsed))))
 
 (comment
@@ -308,16 +308,17 @@
 
              (if dynamic?
                `(if ~runtime-check
-                  (let [pd_# (atom (impl/new-pdata-dynamic ~nmax))]
-                    (binding [impl/*pdata_* pd_#]
-                      [(do ~@body) @@pd_#])) ; Nb deref latest pdata
+                  (let [pd# (impl/new-pdata-dynamic ~nmax)]
+                    (binding [impl/*pdata* pd#]
+                      [(do ~@body) @pd#]))
                   [(do ~@body)])
 
                `(if ~runtime-check
-                  (try
-                    (impl/pdata-proxy (impl/new-pdata-local ~nmax))
-                    [(do ~@body) @(impl/pdata-proxy)] ; Nb fetch latest pdata
-                    (finally (impl/pdata-proxy nil)))
+                  (let [pd# (impl/new-pdata-local ~nmax)]
+                    (try
+                      (impl/pdata-proxy pd#)
+                      [(do ~@body) @pd#]
+                      (finally (impl/pdata-proxy nil))))
                   [(do ~@body)]))))))))
 
 (comment (enc/qb 1e6 (profiled {}))) ; 277.51
@@ -411,7 +412,7 @@
        (if (-elide? level ns-str)
          `(do ~@body)
          ;; Note no runtime `may-profile?` check
-         `(let [~'__pd-dynamic impl/*pdata_*]
+         `(let [~'__pd-dynamic impl/*pdata*]
             (if-let [~'__pd (or ~'__pd-dynamic (impl/pdata-proxy))]
               (let [~'__t0     (enc/now-nano*)
                     ~'__result (do ~@body)

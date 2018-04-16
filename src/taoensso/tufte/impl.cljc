@@ -52,14 +52,15 @@
 ;;   - id-stats: ?{<id> (<stats/stats> ...)}
 
 (declare ^:private deref-pdata)
-(deftype PData [^long nmax ^long t0 acc id-times id-stats]
+(deftype PState [acc id-times id-stats])
+(deftype  PData [^long nmax ^long t0 pstate_]
   #?@(:clj  [clojure.lang.IDeref  (deref [this] (deref-pdata this))]
       :cljs [             IDeref (-deref [this] (deref-pdata this))]))
 
-(defn new-pdata-local   [^long nmax] (let [t0 (enc/now-nano*)] (PData. nmax t0 (mt-acc)   nil nil)))
-(defn new-pdata-dynamic [^long nmax] (let [t0 (enc/now-nano*)] (PData. nmax t0 (atom nil) nil nil)))
+(defn new-pdata-local   [^long nmax] (let [t0 (enc/now-nano*)] (PData. nmax t0 (volatile! (PState. (mt-acc)   nil nil)))))
+(defn new-pdata-dynamic [^long nmax] (let [t0 (enc/now-nano*)] (PData. nmax t0 (atom      (PState. (atom nil) nil nil)))))
 
-(comment (enc/qb 1e6 (new-pdata-local 10) (new-pdata-dynamic 10))) ; [83.1 110.79]
+(comment (enc/qb 1e6 (new-pdata-local 10) (new-pdata-dynamic 10))) ; [98.18 138.28]
 
 (declare ^:private deref-pstats)
 (defn- deref-pdata "PData->PStats" [^PData pd]
@@ -67,9 +68,9 @@
   (let [t1 (enc/now-nano*)]
     (PStats. pd t1 (delay (deref-pstats pd t1)))))
 
-(comment (enc/qb 1e6 @(new-pdata-local 10))) ; 174.08
+(comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
 
-(def ^:dynamic *pdata_*   "nnil iff dynamic profiling active" nil)
+(def ^:dynamic *pdata*    "nnil iff dynamic profiling active" nil)
 (def ^:static pdata-proxy "nnil iff thread-local profiling active"
   ;; Would esp. benefit from ^:static support / direct linking / a Java class
   #?(:clj
@@ -85,9 +86,9 @@
          ([new-val] (vreset! state_ new-val))))))
 
 (comment
-  (enc/qb 1e6 *pdata_* (pdata-proxy)) ; [27.48 50.13]
+  (enc/qb 1e6 *pdata* (pdata-proxy)) ; [29.82 50.89]
   (enc/qb 1e6  ; [490.08 66.34]
-    (binding [*pdata_* "foo"])
+    (binding [*pdata* "foo"])
     (try (pdata-proxy "foo") (finally (pdata-proxy nil)))))
 
 ;;;;
@@ -114,10 +115,12 @@
 (defn- deref-pstats
   "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
   [^PData pd ^long t1]
-  (let [t0       (.-t0       pd)
-        id-times (.-id-times pd)
-        id-stats (.-id-stats pd)
-        id-times (times-into-id-times id-times (.-acc pd))
+  (let [t0      (.-t0      pd)
+        pstate_ (.-pstate_ pd)
+        ^PState pstate (enc/force-ref pstate_)
+        id-times (.-id-times pstate)
+        id-stats (.-id-stats pstate)
+        id-times (times-into-id-times id-times (.-acc pstate))
         id-stats ; Final {<id> <stats/stats>}
         (reduce-kv
           (fn [m id times]
@@ -154,14 +157,17 @@
              pd2-t0 (if (< pd0-t0 pd1-t0) pd0-t0 pd1-t0)
              ps2-t1 (if (> ps0-t1 ps1-t1) ps0-t1 ps1-t1)
 
-             pd0-id-times (.-id-times pd0)
-             pd0-id-stats (.-id-stats pd0)
-             pd1-id-times (.-id-times pd1)
-             pd1-id-stats (.-id-stats pd1)
+             ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
+             ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
+
+             pd0-id-times (.-id-times pd0-pstate)
+             pd0-id-stats (.-id-stats pd0-pstate)
+             pd1-id-times (.-id-times pd1-pstate)
+             pd1-id-stats (.-id-stats pd1-pstate)
 
              ;;; Pour `acc`s into (left) pd0-id-time as base
-             pd2-id-times (times-into-id-times pd0-id-times (.-acc pd0))
-             pd2-id-times (times-into-id-times pd2-id-times (.-acc pd1))
+             pd2-id-times (times-into-id-times pd0-id-times (.-acc pd0-pstate))
+             pd2-id-times (times-into-id-times pd2-id-times (.-acc pd1-pstate))
              pd2-id-stats pd0-id-stats
 
              ;; In a single pass, merge pd1 into base pd2 (based on pd0)
@@ -187,7 +193,7 @@
                [pd2-id-times pd2-id-stats]
                pd1-id-times)
 
-             pd2 (PData. nmax pd2-t0 nil pd2-id-times pd2-id-stats)]
+             pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
          (PStats. pd2 ps2-t1 (delay (deref-pstats pd2 ps2-t1))))
 
        ps0)
@@ -200,52 +206,44 @@
      (instance?    cljs.core.Atom ~x)
      (instance? clojure.lang.Atom ~x)))
 
-(declare ^:private compact-pdata)
-(defn capture-time! [pd id ns-elapsed]
+(declare ^:private compact-pstate)
+(defn capture-time! [^PData pd id ns-elapsed]
 
-  (if (atom? pd)
+  (let [nmax    (.-nmax    pd)
+        pstate_ (.-pstate_ pd)
+        ^PState pstate @pstate_
+        acc (.-acc pstate)]
 
-    ;; Dynamic profiling
-    (let [pd_ pd
-          ^PData pd @pd_
-          nmax (.-nmax pd)
-          acc_ (.-acc  pd)
+    (if (atom? acc)
 
-          ?pulled-times
-          (loop []
-            (let [old-times @acc_
-                  new-times (conj old-times (Time. id ns-elapsed))]
-              (if (<= (count new-times) nmax)
-                (if (compare-and-set! acc_ old-times new-times) nil (recur))
-                (if (compare-and-set! acc_ old-times nil) new-times (recur)))))]
+      ;; Dynamic profiling
+      (let [?pulled-times
+            (loop []
+              (let [old-times @acc
+                    new-times (conj old-times (Time. id ns-elapsed))]
+                (if (<= (count new-times) nmax)
+                  (if (compare-and-set! acc old-times new-times) nil (recur))
+                  (if (compare-and-set! acc old-times nil) new-times (recur)))))]
 
-      (when-let [times ?pulled-times] ; Do compaction, rare
-        (let [t0 (enc/nano-time*)]
-          ;; Contention against `pd_` unlikely since we just drained `acc`
-          (swap! pd_ (fn [pd] (compact-pdata pd times true)))
-          (recur pd_ :tufte/compaction (- (enc/now-nano*) t0)))))
+        (when-let [times ?pulled-times] ; Do compaction, rare
+          (let [t0 (enc/nano-time*)]
+            ;; Contention against `pstate_` unlikely since we just drained `acc`
+            (swap! pstate_ (fn [pstate] (compact-pstate nmax pstate times true)))
+            (recur pd :tufte/compaction (- (enc/now-nano*) t0)))))
 
-      ;; Common case: thread-local profiling
-      (let [^PData pd pd
-            nmax (.-nmax pd)
-            acc  (.-acc  pd)]
-
+      (do ; Common case: thread-local profiling
         (mt-add acc (Time. id ns-elapsed))
 
         (when (> (mt-count acc) nmax) ; Do compaction, rare
-          (let [t0 (enc/now-nano*)
-                new-pd (compact-pdata pd acc false)]
-            (pdata-proxy new-pd)
-            (recur new-pd :tufte/compaction (- (enc/now-nano*) t0)))))))
+          (let [t0 (enc/now-nano*)]
+            (vreset! pstate_ (compact-pstate nmax pstate acc false))
+            (recur pd :tufte/compaction (- (enc/now-nano*) t0))))))))
 
-(defn- compact-pdata [pd pulled-times dynamic?]
+(defn- compact-pstate [^long nmax ^PState pstate pulled-times dynamic?]
   ;; Note that compaction expense doesn't distort p times unless there's
   ;; p nesting (where outer p time includes inner p's capture time).
-  (let [^PData pd pd
-
-        nmax     (.-nmax     pd)
-        id-times (.-id-times pd)
-        id-stats (.-id-stats pd)
+  (let [id-times (.-id-times pstate)
+        id-stats (.-id-stats pstate)
         id-times (times-into-id-times id-times pulled-times)
 
         [id-times id-stats]
@@ -262,13 +260,14 @@
           id-times)
 
         new-acc (if dynamic? (atom nil) (mt-acc))]
-    (PData. nmax (.-t0 pd) new-acc id-times id-stats)))
+
+    (PState. new-acc id-times id-stats)))
 
 (comment
   (try
     (pdata-proxy (new-pdata-local 1e7))
     (enc/qb 1e6 (capture-time! (pdata-proxy) :foo 1))
-    (finally (pdata-proxy nil)))) ; 85.28
+    (finally (pdata-proxy nil)))) ; 93.33
 
 ;;;; Output handlers
 
