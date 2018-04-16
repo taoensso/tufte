@@ -227,16 +227,43 @@
 (comment (add-basic-println-handler! {}))
 
 ;;;; Some low-level primitives
+;; Usage:
+;;   1. Create a pdata.
+;;   2. Capture to it and/or use `with-profiling` to enable p forms.
+;;   3. Deref when complete.
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
   [] (if impl/*pdata* :dynamic (when (impl/pdata-proxy) :thread)))
 
 (comment (enc/qb 1e6 (profiling?))) ; 49.69
 
+(def ^:const ^:private default-nmax 8e5)
+(defn new-pdata
+  "Warning: this is a low-level primitive for advanced users.
+  Returns a new pdata object for use with `capture-time!`. Deref to get pstats."
+  ([] (new-pdata nil))
+  ([{:keys [dynamic? nmax] :or {nmax default-nmax}}]
+   (if dynamic?
+     (impl/new-pdata-dynamic nmax)
+     (impl/new-pdata-local   nmax))))
+
+(comment @@(new-pdata))
+
+(defmacro with-profiling
+  "Warning: this is a low-level primitive for advanced users.
+  Enables `p` forms in body and returns body's result."
+  [pdata {:keys [dynamic? nmax] :or {nmax default-nmax}} & body]
+  (if dynamic?
+    `(binding [impl/*pdata* ~pdata] (do ~@body))
+    `(try
+       (impl/pdata-proxy ~pdata)
+       (do ~@body)
+       (finally (impl/pdata-proxy nil)))))
+
 (defn capture-time!
   "Warning: this is a low-level primitive for advanced users.
-  Can be useful when tracking time across arbitrary thread boundaries
-  or for async jobs / callbacks / etc."
+  Can be useful when tracking time across arbitrary thread boundaries or for
+  async jobs / callbacks / etc."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
   ([      id nano-secs-elapsed]
    (when-let [pd (or impl/*pdata* (impl/pdata-proxy))]
@@ -248,7 +275,17 @@
        (let [t0 (System/nanoTime)
              _  (Thread/sleep 2200)
              t1 (System/nanoTime)]
-         (capture-time! :foo (- t1 t0))))))
+         (capture-time! :foo (- t1 t0)))))
+
+  (let [pd (new-pdata)]
+    (enc/qb 1e6 (capture-time! pd :foo 100))
+    @@pd)
+
+  (let [pd (new-pdata)]
+    (with-profiling pd {}
+      (p :foo (Thread/sleep 100))
+      (p :bar (Thread/sleep 200)))
+    @@pd))
 
 ;;;; Core macros
 
@@ -295,7 +332,7 @@
        (let [level-form (get opts :level    5)
              dynamic?   (get opts :dynamic? false)
              test-form  (get opts :when     true)
-             nmax (long (get opts :nmax     8e5))]
+             nmax (long (get opts :nmax     default-nmax))]
 
          (when (integer? level-form) (valid-run-level level-form))
 

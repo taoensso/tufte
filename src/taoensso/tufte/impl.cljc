@@ -208,7 +208,6 @@
 
 (declare ^:private compact-pstate)
 (defn capture-time! [^PData pd id ns-elapsed]
-
   (let [nmax    (.-nmax    pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate @pstate_
@@ -228,7 +227,7 @@
         (when-let [times ?pulled-times] ; Do compaction, rare
           (let [t0 (enc/nano-time*)]
             ;; Contention against `pstate_` unlikely since we just drained `acc`
-            (swap! pstate_ (fn [pstate] (compact-pstate nmax pstate times true)))
+            (swap! pstate_ (fn [pstate] (compact-pstate pstate times nmax true)))
             (recur pd :tufte/compaction (- (enc/now-nano*) t0)))))
 
       (do ; Common case: thread-local profiling
@@ -236,10 +235,10 @@
 
         (when (> (mt-count acc) nmax) ; Do compaction, rare
           (let [t0 (enc/now-nano*)]
-            (vreset! pstate_ (compact-pstate nmax pstate acc false))
+            (vreset! pstate_ (compact-pstate pstate acc nmax false))
             (recur pd :tufte/compaction (- (enc/now-nano*) t0))))))))
 
-(defn- compact-pstate [^long nmax ^PState pstate pulled-times dynamic?]
+(defn- compact-pstate [^PState pstate pulled-times ^long nmax dynamic?]
   ;; Note that compaction expense doesn't distort p times unless there's
   ;; p nesting (where outer p time includes inner p's capture time).
   (let [id-times (.-id-times pstate)
