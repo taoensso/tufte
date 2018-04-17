@@ -233,7 +233,7 @@
 ;;   3. Deref when complete.
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
-  [] (if impl/*pdata* :dynamic (when (impl/pdata-proxy) :thread)))
+  [] (if impl/*pdata* :dynamic (when (impl/pdata-proxy-get) :thread)))
 
 (comment (enc/qb 1e6 (profiling?))) ; 49.69
 
@@ -258,9 +258,9 @@
   (if dynamic?
     `(binding [impl/*pdata* ~pdata] (do ~@body))
     `(try
-       (impl/pdata-proxy ~pdata)
+       (impl/pdata-proxy-push ~pdata)
        (do ~@body)
-       (finally (impl/pdata-proxy nil)))))
+       (finally (impl/pdata-proxy-pop)))))
 
 (defn capture-time!
   "Note: this is a low-level primitive for advanced users!
@@ -268,7 +268,7 @@
   async jobs / callbacks / etc."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
   ([      id nano-secs-elapsed]
-   (when-let [pd (or impl/*pdata* (impl/pdata-proxy))]
+   (when-let [pd (or impl/*pdata* (impl/pdata-proxy-get))]
      (impl/capture-time! pd id nano-secs-elapsed))))
 
 (comment
@@ -355,9 +355,9 @@
                `(if ~runtime-check
                   (let [pd# (impl/new-pdata-local ~nmax)]
                     (try
-                      (impl/pdata-proxy pd#)
+                      (impl/pdata-proxy-push pd#)
                       [(do ~@body) @pd#]
-                      (finally (impl/pdata-proxy nil))))
+                      (finally (impl/pdata-proxy-pop))))
                   [(do ~@body)]))))))))
 
 (comment (enc/qb 1e6 (profiled {}))) ; 277.51
@@ -452,7 +452,7 @@
          `(do ~@body)
          ;; Note no runtime `may-profile?` check
          `(let [~'__pd-dynamic impl/*pdata*]
-            (if-let [~'__pd (or ~'__pd-dynamic (impl/pdata-proxy))]
+            (if-let [~'__pd (or ~'__pd-dynamic (impl/pdata-proxy-get))]
               (let [~'__t0     (enc/now-nano*)
                     ~'__result (do ~@body)
                     ~'__t1     (enc/now-nano*)]

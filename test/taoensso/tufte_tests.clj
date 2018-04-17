@@ -263,6 +263,85 @@
 
     (tufte/remove-handler! :testing)))
 
+(test/deftest profiled-nesting
+  (test/testing "Profiled/nesting"
+
+    ;; Local, local
+    (let [[[r ps1] ps0]
+          (profiled {}
+            (p :foo)
+            (p :bar
+              (profiled {}
+                (p :foo)
+                (p :baz)
+                "qux")))]
+
+      (is (= r "qux"))
+      (is (ps? ps0))
+      (is (= (get-in @ps0 [:stats :foo :n]) 1))
+      (is (= (get-in @ps0 [:stats :baz :n]) nil))
+
+      (is (ps? ps1))
+      (is (= (get-in @ps1 [:stats :foo :n]) 1))
+      (is (= (get-in @ps1 [:stats :baz :n]) 1)))
+
+    ;; Dynamic, dynamic
+    (let [[[r ps1] ps0]
+          (profiled {:dynamic? true}
+            (p :foo)
+            (p :bar
+              (profiled {:dynamic? true}
+                (p :foo)
+                (p :baz)
+                "qux")))]
+
+      (is (= r "qux"))
+      (is (ps? ps0))
+      (is (= (get-in @ps0 [:stats :foo :n]) 1))
+      (is (= (get-in @ps0 [:stats :baz :n]) nil))
+
+      (is (ps? ps1))
+      (is (= (get-in @ps1 [:stats :foo :n]) 1))
+      (is (= (get-in @ps1 [:stats :baz :n]) 1)))
+
+    ;; Dynamic, local
+    (let [[[r ps1] ps0]
+          (profiled {:dynamic? true}
+            (p :foo)
+            (p :bar
+              (profiled {}
+                (p :foo)
+                (p :baz)
+                "qux")))]
+
+      (is (= r "qux"))
+      (is (ps? ps0))
+      (is (= (get-in @ps0 [:stats :foo :n]) 2))
+      (is (= (get-in @ps0 [:stats :baz :n]) 1))
+
+      (is (ps? ps1))
+      (is (= (get-in @ps1 [:stats :foo :n]) nil))
+      (is (= (get-in @ps1 [:stats :baz :n]) nil)))
+
+    ;; Local, dynamic
+    (let [[[r ps1] ps0]
+          (profiled {}
+            (p :foo)
+            (p :bar
+              (profiled {:dynamic? true}
+                (p :foo)
+                (p :baz)
+                "qux")))]
+
+      (is (= r "qux"))
+      (is (ps? ps0))
+      (is (= (get-in @ps0 [:stats :foo :n]) 1))
+      (is (= (get-in @ps0 [:stats :baz :n]) nil))
+
+      (is (ps? ps1))
+      (is (= (get-in @ps1 [:stats :foo :n]) 1))
+      (is (= (get-in @ps1 [:stats :baz :n]) 1)))))
+
 (test/deftest advanced
   (test/testing "Advanced"
 
