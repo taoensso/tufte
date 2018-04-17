@@ -258,7 +258,7 @@
           [id-times id-stats]
           id-times)
 
-        new-acc (if dynamic? (atom nil) (mt-acc))]
+        new-acc (if dynamic? (.-acc pstate) (mt-acc))]
 
     (PState. new-acc id-times id-stats)))
 
