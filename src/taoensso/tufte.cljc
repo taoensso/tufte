@@ -239,8 +239,10 @@
 
 (def ^:const ^:private default-nmax 8e5)
 (defn new-pdata
-  "Warning: this is a low-level primitive for advanced users.
-  Returns a new pdata object for use with `capture-time!`. Deref to get pstats."
+  "Note: this is a low-level primitive for advanced users!
+  Returns a new pdata object for use with `capture-time!`. Deref to get pstats.
+
+  **WARNING**: use of non-dynamic pdata across threads can lead to exceptions!"
   ([] (new-pdata nil))
   ([{:keys [dynamic? nmax] :or {nmax default-nmax}}]
    (if dynamic?
@@ -250,7 +252,7 @@
 (comment @@(new-pdata))
 
 (defmacro with-profiling
-  "Warning: this is a low-level primitive for advanced users.
+  "Note: this is a low-level primitive for advanced users!
   Enables `p` forms in body and returns body's result."
   [pdata {:keys [dynamic? nmax] :or {nmax default-nmax}} & body]
   (if dynamic?
@@ -261,7 +263,7 @@
        (finally (impl/pdata-proxy nil)))))
 
 (defn capture-time!
-  "Warning: this is a low-level primitive for advanced users.
+  "Note: this is a low-level primitive for advanced users!
   Can be useful when tracking time across arbitrary thread boundaries or for
   async jobs / callbacks / etc."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))

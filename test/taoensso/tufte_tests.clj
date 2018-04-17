@@ -1,7 +1,8 @@
 (ns taoensso.tufte-tests
   (:require
-   [clojure.test   :as test  :refer [is]]
-   [taoensso.tufte :as tufte :refer [profiled profile p]])
+   [clojure.test    :as test  :refer [is]]
+   [taoensso.tufte  :as tufte :refer [profiled profile p]]
+   [taoensso.encore :as enc])
   (:import [taoensso.tufte.impl PState PData PStats]))
 
 (comment
@@ -261,3 +262,51 @@
       (is (string? @(:pstats-str_ m))))
 
     (tufte/remove-handler! :testing)))
+
+(test/deftest advanced
+  (test/testing "Advanced"
+
+    ;; Capture in `profiled`
+    (let [[_ ps] (profiled {} (tufte/capture-time! :foo 100))]
+      (is (= (get-in @ps [:stats :foo :n]) 1)))
+
+    ;; Capture to local pdata
+    (let [n  (long 2e6)
+          pd (tufte/new-pdata)
+          _  (looped n (tufte/capture-time! pd :foo 100))]
+      (is (= (get-in @@pd [:stats :foo :n]) n)))
+
+    ;; Capture to dynamic pdata from separate threads
+    (let [n  (long 100)
+          pd (tufte/new-pdata {:dynamic? true :nmax 88})
+          f1 (future (looped n (tufte/capture-time! pd :foo 100)))
+          f2 (future (looped n (tufte/capture-time! pd :foo 100)))
+          f3 (future (looped n (tufte/capture-time! pd :foo 100)))
+          f4 (future (looped n (tufte/capture-time! pd :foo 100)))]
+
+      (do @f1 @f2 @f3 @f4)
+      (is (= (get-in @@pd [:stats :foo :n]) (* 4 n))))
+
+    ;; `p`s against local pdata
+    (let [pd (tufte/new-pdata)
+          _  (tufte/with-profiling pd {}
+               (p :foo (Thread/sleep 100))
+               (p :bar (Thread/sleep 200))
+               (tufte/capture-time! :baz 100))]
+
+      (is (= (get-in @@pd [:stats :foo :n]) 1))
+      (is (= (get-in @@pd [:stats :bar :n]) 1))
+      (is (= (get-in @@pd [:stats :baz :n]) 1)))
+
+    ;; `p`s against dynamic pdata
+    (let [pd (tufte/new-pdata)
+          _  (tufte/with-profiling pd {:dynamic? true}
+               (future (p :foo (Thread/sleep 100)))
+                       (p :bar (Thread/sleep 200))
+               (tufte/capture-time! :baz 100))]
+
+      (Thread/sleep 100)
+
+      (is (= (get-in @@pd [:stats :foo :n]) 1))
+      (is (= (get-in @@pd [:stats :bar :n]) 1))
+      (is (= (get-in @@pd [:stats :baz :n]) 1)))))
