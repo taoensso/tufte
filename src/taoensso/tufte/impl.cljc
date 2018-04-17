@@ -70,26 +70,45 @@
 
 (comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
 
-(def ^:dynamic *pdata*    "nnil iff dynamic profiling active" nil)
-(def ^:static pdata-proxy "nnil iff thread-local profiling active"
-  ;; Would esp. benefit from ^:static support / direct linking / a Java class
-  #?(:clj
-     (let [^ThreadLocal proxy (proxy [ThreadLocal] [])]
-       (fn
-         ([]        (.get proxy))
-         ([new-val] (.set proxy new-val) new-val)))
+(def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
 
-     :cljs
-     (let [state_ (volatile! false)] ; Automatically thread-local in js
-       (fn
-         ([]                @state_)
-         ([new-val] (vreset! state_ new-val))))))
+#?(:clj ; get nnil iff thread-local profiling active
+   (let [stack (java.util.Stack.) ; To support nesting
+         ^ThreadLocal proxy (proxy [ThreadLocal] [])]
+
+     (defn pdata-proxy-get [] (.get proxy))
+     (defn pdata-proxy-pop []
+       (if-let [stashed (when-not (.empty stack) (.pop stack))]
+         (do (.set proxy stashed) stashed)
+         (do (.set proxy nil)     nil)))
+
+     (defn pdata-proxy-push [v]
+       (if-let [to-stash (.get proxy)]
+         (do (.push stack to-stash) (.set proxy v) v)
+         (do                        (.set proxy v) v))))
+
+   :cljs
+   (let [stack #js [] ; To support nesting
+         state_ (volatile! false)] ; Automatically thread-local in js
+
+     (defn pdata-proxy-get [] @state_)
+     (defn pdata-proxy-pop []
+       (if-let [stashed (.pop stack)]
+         (vreset! state_ stashed)
+         (vreset! state_ nil)))
+
+     (defn pdata-proxy-push [v]
+       (if-let [to-stash @state_]
+         (do (.push stack to-stash) (vreset! state_ v))
+         (do                        (vreset! state_ v))))))
 
 (comment
-  (enc/qb 1e6 *pdata* (pdata-proxy)) ; [29.82 50.89]
-  (enc/qb 1e6  ; [490.08 66.34]
+  (pdata-proxy-push "foo")
+  (pdata-proxy-pop)
+  (enc/qb 1e6 *pdata* (pdata-proxy-get)) ; [63.7 48.77]
+  (enc/qb 1e6  ; [507.58 74.62]
     (binding [*pdata* "foo"])
-    (try (pdata-proxy "foo") (finally (pdata-proxy nil)))))
+    (try (pdata-proxy-push "foo") (finally (pdata-proxy-pop)))))
 
 ;;;;
 
@@ -264,9 +283,9 @@
 
 (comment
   (try
-    (pdata-proxy (new-pdata-local 1e7))
-    (enc/qb 1e6 (capture-time! (pdata-proxy) :foo 1))
-    (finally (pdata-proxy nil)))) ; 93.33
+    (pdata-proxy-push (new-pdata-local 1e7))
+    (enc/qb 1e6 (capture-time! (pdata-proxy-get) :foo 1))
+    (finally (pdata-proxy-pop)))) ; 98.35
 
 ;;;; Output handlers
 
