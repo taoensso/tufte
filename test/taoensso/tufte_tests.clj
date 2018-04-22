@@ -366,9 +366,9 @@
       (do @f1 @f2 @f3 @f4)
       (is (= (get-in @@pd [:stats :foo :n]) (* 4 n))))
 
-    ;; `p`s against local pdata
-    (let [pd (tufte/new-pdata)
-          _  (tufte/with-profiling pd {}
+    ;; local `p`s against local pdata
+    (let [pd (tufte/new-pdata         {:dynamic? false})
+          _  (tufte/with-profiling pd {:dynamic? false}
                (p :foo (Thread/sleep 100))
                (p :bar (Thread/sleep 200))
                (tufte/capture-time! :baz 100))]
@@ -377,8 +377,19 @@
       (is (= (get-in @@pd [:stats :bar :n]) 1))
       (is (= (get-in @@pd [:stats :baz :n]) 1)))
 
-    ;; `p`s against dynamic pdata
-    (let [pd (tufte/new-pdata)
+    ;; local `p`s against dynamic pdata
+    (let [pd (tufte/new-pdata         {:dynamic? true})
+          _  (tufte/with-profiling pd {:dynamic? false}
+               (p :foo (Thread/sleep 100))
+               (p :bar (Thread/sleep 200))
+               (tufte/capture-time! :baz 100))]
+
+      (is (= (get-in @@pd [:stats :foo :n]) 1))
+      (is (= (get-in @@pd [:stats :bar :n]) 1))
+      (is (= (get-in @@pd [:stats :baz :n]) 1)))
+
+    ;; dynamic `p`s against dynamic pdata
+    (let [pd (tufte/new-pdata         {:dynamic? true})
           _  (tufte/with-profiling pd {:dynamic? true}
                (future (p :foo (Thread/sleep 100)))
                        (p :bar (Thread/sleep 200))

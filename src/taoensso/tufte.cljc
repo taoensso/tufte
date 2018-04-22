@@ -118,6 +118,7 @@
   (with-ns-pattern "taoensso.*" (profiled {} (p {:id "id"} "body"))))
 
 ;;;; Combo filtering
+;; TODO Consider ns-pattern->min-level feature (+ sync with Timbre)
 
 #?(:clj
    (def ^:private compile-time-min-level
@@ -227,10 +228,6 @@
 (comment (add-basic-println-handler! {}))
 
 ;;;; Some low-level primitives
-;; Usage:
-;;   1. Create a pdata.
-;;   2. Capture to it and/or use `with-profiling` to enable p forms.
-;;   3. Deref when complete.
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
   [] (if impl/*pdata* :dynamic (when (impl/pdata-proxy-get) :thread)))
@@ -240,20 +237,43 @@
 (def ^:const ^:private default-nmax 8e5)
 (defn new-pdata
   "Note: this is a low-level primitive for advanced users!
-  Returns a new pdata object for use with `capture-time!`. Deref to get pstats.
+  Returns a new pdata object for use with `with-profiling` and/or `capture-time!`.
+  Deref to get pstats:
 
-  **WARNING**: use of non-dynamic pdata across threads can lead to exceptions!"
+    (let [pd (new-pdata)
+          t0 (System/nanoTime)]
+      (with-profiling pd {}
+        (p :foo (Thread/sleep 100))
+        (capture-time! pd :bar (- t0 (System/nanoTime))))
+      @pd)
+
+  Dynamic (thread-safe) by default.
+  *WARNING*: don't change this default unless you're very sure the resulting
+  pdata object will not be concurrently modified across threads. Concurrent
+  modification will lead to bad data and/or exceptions!"
   ([] (new-pdata nil))
-  ([{:keys [dynamic? nmax] :or {nmax default-nmax}}]
+  ([{:keys [dynamic? nmax] :or {dynamic? true nmax default-nmax}}]
    (if dynamic?
      (impl/new-pdata-dynamic nmax)
      (impl/new-pdata-local   nmax))))
 
-(comment @@(new-pdata))
+(comment
+  @@(new-pdata)
+
+  ;; Note that dynamic pdata with non-dyanmic `with-profiling` is fine:
+  (let [pd (new-pdata)
+        t0 (System/nanoTime)]
+    (with-profiling pd {}
+      (p :foo (Thread/sleep 100))
+      (capture-time! pd :bar (- t0 (System/nanoTime))))
+    @pd) ; => pstats
+  )
 
 (defmacro with-profiling
   "Note: this is a low-level primitive for advanced users!
-  Enables `p` forms in body and returns body's result."
+  Enables `p` forms in body and returns body's result.
+
+  See `new-pdata` for more info on low-level primitives."
   [pdata {:keys [dynamic? nmax] :or {nmax default-nmax}} & body]
   (if dynamic?
     `(binding [impl/*pdata* ~pdata] (do ~@body))
@@ -265,7 +285,9 @@
 (defn capture-time!
   "Note: this is a low-level primitive for advanced users!
   Can be useful when tracking time across arbitrary thread boundaries or for
-  async jobs / callbacks / etc."
+  async jobs / callbacks / etc.
+
+  See `new-pdata` for more info on low-level primitives."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
   ([      id nano-secs-elapsed]
    (when-let [pd (or impl/*pdata* (impl/pdata-proxy-get))]
