@@ -4,8 +4,7 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "1.4.0"]     ; Stable
-[com.taoensso/tufte "2.0.0-RC4"] ; BREAKING, see CHANGELOG for details
+[com.taoensso/tufte "2.0.0"] ; BREAKING, see CHANGELOG for details
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 
@@ -44,30 +43,31 @@
 
 ;; The following will be printed to *out*:
 ;;
-;;            pId    nCalls       Min        Max       MAD      Mean   Time%    Time
+;;       pId  nCalls       Min     50% ≤     90% ≤     95% ≤     99% ≤       Max      Mean  MAD  Total Clock
 ;;
-;;         :get-y         5  171.68ms   940.84ms  264.82ms  541.28ms      52   2.71s
-;;         :get-x         5  502.30ms   505.07ms    1.17ms  503.40ms      48   2.52s
+;;    :get-y       5   94.01ms  500.99ms  910.14ms  910.14ms  910.14ms  910.14ms  580.49ms ±45%  2.90s   53%
+;;    :get-x       5  503.05ms  504.68ms  504.86ms  504.86ms  504.86ms  504.86ms  504.37ms  ±0%  2.52s   46%
 ;;
-;;     Clock Time                                                        100   5.22s
-;; Accounted Time                                                        100   5.22s
+;; Accounted                                                                                     5.42s  100%
+;;     Clock                                                                                     5.43s  100%
 ```
 
 ## Features
 
- * Small, **fast**, cross-platform Clojure/Script codebase (<1k loc)
+ * Small, **fast**, cross-platform Clojure/Script codebase
  * **Tiny**, flexible API: `p`, `profiled`, `profile`
  * Great **compile-time elision** and **runtime filtering** support
  * Arbitrary Clojure/Script **form-level** profiling
  * Full support for **thread-local** and **multi-threaded** profiling
  * **Stats are just Clojure maps**: aggregate, **analyse**, log, serialize to db, ...
+ * Ideal for **ongoing application performance monitoring** in staging, production, etc.
 
 ## Quickstart
 
 Add the necessary dependency to your project:
 
 ```clojure
-[com.taoensso/tufte "1.4.0"]
+[com.taoensso/tufte "2.0.0"]
 ```
 
 And setup your namespace imports:
@@ -101,17 +101,17 @@ Tufte will record the execution times of these `p` forms whenever profiling is a
 
 Activate profiling with `profiled` or `profile`:
 
-API        | Return value               | Effect                                     |
----------- | -------------------------- | ------------------------------------------ |
-`profiled` | `[<body-result> <?stats>]` | None                                       |
-`profile`  | `<body-result>`            | Sends `<?stats>` to registered handlers[1] |
+API        | Return value                | Effect                                      |
+---------- | --------------------------- | ------------------------------------------- |
+`profiled` | `[<body-result> <?pstats>]` | None                                        |
+`profile`  | `<body-result>`             | Sends `<?pstats>` to registered handlers[1] |
 
 **[1]** Register handlers using `(tufte/add-handler! <handler-id> <ns-pattern> <handler-fn>)`
 
 > Handler ideas: save to a db, log, `put!` to a `core.async` channel, filter, aggregate, use for a realtime analytics dashboard, examine for outliers or unexpected behaviour, feed into your other performance/analytics systems, ...
 
- * Use `profiled` to handle stats yourself **directly at the callsite**.
- * Use `profile` to queue stats for handling **later/elsewhere**.
+ * Use `profiled` to handle pstats yourself **directly at the callsite**.
+ * Use `profile` to queue pstats for handling **later/elsewhere**.
 
 Between the two, you have great flexibility for a wide range of use cases in production and during development/debugging.
 
@@ -178,6 +178,27 @@ As one simpler example, we can get **sampled profiling** like this:
 
 ## FAQ
 
+### How to use this for ongoing application performance monitoring?
+
+The `pstats` objects generated from Tufte's `profiled` or `profile` calls are **~losslessly mergeable**.
+
+This gives you a lot of flexibility re: integrating Tufte as an **ongoing performance monitoring tool**.
+
+As one example, suppose you have an HTTP application that you'd like to monitor+optimize for response times:
+
+- Wrap each endpoint with a sampling call to `profile`. (E.g. with a Ring middleware).
+- Your `profile` handler can accumulate (merge) pstats into a buffer.
+- Every n minutes, drain the buffer and log endpoint performance to a db.
+- Trigger alarms if any performance info (e.g. 95th percentile response times) are out of spec. The accumulated pstats info will also be helpful in quickly diagnosing a cause.
+
+### How's the performance in production?
+
+Tufte's designed specifically to support ongoing use in production, and is **highly optimized**: its overhead is on the order of a couple nanoseconds per wrapping.
+
+If something's remotely worth profiling, Tufte's overhead should be completely insignificant.
+
+Also, keep in mind that Tufte's **conditional profiling** gives you complete control over if and when you do pay (however little) for profiling.
+
 ### Why not just use [YourKit], [JProfiler], or [VisualVM]?
 
 The traditional recommendation for Clojure profiling has usually been to use a standard JVM profiling tool like one of the above.
@@ -186,11 +207,11 @@ And they can certainly do the job, but they also tend to be a little hairy: requ
 
 In contrast, Tufte offers some interesting benefits:
 
- * Arbitrary **application-aware, form-level** profiling; measure [just] what you care about
+ * A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
+ * Arbitrary **application-aware, form-level** profiling; measure [just] what you care about at the application level
  * Simple **thread-local or multi-threaded semantics**
  * During dev/debug: check performance **right from within your REPL**
  * During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**)
- * A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
 
 Note that JVM profiling tools can still be very handy. Tufte doesn't offer memory profiling for example, and it's not well suited to forensic or very low-level profiling.
 
@@ -219,29 +240,23 @@ API        | Timbre              | Tufte                              |
 
 Basically, they serve different use cases: **benchmarking** for Criterium, and **profiling** for Tufte.
 
+Benchmarking measures performance from the outside. Profiling measures performance from the inside (using some kind of instrumentation).
+
+Essentially: benchmarking is about measuring how long something takes, while profiling is about measuring how long something takes, **and understanding why**.
+
+Both can be used for performance measurement + comparsion, and both can be used for performance optimization. The main tradeoff is: profiling generally provides deeper information at the cost of increased setup effort (instrumentation).
+
 | Library   | Measures                 | Use for                       | During    | Emphasis           |
 | --------- | ------------------------ | ----------------------------- | --------- | ------------------ |
 | Criterium | 1 Clojure form           | Benchmarking                  | Dev       | Accuracy           |
 | Tufte     | >=1 Clojure/Script forms | Profiling, basic benchmarking | Dev, prod | Flexibility, speed |
 
-So Criterium produces very accurate stats for a _single_ Clojure expression.
-
-Tufte produces _combined stats_ for an _arbitrary_ number of Clojure/Script expressions with less emphasis on decimal-digit-level accuracy.
+So Criterium produces very accurate stats for a _single_ Clojure expression while Tufte produces _combined stats_ for an _arbitrary_ number of Clojure/Script expressions, possibly over time.
 
 For example:
 
- * Use **Criterium** to measure and compare the performance of two libraries.
+ * Use **Criterium** for a one-off measurement or comparison of the performance of two libraries.
  * Use **Tufte** to measure or monitor the performance of various parts of your system and how they relate.
-
-### How's the performance in production?
-
-For thread-local profiling: _very good_. For dynamic profiling: _good_.
-
-Tufte's designed specifically to support ongoing use in production, and is **highly optimized**: so it's about as fast as it gets in both cases.
-
-I'd think of it this way: if something's _at all_ worth profiling, the overhead that Tufte introduces will be _vanishingly_ insignificant. 
-
-Also, keep in mind that Tufte's **conditional profiling** gives you complete control over if and when you do pay (however little) for profiling.
 
 ### What's the difference between thread-local and dynamic (multi-threaded) profiling?
 
@@ -276,7 +291,7 @@ If you really want to get fancy, you can also do _manual_ multi-threaded profili
 
 ### What's the difference between Clock Time and Accounted Time?
 
-> This question refers to the values reported by the `format-stats` util
+> This question refers to the values reported by the `format-pstats` util
 
 **Clock time** is just the total real-world time that elapsed between the start and end of a `profiled` or `profile` call. This is the amount of time that you'd have seen pass on a stopwatch in your hand.
 
@@ -288,6 +303,10 @@ Outcome                    | Meaning                                            
 `(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling[1]    |
 
 **[1]** For example: if you're doing concurrent work on 6 threads, then you can do 6ms of work for each 1ms of clock time.
+
+### What if I want to time something across a promise / async handler / etc.?
+
+A low-level util (`capture-time!`) is provided for this and similar use cases. See its docstring for more info.
 
 ## Contacting me / contributions
 

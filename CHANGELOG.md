@@ -1,12 +1,14 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.0.0-RC4 - 2018 Apr 17
+## v2.0.0 - 2018 Apr 22
 
 ```clojure
-[com.taoensso/tufte "2.0.0-RC4"]
+[com.taoensso/tufte "2.0.0"]
 ```
 
 > This is a major, **breaking** feature release. Please report any issues, thank you!
+
+Tufte v2 introduces API flexibility improvements to expand on Tufte's strengths as an **ongoing application performance monitoring tool**.
 
 Main objectives of the v2 API:
 
@@ -20,7 +22,7 @@ By deferring the conversion of captured times to stats, the Tufte v2 API makes i
 
 The net result: the v2 API is more flexible since it **decouples time capture and stats computation**.
 
-The decoupling is particularly handy for the ongoing monitoring of production applications: the application thread/s can inexpensively capture timing info for deferred/async digestion by a background analytics/monitoring task.
+The decoupling is particularly handy for the **ongoing performance monitoring** of production applications: the application thread/s can inexpensively capture timing info for deferred/async digestion by a background analytics/monitoring task.
 
 **tl;dr** The v2 API returns `PStats` objects that can be **~losslessly merged**, or **derefed to actually compute statistics**.
 
@@ -40,6 +42,8 @@ The decoupling is particularly handy for the ongoing monitoring of production ap
 * **New**: `profiled` and `profile` calls now accept an `:nmax` option to control size of captured time buffers (used to prevent OOMs).
 
 * **New**: Stats will now automatically include `:tufte/compaction` info when buffer sizes were exceeded.
+
+* **New**: added several new fully-documented low-level primitives for advanced users: `new-pdata`, `with-profiling`, `capture-time!`.
 
 * **Impl**: Significant performance improvements to both dynamic and thread-local profiling.
 
