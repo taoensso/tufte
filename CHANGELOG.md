@@ -1,5 +1,15 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v2.0.1 - 2018 Apr 27
+
+```clojure
+[com.taoensso/tufte "2.0.1"]
+```
+
+> This is a trivial, non-breaking hotfix release
+
+* [#27] Hotfix: fix broken Cljs build (@atroche)
+
 ## v2.0.0 - 2018 Apr 22
 
 ```clojure
