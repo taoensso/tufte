@@ -253,7 +253,7 @@
              (fn [^long acc k v]
                (let [c (count (str k))]
                  (if (> c acc) c acc)))
-             #=(count "Accounted")
+             #=(clojure.core/count "Accounted")
              id-stats)]
 
        #?(:cljs ; Simplified output w/o table
