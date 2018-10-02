@@ -212,18 +212,22 @@
 (defn remove-handler! [handler-id]
   (set (keys (swap! handlers_ dissoc handler-id))))
 
+(declare format-pstats)
+
 (defn add-basic-println-handler!
   "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern] :or {ns-pattern "*"}}]
+  [{:keys [ns-pattern format-pstats-opts]
+    :or   {ns-pattern "*"}}]
+
   (add-handler! :basic-println
     ns-pattern
     (fn [m]
-      (let [{:keys [?id ?data pstats-str_]} m]
+      (let [{:keys [?id ?data pstats]} m]
         (println
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" @pstats-str_))))))
+            "\n" (format-pstats pstats format-pstats-opts)))))))
 
 (comment (add-basic-println-handler! {}))
 
@@ -384,8 +388,6 @@
 
 (comment (enc/qb 1e6 (profiled {}))) ; 277.51
 
-(declare format-pstats)
-
 #?(:clj
    (defmacro profile
      "Always executes body, and always returns <body-result>.
@@ -525,12 +527,14 @@
   "Formats given pstats to a string table.
     Accounted < Clock => Some work was done that wasn't tracked by any p forms.
     Accounted > Clock => Nested p forms, and/or parallel threads."
-  [ps]
-  (when ps
-    (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-      (stats/format-stats (get clock :total) stats))))
+  ([ps     ] (format-pstats ps nil))
+  ([ps opts]
+   (when ps
+     (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
+       (stats/format-stats (get clock :total) stats opts)))))
 
 (comment
+  ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
   (println
     (str "\n"
       (format-pstats
@@ -538,7 +542,8 @@
           (profiled {}
             (p :foo (Thread/sleep 200))
             (p :bar (Thread/sleep 500))
-            (do     (Thread/sleep 800))))))))
+            (do     (Thread/sleep 800))))
+        {:columns [:clock :p50 :p95]}))))
 
 ;;;; fnp stuff
 
