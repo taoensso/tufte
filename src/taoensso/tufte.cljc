@@ -212,18 +212,22 @@
 (defn remove-handler! [handler-id]
   (set (keys (swap! handlers_ dissoc handler-id))))
 
+(declare format-pstats)
+
 (defn add-basic-println-handler!
   "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern] :or {ns-pattern "*"}}]
+  [{:keys [ns-pattern cols] :or {ns-pattern "*" cols stats/all-columns}}]
+  (doseq [col cols]
+    (assert (some #{col} stats/all-columns) (str "Unknown pstat column " col ", must be one of " stats/all-columns)))
   (add-handler! :basic-println
     ns-pattern
     (fn [m]
-      (let [{:keys [?id ?data pstats-str_]} m]
+      (let [{:keys [?id ?data pstats]} m]
         (println
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" @pstats-str_))))))
+            "\n" (format-pstats pstats cols)))))))
 
 (comment (add-basic-println-handler! {}))
 
@@ -384,8 +388,6 @@
 
 (comment (enc/qb 1e6 (profiled {}))) ; 277.51
 
-(declare format-pstats)
-
 #?(:clj
    (defmacro profile
      "Always executes body, and always returns <body-result>.
@@ -525,10 +527,12 @@
   "Formats given pstats to a string table.
     Accounted < Clock => Some work was done that wasn't tracked by any p forms.
     Accounted > Clock => Nested p forms, and/or parallel threads."
-  [ps]
+  [ps & [columns]]
   (when ps
-    (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-      (stats/format-stats (get clock :total) stats))))
+    (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)
+          sort-fn (fn [id m] (get m :sum))
+          columns (or columns stats/all-columns)]
+      (stats/format-stats (get clock :total) stats sort-fn columns))))
 
 (comment
   (println
