@@ -230,7 +230,7 @@
   (fmt 2387387870))
 
 
-(def all-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :total :clock])
+(def all-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total])
 
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
@@ -325,8 +325,8 @@
                   (case column :n-calls (format-n-append column (get s :n))
                                :mean  (format-n-append column (fmt mean))
                                :mad (format-n-append column (str "±" (perc (get s :mad) mean)))
-                               :total (format-n-append column (fmt sum))
-                               :clock (format-n-append column (perc sum clock-total))
+                               :total (format-n-append column (perc sum clock-total))
+                               :clock (format-n-append column (fmt sum))
                                (format-n-append column (fmt (get s column)))))
                 (enc/sb-append sb "\n")))
 
@@ -335,8 +335,8 @@
             (format-s-append :id "Accounted")
             (doseq [column columns]
               (enc/sb-append sb " ")
-              (case column :total (format-s-append column (fmt accounted-total))
-                           :clock (format-s-append column (perc accounted-total clock-total))
+              (case column :total (format-s-append column (perc accounted-total clock-total))
+                           :clock (format-s-append column (fmt accounted-total))
                            (format-s-append column "")))
 
             ; Write Clock
@@ -344,8 +344,8 @@
             (format-s-append :id "Clock")
             (doseq [column columns]
               (enc/sb-append sb " ")
-              (case column :total (format-s-append column (fmt clock-total))
-                           :clock (format-s-append column "100%")
+              (case column :total (format-s-append column "100%")
+                           :clock (format-s-append column (fmt clock-total))
                            (format-s-append column "")))
             (enc/sb-append sb "\n")
             (str sb)))))))
