@@ -322,12 +322,12 @@
                 (format-n-append :id id)
                 (doseq [column columns]
                   (enc/sb-append sb " ")
-                  (cond (= :n-calls column) (format-n-append column (get s :n))
-                        (= :mean column) (format-n-append column (fmt mean))
-                        (= :mad column) (format-n-append column (str "±" (perc (get s :mad) mean)))
-                        (= :total column) (format-n-append column (fmt sum))
-                        (= :clock column) (format-n-append column (perc sum clock-total))
-                        :else (format-n-append column (fmt (get s column)))))
+                  (case column :n-calls (format-n-append column (get s :n))
+                               :mean  (format-n-append column (fmt mean))
+                               :mad (format-n-append column (str "±" (perc (get s :mad) mean)))
+                               :total (format-n-append column (fmt sum))
+                               :clock (format-n-append column (perc sum clock-total))
+                               (format-n-append column (fmt (get s column)))))
                 (enc/sb-append sb "\n")))
 
             ; Write Accounted
@@ -335,18 +335,18 @@
             (format-s-append :id "Accounted")
             (doseq [column columns]
               (enc/sb-append sb " ")
-              (cond (= :total column) (format-s-append column (fmt accounted-total))
-                    (= :clock column) (format-s-append column (perc accounted-total clock-total))
-                    :else (format-s-append column "")))
+              (case column :total (format-s-append column (fmt accounted-total))
+                           :clock (format-s-append column (perc accounted-total clock-total))
+                           (format-s-append column "")))
 
             ; Write Clock
             (enc/sb-append sb "\n")
             (format-s-append :id "Clock")
             (doseq [column columns]
               (enc/sb-append sb " ")
-              (cond (= :total column) (format-s-append column (fmt clock-total))
-                    (= :clock column) (format-s-append column "100%")
-                    :else (format-s-append column "")))
+              (case column :total (format-s-append column (fmt clock-total))
+                           :clock (format-s-append column "100%")
+                           (format-s-append column "")))
             (enc/sb-append sb "\n")
             (str sb)))))))
 
