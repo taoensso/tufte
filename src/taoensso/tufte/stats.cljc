@@ -230,7 +230,7 @@
   (fmt 2387387870))
 
 
-(def all-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad])
+(def all-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :total :clock])
 
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
@@ -240,7 +240,6 @@
   ([clock-total id-stats sort-fn columns]
    (when id-stats
      (let [clock-total (long clock-total)
-           columns (vec (distinct (into columns [:total :clock])))
            ^long accounted-total
            (reduce-kv
              (fn [^long acc _id s]
