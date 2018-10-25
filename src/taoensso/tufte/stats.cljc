@@ -301,11 +301,11 @@
                                  :max     {:heading "Max"}
                                  :mean    {:heading "Mean"}
                                  :mad     {:n "%5s" :s "%5s" :heading "MAD"}
-                                 :total   {:n "%11s" :s "%11s" :heading "Total"}
-                                 :clock   {:n "%7s" :s "%7s" :heading "Clock"}}
+                                 :total   {:n "%6s" :s "%6s" :heading "Total"}
+                                 :clock   {:n "%6s" :s "%6s" :heading "Clock"}}
                 ^StringBuilder sb (enc/str-builder "")
-                format-n-append (fn [column s] (enc/sb-append sb (format (get-in column->pattern [column :n] "%10s") s)))
-                format-s-append (fn [column s] (enc/sb-append sb (format (get-in column->pattern [column :s] "%10s") s)))]
+                format-n-append (fn [column s] (enc/sb-append sb (format (get-in column->pattern [column :n] "%9s") s)))
+                format-s-append (fn [column s] (enc/sb-append sb (format (get-in column->pattern [column :s] "%9s") s)))]
 
             ; Write headers
             (doseq [column (into [:id] columns)]
