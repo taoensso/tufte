@@ -219,8 +219,8 @@
   (defn- fmt [nanosecs]
     (let [ns (double nanosecs)]
       (cond
-        (>= ns 6e10) (str (round2 (/ ns 6e10)) "m ")
-        (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s ")
+        (>= ns 6e10) (str (round2 (/ ns 6e10)) "m")
+        (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s")
         (>= ns 1e6)  (str (round2 (/ ns 1e6))  "ms")
         (>= ns 1e3)  (str (round2 (/ ns 1e3))  "μs")
         :else        (str (round2    ns)       "ns")))))
