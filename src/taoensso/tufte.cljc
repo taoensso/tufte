@@ -216,9 +216,11 @@
 
 (defn add-basic-println-handler!
   "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern cols] :or {ns-pattern "*" cols stats/all-columns}}]
-  (doseq [col cols]
-    (assert (some #{col} stats/all-columns) (str "Unknown pstat column " col ", must be one of " stats/all-columns)))
+  [{:keys [ns-pattern format-columns]
+    :or   {ns-pattern "*"
+           format-columns stats/all-format-columns}}]
+
+  (enc/have? [:el stats/all-format-columns] :in format-columns)
   (add-handler! :basic-println
     ns-pattern
     (fn [m]
@@ -227,7 +229,7 @@
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" (format-pstats pstats cols)))))))
+            "\n" (format-pstats pstats format-columns)))))))
 
 (comment (add-basic-println-handler! {}))
 
@@ -527,14 +529,14 @@
   "Formats given pstats to a string table.
     Accounted < Clock => Some work was done that wasn't tracked by any p forms.
     Accounted > Clock => Nested p forms, and/or parallel threads."
-  [ps & [columns]]
+  [ps & [{:keys [columns] :or {columns stats/all-format-columns}}]]
   (when ps
     (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)
-          sort-fn (fn [id m] (get m :sum))
-          columns (or columns stats/all-columns)]
+          sort-fn (fn [id m] (get m :sum))]
       (stats/format-stats (get clock :total) stats sort-fn columns))))
 
 (comment
+  ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
   (println
     (str "\n"
       (format-pstats
@@ -542,7 +544,8 @@
           (profiled {}
             (p :foo (Thread/sleep 200))
             (p :bar (Thread/sleep 500))
-            (do     (Thread/sleep 800))))))))
+            (do     (Thread/sleep 800))))
+        {:columns [:clock :p50 :p95]}))))
 
 ;;;; fnp stuff
 
