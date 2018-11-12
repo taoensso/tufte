@@ -429,4 +429,34 @@
                    "    Clock                          15.00ns   100%"]
                   (->> (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
                        (str/split-lines)
-                       (remove empty?)))))))
+                       (remove empty?))))))
+  (test/testing "Format seconds"
+    (let [data {:clock {:total 2e9},
+                :stats {:foo {:n 1
+                              :mean 2e9
+                              :sum 2e9}
+                        :bar {:n 1
+                              :mean 15
+                              :sum 15}}}]
+      (test/is (= ["      pId     nCalls       Mean"
+                   "     :foo          1     2.00s "
+                   "     :bar          1    15.00ns"]
+                  (->> (tufte/format-pstats data {:columns [:n-calls :mean]})
+                       (str/split-lines)
+                       (remove empty?)
+                       (take 3))))))
+  (test/testing "Format seconds only"
+    (let [data {:clock {:total 2e9},
+                :stats {:foo {:n 1
+                              :mean 2e9
+                              :sum 2e9}
+                        :bar {:n 1
+                              :mean 1e9
+                              :sum 1e9}}}]
+      (test/is (= ["      pId     nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
+                   "     :foo          1     2.00s " ; Current behaviour looks a little strange.
+                   "     :bar          1     1.00s "]
+                  (->> (tufte/format-pstats data {:columns [:n-calls :mean]})
+                       (str/split-lines)
+                       (remove empty?)
+                       (take 3)))))))
