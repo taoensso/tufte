@@ -32,7 +32,10 @@
 ;;;; Mutable accumulators
 
 (deftype Time [id ^long t])
+(deftype TimeSpan [^long t0 ^long t1])
 (comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
+(comment (let [l [(TimeSpan. 1 2) (TimeSpan. 0 1)]]
+           (.-t0 (first (sort-by (fn [^TimeSpan x] (.-t0 x)) l)))))
 
 (defmacro ^:private mt-acc     [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
 (defmacro ^:private mt-add [mt x] `(enc/if-cljs (.push   ~mt ~x) (.add  ~(with-meta mt {:tag 'LinkedList}) ~x)))
@@ -43,7 +46,7 @@
 ;;;; PStats (Profiling Stats)
 ;; API-level state we'll return from `profiled`: derefable, mergeable
 
-(deftype PStats [pd ^long t1 realized_]
+(deftype PStats [pd ^long t1 time-span realized_]
   #?@(:clj  [clojure.lang.IDeref    (deref     [_]           @realized_)]
       :cljs [             IDeref   (-deref     [_]           @realized_)])
   #?@(:clj  [clojure.lang.IPending (isRealized [_] (realized? realized_))]
@@ -65,11 +68,12 @@
 
 (comment (enc/qb 1e6 (new-pdata-local 10) (new-pdata-dynamic 10))) ; [98.18 138.28]
 
-(declare ^:private deref-pstats)
+(declare deref-pstats)
 (defn- deref-pdata "PData->PStats" [^PData pd]
   ;; NB (.-acc pd) should never be mutated from this point!
-  (let [t1 (enc/now-nano*)]
-    (PStats. pd t1 (delay (deref-pstats pd t1)))))
+  (let [t1 (enc/now-nano*)
+        time-span [(TimeSpan. (.-t0 pd) t1)]]
+    (PStats. pd t1 time-span (delay (deref-pstats pd t1 time-span)))))
 
 (comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
 
@@ -134,9 +138,44 @@
     (mt-add mt (Time. :foo 2))
     (times-into-id-times {:foo '(1)} mt)))
 
-(defn- deref-pstats
+; Based on https://codereview.stackexchange.com/a/126927
+(defn time-union [time-spans]
+  (if (not-empty time-spans)
+    (let [time-spans (sort-by (fn [^TimeSpan x] (.-t0 x)) time-spans)
+          ^TimeSpan m (first time-spans)]
+      (loop [total-time 0
+             current-interval-end (.-t0 m)
+             time-spans time-spans]
+        (if (empty? time-spans)
+          total-time
+          (let [^TimeSpan time-span (first time-spans)
+                t0 (.-t0 time-span)
+                t1 (.-t1 time-span)]
+            (if (> t1 current-interval-end)
+              (recur (+ total-time (- t1 (Math/max t0 current-interval-end))) t1 (rest time-spans))
+              (recur total-time current-interval-end (rest time-spans)))))))
+    0))
+
+(comment
+  (time-union nil)
+  (time-union [])
+  (time-union [(TimeSpan. 1 3) (TimeSpan. 3 6)])
+  (time-union [(TimeSpan. 3 6) (TimeSpan. 1 3)])
+  (time-union [(TimeSpan. 1 10) (TimeSpan. 3 6)])
+  (time-union [(TimeSpan. 10 14)
+               (TimeSpan. 4 18)
+               (TimeSpan. 19 20)
+               (TimeSpan. 19 20)
+               (TimeSpan. 13 20)])
+  (enc/qb 1e6 (time-union [(TimeSpan. 10 14)
+                           (TimeSpan. 4 18)
+                           (TimeSpan. 19 20)
+                           (TimeSpan. 19 20)
+                           (TimeSpan. 13 20)]))) ; 500.19
+
+(defn deref-pstats
   "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
-  [^PData pd ^long t1]
+  [^PData pd ^long t1 time-span]
   (let [t0      (.-t0      pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate (enc/force-ref pstate_)
@@ -152,13 +191,20 @@
           id-times
           id-times)]
 
-    {:clock {:t0 t0 :t1 t1 :total (- t1 t0)}
+    {:clock {:t0 t0 :t1 t1 :total (time-union time-span)}
      :stats id-stats}))
 
 (comment @@(new-pdata-local 10))
 
 (defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
 (comment (fast-into nil nil))
+
+(defn merge-time-span
+  [nmax t1 ts0 ts1]
+  (if (> (+ (count ts0) (count ts1)) nmax)
+    (let [time-spent (time-union (reduce conj ts0 ts1))]
+      [(TimeSpan. (- t1 time-spent) t1)])
+    (reduce conj ts0 ts1)))
 
 (defn merge-pstats "Compacting merge"
   ([     ps0 ps1] (merge-pstats nil ps0 ps1))
@@ -192,6 +238,11 @@
              pd2-id-times (times-into-id-times pd2-id-times (.-acc pd1-pstate))
              pd2-id-stats pd0-id-stats
 
+             ts0 (.-time-span ps0)
+             ts1 (.-time-span ps1)
+
+             time-span (merge-time-span nmax ps2-t1 ts0 ts1)
+
              ;; In a single pass, merge pd1 into base pd2 (based on pd0)
              [pd2-id-times pd2-id-stats]
              (reduce-kv
@@ -216,7 +267,7 @@
                pd1-id-times)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
-         (PStats. pd2 ps2-t1 (delay (deref-pstats pd2 ps2-t1))))
+         (PStats. pd2 ps2-t1 time-span (delay (deref-pstats pd2 ps2-t1 time-span))))
 
        ps0)
      ps1)))

@@ -1,10 +1,11 @@
 (ns taoensso.tufte-tests
   (:require
-   [clojure.test    :as test  :refer [is]]
-   [taoensso.tufte  :as tufte :refer [profiled profile p]]
-   [taoensso.encore :as enc]
-   [clojure.string  :as str])
-  (:import [taoensso.tufte.impl PState PData PStats]))
+   [clojure.test        :as test  :refer [is]]
+   [taoensso.tufte      :as tufte :refer [profiled profile p]]
+   [taoensso.tufte.impl :as impl]
+   [taoensso.encore     :as enc]
+   [clojure.string      :as str])
+  (:import [taoensso.tufte.impl PState PData PStats TimeSpan]))
 
 (comment
   (remove-ns      'taoensso.tufte-tests)
@@ -209,6 +210,38 @@
       (is (= (get-in @ps3 [:stats :bar :n])  60))
       (is (= (get-in @ps3 [:stats :tufte/compaction :n]) 20)) ; Merging does uncounted compaction
       )))
+
+(defn pstats-time-span
+  [t0 t1]
+  (let [pd (PData. 8e5 t0 (PState. nil nil nil))
+        time-span [(TimeSpan. t0 t1)]]
+    (PStats. pd t1 time-span (delay (impl/deref-pstats pd t1 time-span)))))
+
+(test/deftest merge-clock-events
+  (test/testing "Merge discrete events"
+    (is (= 13 (get-in @(tufte/merge-pstats (pstats-time-span 0 6) (pstats-time-span 10 17)) [:clock :total])))
+    (is (= 5 (get-in @(tufte/merge-pstats (pstats-time-span 1 3) (pstats-time-span 3 6)) [:clock :total]))))
+  (test/testing "Merge overlapping events"
+    (is (= 9 (get-in @(tufte/merge-pstats (pstats-time-span 1 10) (pstats-time-span 3 6)) [:clock :total])))
+    (is (= 11 (get-in @(tufte/merge-pstats (pstats-time-span 0 10) (pstats-time-span 7 11)) [:clock :total])))
+    (is (= 16
+           (-> (reduce tufte/merge-pstats [(pstats-time-span 10 14)
+                                           (pstats-time-span 4 18)
+                                           (pstats-time-span 19 20)
+                                           (pstats-time-span 19 20)
+                                           (pstats-time-span 13 20)])
+               (deref)
+               (get-in [:clock :total]))))))
+
+(comment
+  (time (-> (time (reduce (fn [o v]
+                            (impl/merge-time-span 8e5 (+ 10 v) o [(TimeSpan. v (+ 10 v))]))
+                          [(TimeSpan. 0 10)]
+                          (drop 1 (range 1e7))))
+            (impl/time-union))) ; about 3200 ms => 320 ns per iteration
+    (time (-> (time (reduce tufte/merge-pstats (map #(pstats-time-span % (+ % 10)) (range 1e7))))
+              (deref)
+              (get-in [:clock :total])))) ; about 5000 ms => 500 ns per iteration
 
 (defn add-test-handler! []
   (let [p (promise)]
