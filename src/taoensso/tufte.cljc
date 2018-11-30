@@ -229,7 +229,7 @@
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" (format-pstats pstats format-columns)))))))
+            "\n" (format-pstats pstats {:columns format-columns})))))))
 
 (comment (add-basic-println-handler! {}))
 
