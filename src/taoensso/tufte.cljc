@@ -529,12 +529,15 @@
   "Formats given pstats to a string table.
     Accounted < Clock => Some work was done that wasn't tracked by any p forms.
     Accounted > Clock => Nested p forms, and/or parallel threads."
-  [ps & [{:keys [columns] :or {columns stats/all-format-columns}}]]
+  [ps & [{:keys [columns format-id-fn]
+          :or   {columns stats/all-format-columns
+                 format-id-fn (fn [id] (str id))}}]]
   (when ps
     (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)
           sort-fn (fn [id m] (get m :sum))]
       (stats/format-stats (get clock :total) stats {:sort-fn sort-fn
-                                                    :columns columns}))))
+                                                    :columns columns
+                                                    :format-id-fn format-id-fn}))))
 
 (comment
   ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]

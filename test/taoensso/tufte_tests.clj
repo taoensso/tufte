@@ -449,6 +449,26 @@
                   (->> (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
                        (str/split-lines)
                        (remove empty?))))))
+  (test/testing "format-stats with namespaced symbols and custom id-formatter"
+    (let [data {:clock {:total 15},
+                :stats {:foo/bar {:n 10000
+                                  :min 1
+                                  :p50 2
+                                  :p90 3
+                                  :p95 4
+                                  :p99 5
+                                  :max 6
+                                  :mean 7
+                                  :mad 5.062294599999648
+                                  :sum 15}}}]
+      (test/is (= ["      pId     nCalls       Mean      Clock  Total"
+                   "      bar     10,000     7.00ns    15.00ns   100%"
+                   "Accounted                          15.00ns   100%"
+                   "    Clock                          15.00ns   100%"]
+                  (->> (tufte/format-pstats data {:columns      [:n-calls :mean :clock :total]
+                                                  :format-id-fn name})
+                       (str/split-lines)
+                       (remove empty?))))))
   (test/testing "Format seconds"
     (let [data {:clock {:total 2e9},
                 :stats {:foo {:n 1

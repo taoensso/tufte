@@ -245,9 +245,10 @@
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  [clock-total id-stats {:keys [sort-fn columns]
-                         :or   {sort-fn (fn [id m] (get m :sum))
-                                columns all-format-columns}}]
+  [clock-total id-stats {:keys [sort-fn columns format-id-fn]
+                         :or   {sort-fn      (fn [id m] (get m :sum))
+                                columns      all-format-columns
+                                format-id-fn (fn [id] (str id))}}]
   (when id-stats
     (enc/have? [:el all-format-columns] :in columns)
     (let [clock-total (long clock-total)
@@ -266,7 +267,7 @@
           ^long max-id-width
           (reduce-kv
             (fn [^long acc k v]
-              (let [c (count (str k))]
+              (let [c (count (format-id-fn k))]
                 (if (> c acc) c acc)))
             9 ; (count "Accounted")
             id-stats)
@@ -302,7 +303,7 @@
               sum  (get s :sum)
               mean (get s :mean)]
 
-          (append-col :id (str id))
+          (append-col :id (format-id-fn id))
           (doseq [column columns]
             (enc/sb-append sb " ")
             (case column
