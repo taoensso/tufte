@@ -216,9 +216,10 @@
 
 (defn add-basic-println-handler!
   "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern format-columns]
+  [{:keys [ns-pattern format-columns format-id-fn]
     :or   {ns-pattern "*"
-           format-columns stats/all-format-columns}}]
+           format-columns stats/all-format-columns
+           format-id-fn (fn [id] (str id))}}]
 
   (enc/have? [:el stats/all-format-columns] :in format-columns)
   (add-handler! :basic-println
@@ -229,7 +230,7 @@
           (str
             (when ?id   (str "\nid: "   ?id))
             (when ?data (str "\ndata: " ?data))
-            "\n" (format-pstats pstats {:columns format-columns})))))))
+            "\n" (format-pstats pstats {:columns format-columns :format-id-fn format-id-fn})))))))
 
 (comment (add-basic-println-handler! {}))
 
