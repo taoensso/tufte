@@ -533,7 +533,8 @@
   (when ps
     (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)
           sort-fn (fn [id m] (get m :sum))]
-      (stats/format-stats (get clock :total) stats sort-fn columns))))
+      (stats/format-stats (get clock :total) stats {:sort-fn sort-fn
+                                                    :columns columns}))))
 
 (comment
   ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]

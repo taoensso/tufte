@@ -245,98 +245,98 @@
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  ([clock-total id-stats                ] (format-stats clock-total id-stats (fn [id m] (get m :sum)) all-format-columns))
-  ([clock-total id-stats sort-fn        ] (format-stats clock-total id-stats sort-fn                 all-format-columns))
-  ([clock-total id-stats sort-fn columns]
-   (when id-stats
-     (enc/have? [:el all-format-columns] :in columns)
-     (let [clock-total (long clock-total)
-           ^long accounted-total
-           (reduce-kv
-             (fn [^long acc _id s]
-               (+ acc (long (get s :sum))))
-             0 id-stats)
+  [clock-total id-stats {:keys [sort-fn columns]
+                         :or   {sort-fn (fn [id m] (get m :sum))
+                                columns all-format-columns}}]
+  (when id-stats
+    (enc/have? [:el all-format-columns] :in columns)
+    (let [clock-total (long clock-total)
+          ^long accounted-total
+          (reduce-kv
+            (fn [^long acc _id s]
+              (+ acc (long (get s :sum))))
+            0 id-stats)
 
-           sorted-ids
-           (sort-by
-             (fn [id] (sort-fn id (get id-stats id)))
-             enc/rcompare
-             (keys id-stats))
+          sorted-ids
+          (sort-by
+            (fn [id] (sort-fn id (get id-stats id)))
+            enc/rcompare
+            (keys id-stats))
 
-           ^long max-id-width
-           (reduce-kv
-             (fn [^long acc k v]
-               (let [c (count (str k))]
-                 (if (> c acc) c acc)))
-             9 ; (count "Accounted")
-             id-stats)
+          ^long max-id-width
+          (reduce-kv
+            (fn [^long acc k v]
+              (let [c (count (str k))]
+                (if (> c acc) c acc)))
+            9 ; (count "Accounted")
+            id-stats)
 
-           column->pattern {:id      {:heading "pId"    :min-width max-id-width}
-                            :n-calls {:heading "nCalls"}
-                            :min     {:heading "Min"}
-                            :p50     {:heading "50% ≤"}
-                            :p90     {:heading "90% ≤"}
-                            :p95     {:heading "95% ≤"}
-                            :p99     {:heading "99% ≤"}
-                            :max     {:heading "Max"}
-                            :mean    {:heading "Mean"}
-                            :mad     {:heading "MAD"   :min-width 5}
-                            :total   {:heading "Total" :min-width 6}
-                            :clock   {:heading "Clock"}}
+          column->pattern {:id      {:heading "pId"    :min-width max-id-width}
+                           :n-calls {:heading "nCalls"}
+                           :min     {:heading "Min"}
+                           :p50     {:heading "50% ≤"}
+                           :p90     {:heading "90% ≤"}
+                           :p95     {:heading "95% ≤"}
+                           :p99     {:heading "99% ≤"}
+                           :max     {:heading "Max"}
+                           :mean    {:heading "Mean"}
+                           :mad     {:heading "MAD"   :min-width 5}
+                           :total   {:heading "Total" :min-width 6}
+                           :clock   {:heading "Clock"}}
 
-           sb (enc/str-builder "")
+          sb (enc/str-builder "")
 
-           append-col (fn [column s] (enc/sb-append sb (enc/format (str "%" (get-in column->pattern [column :min-width] 10) "s") s)))]
+          append-col (fn [column s] (enc/sb-append sb (enc/format (str "%" (get-in column->pattern [column :min-width] 10) "s") s)))]
 
-       ; Write header rows
-       (doseq [column (into [:id] columns)]
-         (when-not (= :id column)
-           (enc/sb-append sb " "))
-         (append-col column (get-in column->pattern [column :heading])))
+      ; Write header rows
+      (doseq [column (into [:id] columns)]
+        (when-not (= :id column)
+          (enc/sb-append sb " "))
+        (append-col column (get-in column->pattern [column :heading])))
 
-       (enc/sb-append sb "\n\n")
+      (enc/sb-append sb "\n\n")
 
-       ; Write id rows
-       (doseq [id sorted-ids]
-         (let [s (get id-stats id)
-               sum  (get s :sum)
-               mean (get s :mean)]
+      ; Write id rows
+      (doseq [id sorted-ids]
+        (let [s (get id-stats id)
+              sum  (get s :sum)
+              mean (get s :mean)]
 
-           (append-col :id (str id))
-           (doseq [column columns]
-             (enc/sb-append sb " ")
-             (case column
-               :n-calls (append-col column (fmt-comma (get s :n)))
-               :mean    (append-col column (fmt mean))
-               :mad     (append-col column (str "±" (perc (get s :mad) mean)))
-               :total   (append-col column (perc sum clock-total))
-               :clock   (append-col column (fmt sum))
-               (do      (append-col column (fmt (get s column))))))
+          (append-col :id (str id))
+          (doseq [column columns]
+            (enc/sb-append sb " ")
+            (case column
+              :n-calls (append-col column (fmt-comma (get s :n)))
+              :mean    (append-col column (fmt mean))
+              :mad     (append-col column (str "±" (perc (get s :mad) mean)))
+              :total   (append-col column (perc sum clock-total))
+              :clock   (append-col column (fmt sum))
+              (do      (append-col column (fmt (get s column))))))
 
-           (enc/sb-append sb "\n")))
+          (enc/sb-append sb "\n")))
 
-       ; Write accounted row
-       (enc/sb-append sb "\n")
-       (append-col :id "Accounted")
-       (doseq [column columns]
-         (enc/sb-append sb " ")
-         (case column
-           :total (append-col column (perc accounted-total clock-total))
-           :clock (append-col column (fmt accounted-total))
-           (do    (append-col column ""))))
+      ; Write accounted row
+      (enc/sb-append sb "\n")
+      (append-col :id "Accounted")
+      (doseq [column columns]
+        (enc/sb-append sb " ")
+        (case column
+          :total (append-col column (perc accounted-total clock-total))
+          :clock (append-col column (fmt accounted-total))
+          (do    (append-col column ""))))
 
-       ; Write clock row
-       (enc/sb-append sb "\n")
-       (append-col :id "Clock")
-       (doseq [column columns]
-         (enc/sb-append sb " ")
-         (case column
-           :total (append-col column "100%")
-           :clock (append-col column (fmt clock-total))
-           (do    (append-col column ""))))
+      ; Write clock row
+      (enc/sb-append sb "\n")
+      (append-col :id "Clock")
+      (doseq [column columns]
+        (enc/sb-append sb " ")
+        (case column
+          :total (append-col column "100%")
+          :clock (append-col column (fmt clock-total))
+          (do    (append-col column ""))))
 
-       (enc/sb-append sb "\n")
-       (str sb)))))
+      (enc/sb-append sb "\n")
+      (str sb))))
 
 (comment
   (println
