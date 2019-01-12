@@ -417,20 +417,20 @@
                               :sum 15}}}]
 
       (test/is
-        (= ["      pId     nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
-            "     :foo     10,000     1.00ns     2.00ns     3.00ns     4.00ns     5.00ns     6.00ns     7.00ns  ±72%    15.00ns   100%"
+        (= ["pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
+            ":foo          10,000     1.00ns     2.00ns     3.00ns     4.00ns     5.00ns     6.00ns     7.00ns  ±72%    15.00ns   100%"
             "Accounted                                                                                                  15.00ns   100%"
-            "    Clock                                                                                                  15.00ns   100%"]
+            "Clock                                                                                                      15.00ns   100%"]
           (->>
             (tufte/format-pstats data)
             (str/split-lines)
             (remove empty?))))
 
       (test/is
-        (= ["      pId     nCalls       Mean      Clock  Total"
-            "     :foo     10,000     7.00ns    15.00ns   100%"
+        (= ["pId           nCalls       Mean      Clock  Total"
+            ":foo          10,000     7.00ns    15.00ns   100%"
             "Accounted                          15.00ns   100%"
-            "    Clock                          15.00ns   100%"]
+            "Clock                              15.00ns   100%"]
           (->>
             (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
             (str/split-lines)
@@ -450,10 +450,10 @@
                                   :sum 15}}}]
 
       (test/is
-        (= ["      pId     nCalls       Mean      Clock  Total"
-            " :foo/bar     10,000     7.00ns    15.00ns   100%"
+        (= ["pId           nCalls       Mean      Clock  Total"
+            ":foo/bar      10,000     7.00ns    15.00ns   100%"
             "Accounted                          15.00ns   100%"
-            "    Clock                          15.00ns   100%"]
+            "Clock                              15.00ns   100%"]
           (->>
             (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
             (str/split-lines)
@@ -465,9 +465,9 @@
                         :bar {:n 1 :mean 15  :sum 15}}}]
 
       (test/is
-        (= ["      pId     nCalls       Mean"
-            "     :foo          1     2.00s "
-            "     :bar          1    15.00ns"]
+        (= ["pId           nCalls       Mean"
+            ":foo               1     2.00s "
+            ":bar               1    15.00ns"]
           (->>
             (tufte/format-pstats data {:columns [:n-calls :mean]})
             (str/split-lines)
@@ -480,9 +480,9 @@
                         :bar {:n 1 :mean 1e9 :sum 1e9}}}]
 
       (test/is
-        (= ["      pId     nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
-            "     :foo          1     2.00s " ; Current behaviour looks a little strange.
-            "     :bar          1     1.00s "]
+        (= ["pId           nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
+            ":foo               1     2.00s " ; Current behaviour looks a little strange.
+            ":bar               1     1.00s "]
           (->>
             (tufte/format-pstats data {:columns [:n-calls :mean]})
             (str/split-lines)
