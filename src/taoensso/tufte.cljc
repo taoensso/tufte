@@ -346,7 +346,7 @@
        occurs. This is intentional and a useful property. Compare:
 
        (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-       (profiled {} @(delay (Thread/sleep 2000))) ; Does counts sleep"
+       (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
@@ -412,8 +412,8 @@
        will only contribute to profiling results if/when evaluation actually
        occurs. This is intentional and a useful property. Compare:
 
-       (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-       (profiled {} @(delay (Thread/sleep 2000))) ; Does count sleep"
+       (profile {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
+       (profile {} @(delay (Thread/sleep 2000))) ; Does    count sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
