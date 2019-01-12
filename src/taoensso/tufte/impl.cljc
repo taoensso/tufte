@@ -24,7 +24,10 @@
             [taoensso.tufte.stats :as stats])
   #?(:clj
      (:import [java.util LinkedList]
-              [java.util.concurrent ArrayBlockingQueue])))
+              [java.util.concurrent ArrayBlockingQueue]))
+  #?(:cljs
+     (:require-macros
+      [taoensso.tufte.impl :refer [mt-acc mt-add mt-count atom?]])))
 
 ;;;; Mutable accumulators
 
