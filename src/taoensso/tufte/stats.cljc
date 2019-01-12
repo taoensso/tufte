@@ -272,7 +272,8 @@
             9 ; (count "Accounted")
             id-stats)
 
-          column->pattern {:id      {:heading "pId"    :min-width max-id-width}
+          column->pattern {:id      {:heading "pId"    :min-width max-id-width
+                                                       :align :left}
                            :n-calls {:heading "nCalls"}
                            :min     {:heading "Min"}
                            :p50     {:heading "50% ≤"}
@@ -287,7 +288,14 @@
 
           sb (enc/str-builder "")
 
-          append-col (fn [column s] (enc/sb-append sb (enc/format (str "%" (get-in column->pattern [column :min-width] 10) "s") s)))]
+          append-col (fn [column s]
+                       (let [{:keys [min-width align]
+                              :or {min-width 10 align :right}} (get column->pattern column)]
+                         (enc/sb-append sb
+                           (enc/format (str "%" (case align :left "-" "")
+                                                min-width
+                                                "s")
+                                       s))))]
 
       ; Write header rows
       (doseq [column (into [:id] columns)]
