@@ -31,17 +31,92 @@
 
 ;;;; Mutable accumulators
 
-(deftype Time [id ^long t])
-(deftype TimeSpan [^long t0 ^long t1])
-(comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
-(comment (let [l [(TimeSpan. 1 2) (TimeSpan. 0 1)]]
-           (.-t0 (first (sort-by (fn [^TimeSpan x] (.-t0 x)) l)))))
-
 (defmacro ^:private mt-acc     [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
 (defmacro ^:private mt-add [mt x] `(enc/if-cljs (.push   ~mt ~x) (.add  ~(with-meta mt {:tag 'LinkedList}) ~x)))
 (defmacro ^:private mt-count [mt] `(enc/if-cljs (alength ~mt)    (.size ~(with-meta mt {:tag 'LinkedList}))))
 
 (comment (enc/qb 1e6 (mt-acc) (atom nil))) ; [29.14 57.76]
+
+;;;; Time
+
+(deftype Time [id ^long t])
+(comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
+
+(deftype TimeSpan [^long t0 ^long t1])
+(comment
+  (let [l [(TimeSpan. 1 2) (TimeSpan. 0 1)]]
+    (.-t0 (first (sort-by (fn [^TimeSpan x] (.-t0 x)) l)))))
+
+(defn- time-union
+  "Returns total clock time from given `TimeSpan`s.
+  Based on https://codereview.stackexchange.com/a/126927"
+  [time-spans]
+  (if (empty? time-spans)
+    0
+    (let [time-spans (sort-by (fn [^TimeSpan x] (.-t0 x)) time-spans)
+          [^TimeSpan ts1] time-spans]
+
+      ;; why do we need to presort?
+      (reduce
+        (fn [acc in]
+          )
+        time-spans
+
+        )
+
+
+
+      (loop [total-time 0
+             current-interval-end (.-t0 ts1)
+             time-spans time-spans]
+        (if (empty? time-spans)
+          total-time
+          (let [^TimeSpan time-span (first time-spans)
+                t0 (.-t0 time-span)
+                t1 (.-t1 time-span)]
+            (if (> t1 current-interval-end)
+              (recur
+                (+ total-time (- t1 (Math/max t0 current-interval-end)))
+                t1
+                (rest time-spans)
+                )
+
+              (recur
+                total-time
+                current-interval-end
+                (rest time-spans)))))))))
+
+;; why do we need the ability to do this at all?
+;; so we're supporting the ability to
+
+;; what we're looking for is... total CLOCK time while executing [anything?]
+
+;; total measured time is easy
+
+[(TimeSpan.  4 18) ; +14
+ (TimeSpan. 10 14) 
+ (TimeSpan. 13 20) ; +2
+ (TimeSpan. 19 20)
+ (TimeSpan. 19 20)]
+
+;; 4 - 20, 20 - 4 = 16
+
+(comment
+  (time-union nil)
+  (time-union [])
+  (time-union [(TimeSpan. 1 3) (TimeSpan. 3 6)])5
+  (time-union [(TimeSpan. 3 6) (TimeSpan. 1 3)])5
+  (time-union [(TimeSpan. 1 10) (TimeSpan. 3 6)])9
+  (time-union [(TimeSpan. 10 14)
+               (TimeSpan. 4 18)
+               (TimeSpan. 19 20)
+               (TimeSpan. 19 20)
+               (TimeSpan. 13 20)])16
+  (enc/qb 1e6 (time-union [(TimeSpan. 10 14)
+                           (TimeSpan. 4 18)
+                           (TimeSpan. 19 20)
+                           (TimeSpan. 19 20)
+                           (TimeSpan. 13 20)]))) ; 16 500.19
 
 ;;;; PStats (Profiling Stats)
 ;; API-level state we'll return from `profiled`: derefable, mergeable
