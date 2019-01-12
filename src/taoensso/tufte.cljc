@@ -24,7 +24,11 @@
     Tufte profiling is highly optimized: even without elision, you can usually
     leave profiling enabled in production (e.g. for sampled profiling, or to
     detect unusual performance behaviour). Tufte's stats maps are well suited
-    to programmatic monitoring."
+    to programmatic monitoring.
+
+  Abbreviations, etc.
+    - form  id = pid = id given in `p`
+    - group id = gid = id given in `profile`"
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
@@ -177,7 +181,7 @@
   Map args:
     :ns-str      - Namespace string where `profile` call took place
     :level       - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
-    :?id         - Optional id,              given in `(profile {:id    _} ...)`
+    :?id         - Optional group id,        given in `(profile {:id    _} ...)`
     :?data       - Optional arb data,        given in `(profile {:data  _} ...)`
     :pstats      - As in `(second (profiled ...))`. Derefable, mergeable.
     :pstats-str_ - `(delay (format-pstats pstats))
@@ -216,18 +220,17 @@
 
 (defn add-basic-println-handler!
   "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern format-pstats-opts]
-    :or   {ns-pattern "*"}}]
+  [{:keys [ns-pattern handler-id format-pstats-opts]
+    :or   {ns-pattern "*"
+           handler-id :basic-println}}]
 
-  (add-handler! :basic-println
-    ns-pattern
-    (fn [m]
-      (let [{:keys [?id ?data pstats]} m]
-        (println
-          (str
-            (when ?id   (str "\nid: "   ?id))
-            (when ?data (str "\ndata: " ?data))
-            "\n" (format-pstats pstats format-pstats-opts)))))))
+  (add-handler! handler-id ns-pattern
+    (fn [{:keys [?id ?data pstats]}]
+      (println
+        (str
+          (when ?id   (str "\nid: "   ?id))
+          (when ?data (str "\ndata: " ?data))
+          "\n" (format-pstats pstats format-pstats-opts))))))
 
 (comment (add-basic-println-handler! {}))
 
@@ -404,7 +407,7 @@
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
        :nmax     - ~Max captures per id before compaction ; Default is 8e5
        :when     - Optional arbitrary conditional form (e.g. boolean expr)
-       :id       - Optional stats id provided to handlers (e.g. `::my-stats-1`)
+       :id       - Optional group id provided to handlers (e.g. `::my-stats-1`)
        :data     - Optional arbitrary data provided to handlers
 
      Note on laziness:
@@ -451,7 +454,7 @@
      time of body.
 
      Compile-time opts:
-      :id    - Id for this body in stats output (e.g. `::my-fn-call`)
+      :id    - Form id for this body in stats output (e.g. `::my-fn-call`)
       :level - e/o #{0 1 2 3 4 5} ; Default is `5`"
 
      {:arglists '([id & body] [opts & body])}
@@ -522,6 +525,11 @@
   ([       ] nil)
   ([ps0    ] ps0)
   ([ps0 ps1] (impl/merge-pstats ps0 ps1)))
+
+(comment
+  (let [[_ ps1] (profiled {} (p :p1))
+        [_ ps2] (profiled {} (p :p1))]
+    (enc/qb 1e5 (merge-pstats ps1 ps2))))
 
 (defn format-pstats
   "Formats given pstats to a string table.
@@ -618,37 +626,117 @@
   (profiled {} (foo 5)))
 
 ;;;; Stats accumulators (experimental)
+;; TODO Document use
 
-(deftype StatsAccumulator [pstats_]
-  #?@(:clj  [clojure.lang.IDeref  (deref [_] @pstats_)]
-      :cljs [             IDeref (-deref [_] @pstats_)])
-  #?@(:clj  [clojure.lang.IFn  (invoke [_ ps1] (swap! pstats_ (fn [ps0] (merge-pstats ps0 ps1))))]
-      :cljs [             IFn (-invoke [_ ps1] (swap! pstats_ (fn [ps0] (merge-pstats ps0 ps1))))]))
+(defn- sacc-drain-and-merge! [pstats_] (enc/reset-in! pstats_ {}))
+(defn- sacc-add!             [pstats_ group-id ps]
+  (when (and group-id ps)
+    ;; Contention would be expensive, consumer should serialize:
+    (swap! pstats_ (fn [m] (assoc m group-id (impl/merge-pstats (get m group-id) ps))))
+    true))
+
+(deftype StatsAccumulator [pstats_] ; {<group-id> <pstats>}
+  #?@(:clj  [clojure.lang.IFn  (invoke [_ group-id ps] (sacc-add! pstats_ group-id ps))]
+      :cljs [             IFn (-invoke [_ group-id ps] (sacc-add! pstats_ group-id ps))])
+  #?@(:clj  [clojure.lang.IDeref  (deref [_] (sacc-drain-and-merge! pstats_))]
+      :cljs [             IDeref (-deref [_] (sacc-drain-and-merge! pstats_))]))
 
 (defn stats-accumulator
   "Experimental, subject to change!
-  Small util to help collect (merge) pstats from multiple runs or threads.
+  Small util to help merge pstats from multiple runs or threads.
 
-  Returns a stateful StatsAccumulator, `acc`:
-    - `@acc`           ; Returns current pstats
-    - `(acc <pstats>)` ; Synchronously merges given pstats into accumulator
+  Returns a stateful StatsAccumulator (`sacc`) with:
+    - `(sacc <group-id> <pstats>)` ; Merges given pstats under given group id
+    - `@sacc`                      ; Drains accumulator and returns {<group-id> <merged-pstats>}
 
-  Note that you may want some kind of async/buffer/serialization mechanism in
-  front of merge calls (e.g. an agent)."
-  ([init-pstats] (StatsAccumulator. (atom init-pstats)))
-  ([           ] (StatsAccumulator. (atom nil))))
+  Note that you may want some kind of async/buffer/serialization
+  mechanism in front of merge calls (e.g. an agent).
 
-(defn accumulate-stats "Experimental, subject to change!"
-  [stats-accumulator [result ?pstats]]
-  (when ?pstats (stats-accumulator ?pstats))
-  result)
+  See also `add-accumulating-handler!`."
+  [] (StatsAccumulator. (atom {})))
 
 (comment
   (enc/qb 1e6 (stats-accumulator)) ; 66.75
   (let [sacc (stats-accumulator)]
-    (accumulate-stats sacc (profiled {} (p :p1)))
-    (accumulate-stats sacc (profiled {} (p :p2)))
-    @@sacc))
+    (sacc :profiled1 (second (profiled {} (p :p1))))
+    (Thread/sleep 100)
+    (sacc :profiled2 (second (profiled {} (p :p2))))
+    [@sacc @sacc]))
+
+(defn add-accumulating-handler!
+  "Experimental, subject to change!
+
+  Creates a new StatsAccumulator (and agent in clj), then
+  registers a handler to accumulate `profile` output to the
+  StatsAccumulator using the agent.
+
+  Returns the StatsAccumulator. Deref it to drain the
+  accumulator and return {<group-id> <merged-pstats>}.
+
+  One common pattern is to deref the accumulator every n
+  minutes/etc. to get a view of performance over the
+  period, e.g.:
+
+  (defonce my-sacc (add-accumulating-handler! \"*\"))
+  (defonce my-sacc-drainer
+    ;; Will drain and print formatted stats every minute
+    (future
+      (while true
+        (when-let [m (not-empty @my-sacc)]
+          (println (format-grouped-pstats m))
+          (Thread/sleep 60000)))))
+
+  See also `format-grouped-pstats`,"
+
+  [{:keys [ns-pattern handler-id]
+    :or   {handler-id :accumulating}}]
+
+  (let [sacc   (stats-accumulator)
+        agent_ #?(:clj (delay (agent nil :error-mode :continue)) :cljs nil)]
+
+    (add-handler! handler-id ns-pattern
+      (fn [{:keys [?id ?data pstats]}]
+        #?(:clj (send @agent_ (fn [_] (sacc ?id pstats)))
+           :cljs                     (sacc ?id pstats))))
+
+    sacc))
+
+(comment
+  (def my-sacc (add-accumulating-handler! "*"))
+  (profile {:id :foo} (p :p1))
+  (profile {:id :bar} (p :p1))
+  (println (format-grouped-pstats @my-sacc {}
+             #_{:format-pstats-opts {:columns [:n-calls]}})))
+
+(defn format-grouped-pstats
+  "Experimental, subject to change.
+  Takes a map of {<group-id> <PStats>} and formats a combined
+  output string using `format-pstats`."
+  ([m] (format-grouped-pstats m nil))
+  ([m {:keys [group-sort-fn format-pstats-opts]
+       :or   {group-sort-fn (fn [m] (get-in m [:clock :total] 0))}}]
+
+   (let [m ; {<group-id> <realised-pstats>}
+         (persistent!
+           (reduce-kv
+             (fn [m k v] (assoc! m k (enc/force-ref v)))
+             (transient m)
+             m))
+
+         sorted-group-ids
+         (sort-by (fn [id] (group-sort-fn (get m id)))
+           enc/rcompare (keys m))]
+
+     (enc/str-join "\n\n"
+       (map (fn [id] (str id ",\n" (format-pstats (get m id) format-pstats-opts))))
+       sorted-group-ids))))
+
+(comment
+  (future
+    (while true
+      (when-let [m (not-empty @my-sacc)]
+        (println (format-grouped-pstats m))
+        (Thread/sleep 10000)))))
 
 ;;;;
 
