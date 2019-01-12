@@ -702,9 +702,9 @@
   (println "\n"
     (time
       (format-pstats
-        @(let [[_ ps0] (profiled {} (dotimes [_ 1e6] (p :foo "foo")))
-               [_ ps1] (profiled {} (dotimes [_ 1e6] (p :foo "foo")))
-               [_ ps2] (profiled {} (dotimes [_ 500] (p :bar "bar")))]
+        @(let [[_ ps0] (profiled {} (dotimes [_ 1e6] (p :foo  "foo")))
+               [_ ps1] (profiled {} (dotimes [_ 1e6] (p :foo  "foo")))
+               [_ ps2] (profiled {} (dotimes [_ 500] (p ::bar "bar")))]
            (reduce (partial impl/merge-pstats 1e4) [ps0 ps1 ps2])))))
 
   (println
