@@ -245,7 +245,7 @@
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  [clock-total id-stats {:keys [columns sort-fn format-id-fn] :as opts
+  [clock-total id-stats {:keys [columns sort-fn format-id-fn approx-clock?] :as opts
                          :or   {columns      all-format-columns
                                 sort-fn      (fn [m] (get m :sum))
                                 format-id-fn (fn [id] (str id))}}]
@@ -269,7 +269,7 @@
             (fn [^long acc k v]
               (let [c (count (format-id-fn k))]
                 (if (> c acc) c acc)))
-            9 ; (count "Accounted")
+            10 ; (count "Clock est.")
             id-stats)
 
           column->pattern
@@ -338,7 +338,7 @@
 
       ; Write clock row
       (enc/sb-append sb "\n")
-      (append-col :id "Clock")
+      (append-col :id (if approx-clock? "Clock est." "Clock"))
       (doseq [column columns]
         (enc/sb-append sb " ")
         (case column

@@ -43,7 +43,7 @@
 ;;;; PStats (Profiling Stats)
 ;; API-level state we'll return from `profiled`: derefable, mergeable
 
-(deftype PStats [pd ^long t1 realized_]
+(deftype PStats [pd ^long t1 ^long tsum realized_]
   #?@(:clj  [clojure.lang.IDeref    (deref     [_]           @realized_)]
       :cljs [             IDeref   (-deref     [_]           @realized_)])
   #?@(:clj  [clojure.lang.IPending (isRealized [_] (realized? realized_))]
@@ -68,8 +68,9 @@
 (declare ^:private deref-pstats)
 (defn- deref-pdata "PData->PStats" [^PData pd]
   ;; NB (.-acc pd) should never be mutated from this point!
-  (let [t1 (enc/now-nano*)]
-    (PStats. pd t1 (delay (deref-pstats pd t1)))))
+  (let [t1   (enc/now-nano*)
+        tsum (- t1 (.-t0 pd))]
+    (PStats. pd t1 tsum (delay (deref-pstats pd t1 tsum)))))
 
 (comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
 
@@ -136,7 +137,7 @@
 
 (defn- deref-pstats
   "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
-  [^PData pd ^long t1]
+  [^PData pd ^long t1 ^long tsum]
   (let [t0      (.-t0      pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate (enc/force-ref pstate_)
@@ -152,8 +153,13 @@
           id-times
           id-times)]
 
-    {:clock {:t0 t0 :t1 t1 :total (- t1 t0)}
-     :stats id-stats}))
+    {:stats id-stats
+     :clock
+     (let [approx-clock? (== tsum -1)]
+       {:t0 t0
+        :t1 t1
+        :total   (if approx-clock? (- t1 t0) tsum)
+        :approx?     approx-clock?})}))
 
 (comment @@(new-pdata-local 10))
 
@@ -178,6 +184,15 @@
 
              pd2-t0 (if (< pd0-t0 pd1-t0) pd0-t0 pd1-t0)
              ps2-t1 (if (> ps0-t1 ps1-t1) ps0-t1 ps1-t1)
+
+             ;; ps2-tsum (- ps2-t1 pd2-t0) ; Old logic (outer union)
+             ps2-tsum ; New logic (inner union)
+             (let [ps0-tsum (.-tsum ps0)
+                   ps1-tsum (.-tsum ps1)]
+               (if (or (== ps0-tsum -1) (== ps1-tsum -1) (< ps1-t1 ps0-t1))
+                 -1 ; Can't accurately do stream inner union on unsorted intervals
+                 ;; [[a0 a1] [b0 b1]] time = (- b1 (max b0 a1))
+                 (+ ps0-tsum (- ps1-t1 (enc/max* ps0-t1 pd1-t0)))))
 
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
@@ -216,7 +231,7 @@
                pd1-id-times)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
-         (PStats. pd2 ps2-t1 (delay (deref-pstats pd2 ps2-t1))))
+         (PStats. pd2 ps2-t1 ps2-tsum (delay (deref-pstats pd2 ps2-t1 ps2-tsum))))
 
        ps0)
      ps1)))

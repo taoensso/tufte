@@ -521,7 +521,13 @@
 (comment (refer-tufte))
 
 (defn merge-pstats
-  "Lossless unless data to merge are very large."
+  "Statistics are lossless unless data to merge are very large.
+  Accuracy of total clock time depends on merge order:
+    - Time is exact if pstats are merged in order of increasing
+      completion time (earliest to latest :t1).
+    - Otherwise time is estimated as the maximum possible clock
+      time, ignoring any disjoint intervals (periods when clock
+      was proceeding without any measured activity)."
   ([       ] nil)
   ([ps0    ] ps0)
   ([ps0 ps1] (impl/merge-pstats ps0 ps1)))
@@ -539,7 +545,8 @@
   ([ps opts]
    (when ps
      (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (stats/format-stats (get clock :total) stats opts)))))
+       (stats/format-stats (get clock :total) stats
+         (assoc opts :approx-clock? (get clock :approx?)))))))
 
 (comment
   ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
@@ -703,8 +710,8 @@
 
 (comment
   (def my-sacc (add-accumulating-handler! "*"))
-  (profile {:id :foo} (p :p1))
-  (profile {:id :bar} (p :p1))
+  (future (profile {:id :foo} (p :p1 (Thread/sleep 3000))))
+  (future (profile {:id :bar} (p :p1 (Thread/sleep 500))))
   (println (format-grouped-pstats @my-sacc {}
              #_{:format-pstats-opts {:columns [:n-calls]}})))
 
@@ -799,3 +806,11 @@
     (format-pstats
       (second
         (profiled {} (p :foo (Thread/sleep 100)))))))
+
+(comment ; Disjoint time union
+  (let [[_ ps1] (profiled {} (p :foo (Thread/sleep 100)))
+        _ (Thread/sleep 500)
+        [_ ps2] (profiled {} (p :foo (Thread/sleep 100)))]
+    (println (format-pstats (merge-pstats ps2 ps1)))
+    ;;@(merge-pstats ps2 ps1)
+    ))
