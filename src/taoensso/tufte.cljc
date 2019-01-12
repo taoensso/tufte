@@ -542,21 +542,27 @@
 
 ;;;; fnp stuff
 
-(defn- fn-sigs [def? fn-name sigs]
+(defn- fn-sigs [def? ?meta-pid fn-sym sigs]
   (let [single-arity? (vector? (first sigs))
         sigs    (if single-arity? (list sigs) sigs)
-        prepend (if def? "defn_" "fn_")
-        get-id  (if single-arity?
-                  (fn [fn-name _params] (keyword (str *ns*) (str prepend (name fn-name))))
-                  (fn [fn-name  params] (keyword (str *ns*) (str prepend (name fn-name) \_ (count params)))))
+        base-id
+        (if ?meta-pid
+          (enc/as-qname ?meta-pid)
+          (str *ns* "/" (if def? "defn_" "fn_") (name fn-sym)))
+
+        get-id
+        (if single-arity?
+          (fn [fn-sym _params] (keyword      base-id))
+          (fn [fn-sym  params] (keyword (str base-id "_" (count params)))))
+
         new-sigs
         (map
           (fn [[params & others]]
             (let [has-prepost-map?      (and (map? (first others)) (next others))
                   [?prepost-map & body] (if has-prepost-map? others (cons nil others))]
               (if ?prepost-map
-                `(~params ~?prepost-map (p ~(get-id fn-name params) ~@body))
-                `(~params               (p ~(get-id fn-name params) ~@body)))))
+                `(~params ~?prepost-map (p ~(get-id fn-sym params) ~@body))
+                `(~params               (p ~(get-id fn-sym params) ~@body)))))
           sigs)]
     new-sigs))
 
@@ -564,27 +570,30 @@
   {:arglists '([name?  [params*] prepost-map? body]
                [name? ([params*] prepost-map? body)+])}
   [& sigs]
-  (let [[?fn-name sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
-        new-sigs        (fn-sigs (not :def) (or ?fn-name (gensym "")) sigs)]
-    (if ?fn-name
-      `(fn ~?fn-name ~@new-sigs)
-      `(fn           ~@new-sigs))))
+  (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
+        new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) (or ?fn-sym (gensym "")) sigs)]
+    (if ?fn-sym
+      `(fn ~?fn-sym ~@new-sigs)
+      `(fn          ~@new-sigs))))
 
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn      [x]            (* x x)))
+  (macroexpand '(fn       [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn      [x] {:pre [x]} (* x x))))
+  (macroexpand '(fn       [x] {:pre [x]} (* x x)))
+  (macroexpand '(fnp   ^{:tufte/id "foo/bar"} bob [x]))
+  (macroexpand '(defnp ^{:tufte/id "foo/bar"} bob ([x]) ([x y])))
+  (macroexpand '(defnp                        bob ([x]) ([x y]))))
 
 (defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
   {:arglists
    '([name doc-string? attr-map?  [params*] prepost-map? body]
      [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
   [& sigs]
-  (let [[fn-name sigs] (enc/name-with-attrs (first sigs) (next sigs))
-        new-sigs       (fn-sigs :def fn-name sigs)]
-    `(defn ~fn-name ~@new-sigs)))
+  (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
+        new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+    `(defn ~fn-sym ~@new-sigs)))
 
 (comment
   (defnp foo "Docstring"                [x]   (* x x))
