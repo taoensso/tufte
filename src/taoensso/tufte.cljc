@@ -595,6 +595,15 @@
         new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
     `(defn ~fn-sym ~@new-sigs)))
 
+(defmacro defnp- "Like `defn-` but wraps fn bodies with `p` macro."
+  {:arglists
+   '([name doc-string? attr-map?  [params*] prepost-map? body]
+     [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
+  [& sigs]
+  (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
+        new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+    `(defn ~fn-sym ~@new-sigs)))
+
 (comment
   (defnp foo "Docstring"                [x]   (* x x))
   (macroexpand '(defnp foo "Docstring"  [x]   (* x x)))
