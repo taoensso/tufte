@@ -487,4 +487,17 @@
             (tufte/format-pstats data {:columns [:n-calls :mean]})
             (str/split-lines)
             (remove empty?)
-            (take 3)))))))
+            (take 3))))))
+
+  (test/testing "Format id fn"
+    (let [data {:clock {:total 2e9}
+                :stats {:example.hello/foo {:n 1 :mean 2e9 :sum 2e9}}}]
+      (test/is
+        (= ["pId           nCalls       Mean"
+            "foo                1     2.00s "]
+           (->>
+             (tufte/format-pstats data {:columns [:n-calls :mean]
+                                        :format-id-fn name})
+             (str/split-lines)
+             (remove empty?)
+             (take 2)))))))
