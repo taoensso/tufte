@@ -269,7 +269,9 @@
             (fn [^long acc k v]
               (let [c (count (format-id-fn k))]
                 (if (> c acc) c acc)))
-            10 ; (count "Clock est.")
+            (if approx-clock?
+              10 ; (count "Clock est.")
+              9) ; (count "Accounted")
             id-stats)
 
           column->pattern
