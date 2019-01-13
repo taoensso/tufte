@@ -501,3 +501,10 @@
              (str/split-lines)
              (remove empty?)
              (take 2)))))))
+
+(test/deftest format-id-abbr-test
+  (test/testing "Format id abbr test"
+    (test/is (= "e.hello/foo" ((tufte/format-id-abbr) :example.hello/defn_foo)))
+    (test/is (= "e.hello/foo" ((tufte/format-id-abbr 1) :example.hello/defn_foo)))
+    (test/is (= "e.h.world/foo" ((tufte/format-id-abbr 1) :example.hello.world/defn_foo)))
+    (test/is (= "e.hello.world/foo" ((tufte/format-id-abbr 2) :example.hello.world/defn_foo)))))

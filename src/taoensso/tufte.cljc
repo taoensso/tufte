@@ -232,6 +232,37 @@
           (when ?data (str "\ndata: " ?data))
           "\n" (format-pstats pstats format-pstats-opts))))))
 
+(defn format-id-abbr
+  "Returns a format-id-fn that will abbreviate pIds.
+
+  Takes n, an int, as an input parameter that determines
+  how many levels of the namespace that will be kept at full length.
+
+  If given no arguments, keeps only the top level namespace at full length.
+
+  Examples:
+  ((format-id-abbr)   :example.hello/foo) => e.hello/foo
+  ((format-id-abbr 1) :example.hello/foo) => e.hello/foo
+  ((format-id-abbr 1) :example.hello.world/foo) => e.h.world/foo
+  ((format-id-abbr 2) :example.hello.world/foo) => e.hello.world/foo
+  ((format-id-abbr 0) :example.hello.world/foo) => e.h.w/foo"
+  ([] (format-id-abbr 1))
+  ([n]
+   (enc/have? enc/int? n)
+   (fn [s]
+     (let [namespace-symbols (butlast (enc/explode-keyword s))
+           cnt (count namespace-symbols)
+           sb (enc/str-builder "")]
+       (doseq [[idx sym] (map-indexed (fn [idx x] [idx x]) namespace-symbols)]
+         (when (not= idx 0)
+           (enc/sb-append sb "."))
+         (if (<= (- cnt idx) n)
+           (enc/sb-append sb sym)
+           (enc/sb-append sb (str (first sym)))))
+       (enc/sb-append sb "/")
+       (enc/sb-append sb (enc/str-replace (name s) "defn_" ""))
+       (str sb)))))
+
 (comment (add-basic-println-handler! {}))
 
 ;;;; Some low-level primitives
