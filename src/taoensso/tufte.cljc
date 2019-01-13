@@ -232,7 +232,37 @@
           (when ?data (str "\ndata: " ?data))
           "\n" (format-pstats pstats format-pstats-opts))))))
 
-(comment (add-basic-println-handler! {}))
+(defn format-id-abbr
+  "Returns a `format-id-fn` that abbreviates form ids (pids).
+  Takes `n` (default 1), the number of namespace parts to keep unabbreviated.
+
+  Examples:
+    ((format-id-abbr)   :foo)                     => \"foo\"
+    ((format-id-abbr)   :example.hello/foo)       => \"e.hello/foo\"
+    ((format-id-abbr 1) :example.hello/foo)       => \"e.hello/foo\"
+    ((format-id-abbr 1) :example.hello.world/foo) => \"e.h.world/foo\"
+    ((format-id-abbr 2) :example.hello.world/foo) => \"e.hello.world/foo\"
+    ((format-id-abbr 0) :example.hello.world/foo) => \"e.h.w/foo\""
+
+  ([ ] (format-id-abbr 1))
+  ([n]
+   (let [n (long (enc/have enc/int? n))]
+     (fn [s]
+       (let [ns-parts (pop (enc/explode-keyword s))
+             cnt      (count ns-parts)
+             sb
+             (enc/reduce-indexed
+               (fn [sb ^long idx in]
+                 (when-not (zero? idx) (enc/sb-append sb "."))
+                 (if (<= (- cnt idx) n)
+                   (enc/sb-append sb                 in)
+                   (enc/sb-append sb (enc/get-substr in 0 1))))
+               (enc/str-builder)
+               ns-parts)]
+
+         (when (pos? cnt) (enc/sb-append sb "/"))
+         (do              (enc/sb-append sb (enc/str-replace (name s) #"^defn_" "")))
+         (str sb))))))
 
 ;;;; Some low-level primitives
 
