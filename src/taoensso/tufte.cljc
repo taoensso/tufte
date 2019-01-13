@@ -690,8 +690,8 @@
     (future
       (while true
         (when-let [m (not-empty @my-sacc)]
-          (println (format-grouped-pstats m))
-          (Thread/sleep 60000)))))
+          (println (format-grouped-pstats m)))
+        (Thread/sleep 60000))))
 
   See also `format-grouped-pstats`,"
 
@@ -742,8 +742,8 @@
   (future
     (while true
       (when-let [m (not-empty @my-sacc)]
-        (println (format-grouped-pstats m))
-        (Thread/sleep 10000)))))
+        (println (format-grouped-pstats m)))
+      (Thread/sleep 10000))))
 
 ;;;;
 
