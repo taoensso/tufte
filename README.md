@@ -177,10 +177,10 @@ As one simpler example, we can get **sampled profiling** like this:
 (profiled {:when (tufte/chance 0.5)} ...) ; Only activates profiling with 50% probability
 ```
 
-## Formatting pstats options
+## Format pstats options
 
 `tufte/format-pstats` takes a formatting options map as a second parameter.
-The default value for the different keywords is given below:
+The default value and an explanation of the different keywords is given below:
 
 ```clojure
 {:columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
