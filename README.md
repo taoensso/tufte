@@ -44,7 +44,7 @@
 
 ;; The following will be printed to *out*:
 ;;
-;;       pId  nCalls       Min     50% ≤     90% ≤     95% ≤     99% ≤       Max      Mean  MAD  Total Clock
+;;       pId  nCalls       Min     50% ≤     90% ≤     95% ≤     99% ≤       Max      Mean  MAD  Clock Total
 ;;
 ;;    :get-y       5   94.01ms  500.99ms  910.14ms  910.14ms  910.14ms  910.14ms  580.49ms ±45%  2.90s   53%
 ;;    :get-x       5  503.05ms  504.68ms  504.86ms  504.86ms  504.86ms  504.86ms  504.37ms  ±0%  2.52s   46%
@@ -175,6 +175,54 @@ As one simpler example, we can get **sampled profiling** like this:
 
 ```clojure
 (profiled {:when (tufte/chance 0.5)} ...) ; Only activates profiling with 50% probability
+```
+
+## Format pstats options
+
+`tufte/format-pstats` takes a formatting options map as a second parameter.
+The default value and an explanation of the different keywords is given below:
+
+```clojure
+{:columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
+ ; A vector of columns to be included in the output. The default is to include all columns.
+
+ :format-id-fn str
+ ; This function will be called on the pId value, allowing customization of the displayed pId value.
+
+ :sort-fn (fn [m] (get m :sum))
+ ; Allows for custom sorting of results.
+}
+```
+
+`tufte/add-basic-println-handler!` takes a keyword argument `format-pstats-opts` that will be passed
+to `format-pstats`. Example usage:
+
+```clojure
+(require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)])
+
+(tufte/add-basic-println-handler!
+  {:format-pstats-opts {:columns [:n-calls :p50 :mean :clock :total]
+                        :format-id-fn name}})
+
+(defnp get-x [] (Thread/sleep 500)             "x val")
+(defnp get-y [] (Thread/sleep (rand-int 1000)) "y val")
+
+
+(profile
+  {}
+  (dotimes [_ 5]
+    (get-x)
+    (get-y)))
+
+; How does this output look?
+
+;; pId            nCalls      50% ≤       Mean      Clock  Total
+;;
+;; defn_get-y          5   572.09ms   567.82ms     2.84s     53%
+;; defn_get-x          5   500.08ms   500.13ms     2.50s     47%
+;;
+;; Accounted                                       5.34s    100%
+;; Clock                                           5.34s    100%
 ```
 
 ## FAQ
