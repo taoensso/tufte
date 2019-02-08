@@ -5,7 +5,7 @@
 
 ```clojure
 [com.taoensso/tufte "2.0.1"]     ; Stable
-[com.taoensso/tufte "2.1.0-RC2"] ; Dev, see CHANGELOG for details
+[com.taoensso/tufte "2.1.0-RC3"] ; Dev, see CHANGELOG for details
 ```
 
 > Please consider helping to [support my continued open-source Clojure/Script work]? 

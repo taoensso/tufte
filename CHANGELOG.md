@@ -1,9 +1,9 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.1.0-RC2 - 2019 Jan 13
+## v2.1.0-RC3 - 2019 Feb 08
 
 ```clojure
-[com.taoensso/tufte "2.1.0-RC2"]
+[com.taoensso/tufte "2.1.0-RC3"]
 ```
 
 > This is an API-non-breaking feature release (though `format-pstats` output has changed). Big thanks to **@ivarref** for much of the work+input on this release!
@@ -15,6 +15,7 @@
 * **New** [#37]: More accurate clock-total when merging ordered disjoint pstats
 * **New** [#37]: Improve+expand accumulator utils to make one common pattern of app-wide profiling trivial
 * **New** [#32 #31 #30]: `format-pstats`: add configurable columns filter, sort, id format (@ivarref)
+* **New** [#41]: Add abbreviated `format-id-fn` (@ivarref)
 * **New** [#19]: Add `defnp-` macro
 * **New**: `defnp`: add support for explicit `^{:tufte/id _}` to override automatic ids
 * **Change** [#40]: Left-align pid in `format-pstats` output (@meeseekz)
