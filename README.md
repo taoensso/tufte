@@ -179,34 +179,29 @@ As one simpler example, we can get **sampled profiling** like this:
 
 ## Format pstats options
 
-`tufte/format-pstats` takes a formatting options map as a second parameter.
-The default value and an explanation of the different keywords is given below:
+`tufte/format-pstats` takes an optional map as a second parameter to control formatting:
 
 ```clojure
-{:columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
- ; A vector of columns to be included in the output. The default is to include all columns.
+{;; Vector of ordered columns to include in output (all columns by default):
+ :columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
 
- :format-id-fn str
- ; This function will be called on the pId value, allowing customization of the displayed pId value.
+ ;; Function called on each form id (pid), allowing format customization:
+ :format-id-fn #_str tufte/format-id-abbr ; For abbreviated ids
 
- :sort-fn (fn [m] (get m :sum))
- ; Allows for custom sorting of results.
-}
+ ;; Allows for custom sorting of results:
+ :sort-fn (fn [m] (get m :sum))}
 ```
 
-`tufte/add-basic-println-handler!` takes a keyword argument `format-pstats-opts` that will be passed
-to `format-pstats`. Example usage:
+If you're using `tufte/add-basic-println-handler!`, you can control formatting
+through the `:format-pstats-opts` option:
 
 ```clojure
-(require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)])
-
 (tufte/add-basic-println-handler!
   {:format-pstats-opts {:columns [:n-calls :p50 :mean :clock :total]
                         :format-id-fn name}})
 
 (defnp get-x [] (Thread/sleep 500)             "x val")
 (defnp get-y [] (Thread/sleep (rand-int 1000)) "y val")
-
 
 (profile
   {}
