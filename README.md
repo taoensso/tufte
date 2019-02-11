@@ -186,7 +186,7 @@ As one simpler example, we can get **sampled profiling** like this:
  :columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
 
  ;; Function called on each form id (pid), allowing format customization:
- :format-id-fn #_str tufte/format-id-abbr ; For abbreviated ids
+ :format-id-fn #_str (tufte/format-id-abbr 1) ; For abbreviated ids. An optional integer argument specifies how many namespace levels to keep at full length. Default: 1
 
  ;; Allows for custom sorting of results:
  :sort-fn (fn [m] (get m :sum))}
