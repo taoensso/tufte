@@ -753,7 +753,8 @@
   ([m {:keys [group-sort-fn format-pstats-opts]
        :or   {group-sort-fn (fn [m] (get-in m [:clock :total] 0))}}]
 
-   (let [m ; {<group-id> <realised-pstats>}
+   (let [m (or m {})
+         m ; {<group-id> <realised-pstats>}
          (persistent!
            (reduce-kv
              (fn [m k v] (assoc! m k (enc/force-ref v)))
