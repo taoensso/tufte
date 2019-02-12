@@ -753,20 +753,21 @@
   ([m {:keys [group-sort-fn format-pstats-opts]
        :or   {group-sort-fn (fn [m] (get-in m [:clock :total] 0))}}]
 
-   (let [m ; {<group-id> <realised-pstats>}
-         (persistent!
-           (reduce-kv
-             (fn [m k v] (assoc! m k (enc/force-ref v)))
-             (transient m)
-             m))
+   (when m
+     (let [m ; {<group-id> <realised-pstats>}
+           (persistent!
+             (reduce-kv
+               (fn [m k v] (assoc! m k (enc/force-ref v)))
+               (transient m)
+               m))
 
-         sorted-group-ids
-         (sort-by (fn [id] (group-sort-fn (get m id)))
-           enc/rcompare (keys m))]
+           sorted-group-ids
+           (sort-by (fn [id] (group-sort-fn (get m id)))
+             enc/rcompare (keys m))]
 
-     (enc/str-join "\n\n"
-       (map (fn [id] (str id ",\n" (format-pstats (get m id) format-pstats-opts))))
-       sorted-group-ids))))
+       (enc/str-join "\n\n"
+         (map (fn [id] (str id ",\n" (format-pstats (get m id) format-pstats-opts))))
+         sorted-group-ids)))))
 
 (comment
   (future
