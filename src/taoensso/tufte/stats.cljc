@@ -242,13 +242,27 @@
 
 (def all-format-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total])
 
+(def default-format-id-fn (fn [id] (str id)))
+
+(defn get-max-id-width [stats {:keys [format-id-fn approx-clock?]
+                               :or   {format-id-fn default-format-id-fn}}]
+  (when stats
+     (reduce-kv
+       (fn [^long acc k v]
+           (let [c (count (format-id-fn k))]
+                (if (> c acc) c acc)))
+       (if approx-clock?
+         10 ; (count "Clock est.")
+         9) ; (count "Accounted")
+       stats)))
+
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  [clock-total id-stats {:keys [columns sort-fn format-id-fn approx-clock?] :as opts
+  [clock-total id-stats {:keys [columns sort-fn format-id-fn approx-clock? max-id-width] :as opts
                          :or   {columns      all-format-columns
                                 sort-fn      (fn [m] (get m :sum))
-                                format-id-fn (fn [id] (str id))}}]
+                                format-id-fn default-format-id-fn}}]
   (when id-stats
     (enc/have? [:el all-format-columns] :in columns)
     (let [clock-total (long clock-total)
@@ -264,15 +278,7 @@
             enc/rcompare
             (keys id-stats))
 
-          ^long max-id-width
-          (reduce-kv
-            (fn [^long acc k v]
-              (let [c (count (format-id-fn k))]
-                (if (> c acc) c acc)))
-            (if approx-clock?
-              10 ; (count "Clock est.")
-              9) ; (count "Accounted")
-            id-stats)
+          ^long max-id-width (or max-id-width (get-max-id-width id-stats opts))
 
           column->pattern
           {:id      {:heading "pId"    :min-width max-id-width :align :left}
