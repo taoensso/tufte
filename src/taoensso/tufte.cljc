@@ -763,10 +763,18 @@
 
          sorted-group-ids
          (sort-by (fn [id] (group-sort-fn (get m id)))
-           enc/rcompare (keys m))]
+           enc/rcompare (keys m))
+
+         ^long max-id-width
+         (reduce-kv
+           (fn [^long acc _ {:keys [clock stats]}]
+             (let [c (stats/get-max-id-width stats (assoc format-pstats-opts :approx-clock? (get clock :approx?)))]
+               (if (> c acc) c acc)))
+           0
+           m)]
 
      (enc/str-join "\n\n"
-       (map (fn [id] (str id ",\n" (format-pstats (get m id) format-pstats-opts))))
+       (map (fn [id] (str id ",\n" (format-pstats (get m id) (assoc format-pstats-opts :max-id-width max-id-width)))))
        sorted-group-ids))))
 
 (comment
