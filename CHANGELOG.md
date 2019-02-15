@@ -1,9 +1,9 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.1.0-RC3 - 2019 Feb 08
+## v2.1.0-RC4 - 2019 Feb 15
 
 ```clojure
-[com.taoensso/tufte "2.1.0-RC3"]
+[com.taoensso/tufte "2.1.0-RC4"]
 ```
 
 > This is an API-non-breaking feature release (though `format-pstats` output has changed). Big thanks to **@ivarref** for much of the work+input on this release!
