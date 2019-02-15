@@ -733,14 +733,16 @@
 
     (add-handler! handler-id ns-pattern
       (fn [{:keys [?id ?data pstats]}]
-        #?(:clj (send @agent_ (fn [_] (sacc ?id pstats)))
-           :cljs                     (sacc ?id pstats))))
+        (let [id (or ?id :tufte/nil-id)]
+          #?(:clj (send @agent_ (fn [_] (sacc id pstats)))
+             :cljs                     (sacc id pstats)))))
 
     sacc))
 
 (comment
   (def my-sacc (add-accumulating-handler! "*"))
-  (future (profile {:id :foo} (p :p1 (Thread/sleep 3000))))
+  (future (profile {}         (p :p1 (Thread/sleep 900))))
+  (future (profile {:id :foo} (p :p1 (Thread/sleep 900))))
   (future (profile {:id :bar} (p :p1 (Thread/sleep 500))))
   (println (format-grouped-pstats @my-sacc {}
              #_{:format-pstats-opts {:columns [:n-calls]}})))
