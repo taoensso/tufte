@@ -144,7 +144,13 @@
       (is (ps? ps3))
       (is (= (get-in @ps3 [:stats :foo :n]) 120))
       (is (= (get-in @ps3 [:stats :bar :n]) 100))
-      (is (= (get-in @ps3 [:stats :baz :n])  30)))))
+      (is (= (get-in @ps3 [:stats :baz :n])  30))))
+
+  (test/testing "ps1 starting before ps0 should sum clock total correctly"
+    (let [f2 (future                    (profiled {} (p :p1 (Thread/sleep 1500)))) ; starts first, finishes after
+          f1 (future (Thread/sleep 800) (profiled {} (p :p2 (Thread/sleep  500))))
+          m  @(tufte/merge-pstats (second @f1) (second @f2))]
+      (is (= 1500 (-> (get-in m [:clock :total]) (/ 1e8) (Math/round) (* 100)))))))
 
 (test/deftest compaction-capture
   (test/testing "Compaction/capture"
