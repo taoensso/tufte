@@ -192,7 +192,11 @@
                (if (or (== ps0-tsum -1) (== ps1-tsum -1) (< ps1-t1 ps0-t1))
                  -1 ; Can't accurately do stream inner union on unsorted intervals
                  ;; [[a0 a1] [b0 b1]] time = (- b1 (max b0 a1))
-                 (+ ps0-tsum (- ps1-t1 (enc/max* ps0-t1 pd1-t0)))))
+                 (+ ps0-tsum
+                    (- ps1-t1 (enc/max* ps0-t1 pd1-t0))
+                    (if (< pd1-t0 pd0-t0)
+                      (- pd0-t0 pd1-t0)
+                      0))))
 
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
