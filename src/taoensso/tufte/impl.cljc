@@ -43,7 +43,7 @@
 ;;;; PStats (Profiling Stats)
 ;; API-level state we'll return from `profiled`: derefable, mergeable
 
-(deftype PStats [pd ^long t1 ^long tsum realized_]
+(deftype PStats [pd ^long t1 ^long tsum ^long approx-clock? realized_]
   #?@(:clj  [clojure.lang.IDeref    (deref     [_]           @realized_)]
       :cljs [             IDeref   (-deref     [_]           @realized_)])
   #?@(:clj  [clojure.lang.IPending (isRealized [_] (realized? realized_))]
@@ -70,7 +70,7 @@
   ;; NB (.-acc pd) should never be mutated from this point!
   (let [t1   (enc/now-nano*)
         tsum (- t1 (.-t0 pd))]
-    (PStats. pd t1 tsum (delay (deref-pstats pd t1 tsum)))))
+    (PStats. pd t1 tsum 0 (delay (deref-pstats pd t1 tsum 0)))))
 
 (comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
 
@@ -137,7 +137,7 @@
 
 (defn- deref-pstats
   "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
-  [^PData pd ^long t1 ^long tsum]
+  [^PData pd ^long t1 ^long tsum ^long approx-clock?]
   (let [t0      (.-t0      pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate (enc/force-ref pstate_)
@@ -154,12 +154,10 @@
           id-times)]
 
     {:stats id-stats
-     :clock
-     (let [approx-clock? (== tsum -1)]
-       {:t0 t0
-        :t1 t1
-        :total   (if approx-clock? (- t1 t0) tsum)
-        :approx?     approx-clock?})}))
+     :clock {:t0      t0
+             :t1      t1
+             :total   tsum
+             :approx? (== 1 approx-clock?)}}))
 
 (comment @@(new-pdata-local 10))
 
@@ -189,12 +187,14 @@
              ps2-tsum ; New logic (inner union)
              (let [ps0-tsum (.-tsum ps0)
                    ps1-tsum (.-tsum ps1)]
-               (if (or (== ps0-tsum -1) (== ps1-tsum -1) (< ps1-t1 ps0-t1))
-                 -1 ; Can't accurately do stream inner union on unsorted intervals
+               (if (< ps1-t1 ps0-t1)
+                 (+ ps0-tsum ps1-tsum) ; Rough approximation for total time on unsorted intervals
                  (let [;; [[a0 a1] [b0 b1]] time = (- b1 (max b0 a1))
                        sum (+ ps0-tsum (- ps1-t1 (enc/max* ps0-t1 pd1-t0)))]
                    (if (< pd1-t0 pd0-t0) (+ sum (- pd0-t0 pd1-t0)) sum) ; Ref. #48
                    )))
+
+             approx-clock? (if (or (< ps1-t1 ps0-t1) (== 1 (.-approx_clock? ps0)) (== 1 (.-approx_clock? ps1))) 1 0) ; Mark total time as an approximation if needed
 
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
@@ -233,7 +233,7 @@
                pd1-id-times)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
-         (PStats. pd2 ps2-t1 ps2-tsum (delay (deref-pstats pd2 ps2-t1 ps2-tsum))))
+         (PStats. pd2 ps2-t1 ps2-tsum approx-clock? (delay (deref-pstats pd2 ps2-t1 ps2-tsum approx-clock?))))
 
        ps0)
      ps1)))
