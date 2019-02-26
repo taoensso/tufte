@@ -297,7 +297,7 @@
 (comment
   @@(new-pdata)
 
-  ;; Note that dynamic pdata with non-dyanmic `with-profiling` is fine:
+  ;; Note that dynamic pdata with non-dynamic `with-profiling` is fine:
   (let [pd (new-pdata)
         t0 (System/nanoTime)]
     (with-profiling pd {}

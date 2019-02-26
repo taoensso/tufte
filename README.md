@@ -288,7 +288,7 @@ Benchmarking measures performance from the outside. Profiling measures performan
 
 Essentially: benchmarking is about measuring how long something takes, while profiling is about measuring how long something takes, **and understanding why**.
 
-Both can be used for performance measurement + comparsion, and both can be used for performance optimization. The main tradeoff is: profiling generally provides deeper information at the cost of increased setup effort (instrumentation).
+Both can be used for performance measurement + comparison, and both can be used for performance optimization. The main tradeoff is: profiling generally provides deeper information at the cost of increased setup effort (instrumentation).
 
 | Library   | Measures                 | Use for                       | During    | Emphasis           |
 | --------- | ------------------------ | ----------------------------- | --------- | ------------------ |
