@@ -38,14 +38,16 @@
   (vec (.-a (sort-longs (rand-vs 10)))))
 
 (defn long-percentiles
-  "Returns ?[min p50 p90 p95 p99 max]"
+  "Returns ?[min p25 p50 p75 p90 p95 p99 max]"
   [longs]
   (let [^longs a (.-a (sort-longs longs))
         max-idx (dec (alength a))]
     (if (< max-idx 0)
       nil
       [(aget a 0)
+       (aget a (Math/round (* 0.25 max-idx)))
        (aget a (Math/round (* 0.50 max-idx)))
+       (aget a (Math/round (* 0.75 max-idx)))
        (aget a (Math/round (* 0.90 max-idx)))
        (aget a (Math/round (* 0.95 max-idx)))
        (aget a (Math/round (* 0.99 max-idx)))
@@ -95,8 +97,8 @@
 
 (defn stats
   "Given a collection of longs, returns map with keys:
-  #{:n :min :max :sum :mean :mad-sum :mad :p50 :p90 :p95 :p99}, or nil if
-  collection is empty."
+  #{:n :min :max :sum :mean :mad-sum :mad :p25 :p50 :p75 :p90 :p95 :p99}, or nil
+  if collection is empty."
   [longs]
   (when longs
     (let [sorted-longs (sort-longs longs)
@@ -109,11 +111,12 @@
               mad-sum (areduce a i acc 0.0 (+ acc (Math/abs (- (double (aget a i)) mean))))
               mad     (/ (double mad-sum) (double n))
 
-              [vmin p50 p90 p95 p99 vmax] (long-percentiles sorted-longs)]
+              [vmin p25 p50 p75 p90 p95 p99 vmax] (long-percentiles sorted-longs)]
 
           {:n n :min vmin :max vmax :sum sum :mean mean
            :mad-sum mad-sum :mad mad
-           :p50 p50 :p90 p90 :p95 p95 :p99 p99})))))
+           :p25 p25 :p50 p50 :p75 p75
+           :p90 p90 :p95 p95 :p99 p99})))))
 
 (comment (enc/qb 100 (stats v1) (stats v1-sorted))) ; [1604.23 38.3]
 
@@ -130,7 +133,9 @@
              ^long   max0     :max
              ^long   sum0     :sum
              ^double mad-sum0 :mad-sum
+             ^long   p25-0    :p25
              ^long   p50-0    :p50
+             ^long   p75-0    :p75
              ^long   p90-0    :p90
              ^long   p95-0    :p95
              ^long   p99-0    :p99} m0
@@ -140,7 +145,9 @@
              ^long   max1     :max
              ^long   sum1     :sum
              ^double mad-sum1 :mad-sum
+             ^long   p25-1    :p25
              ^long   p50-1    :p50
+             ^long   p75-1    :p75
              ^long   p90-1    :p90
              ^long   p95-1    :p95
              ^long   p99-1    :p99} m1
@@ -167,7 +174,9 @@
 
             ;;; These are pretty rough approximations. More sophisticated
             ;;; approaches not worth the extra cost/effort in our case.
+            p25-2 (Math/round (+ (* n0-ratio (double p25-0)) (* n1-ratio (double p25-1))))
             p50-2 (Math/round (+ (* n0-ratio (double p50-0)) (* n1-ratio (double p50-1))))
+            p75-2 (Math/round (+ (* n0-ratio (double p75-0)) (* n1-ratio (double p75-1))))
             p90-2 (Math/round (+ (* n0-ratio (double p90-0)) (* n1-ratio (double p90-1))))
             p95-2 (Math/round (+ (* n0-ratio (double p95-0)) (* n1-ratio (double p95-1))))
             p99-2 (Math/round (+ (* n0-ratio (double p99-0)) (* n1-ratio (double p99-1))))
@@ -176,7 +185,8 @@
 
         {:n n2 :min min2 :max max2 :sum sum2 :mean mean2
          :mad-sum mad-sum2 :mad mad2
-         :p50 p50-2 :p90 p90-2 :p95 p95-2 :p99 p99-2})
+         :p25 p25-2 :p50 p50-2 :p75 p75-2
+         :p90 p90-2 :p95 p95-2 :p99 p99-2})
       m0)
     m1))
 
@@ -240,7 +250,8 @@
          (str/join ",")
          (str/reverse))))
 
-(def all-format-columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total])
+(def     all-format-columns [:n-calls :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
+(def default-format-columns [:n-calls :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
 
 (def default-format-id-fn (fn [id] (str id)))
 
@@ -260,7 +271,7 @@
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
   [clock-total id-stats {:keys [columns sort-fn format-id-fn approx-clock? max-id-width] :as opts
-                         :or   {columns      all-format-columns
+                         :or   {columns      default-format-columns
                                 sort-fn      (fn [m] (get m :sum))
                                 format-id-fn default-format-id-fn}}]
   (when id-stats
@@ -284,7 +295,9 @@
           {:id      {:heading "pId"    :min-width max-id-width :align :left}
            :n-calls {:heading "nCalls"}
            :min     {:heading "Min"}
+           :p25     {:heading "25% ≤"}
            :p50     {:heading "50% ≤"}
+           :p75     {:heading "75% ≤"}
            :p90     {:heading "90% ≤"}
            :p95     {:heading "95% ≤"}
            :p99     {:heading "99% ≤"}
