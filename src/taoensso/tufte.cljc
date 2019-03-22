@@ -365,7 +365,7 @@
        - @(merge-pstats ps1 ps2) -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
 
      Full set of `:stats` keys:
-       :n :min :max :mean :mad :sum :p50 :p90 :p95 :p99
+       :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99
 
      Compile-time opts:
        :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
@@ -579,7 +579,7 @@
          (assoc opts :approx-clock? (get clock :approx?)))))))
 
 (comment
-  ;; [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
+  ;; [:n-calls :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :total]
   (println
     (str "\n"
       (format-pstats
