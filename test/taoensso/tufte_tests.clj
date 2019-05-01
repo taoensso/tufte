@@ -219,9 +219,12 @@
 (test/deftest merge-pstats-compaction
   (let [ps (reduce (fn [org _] (tufte/merge-pstats org (second (profiled {:nmax 10} (looped 10 (p :foo))))))
                    nil
-                   (range 0 10))
+                   (range 0 100))
         id-times (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps)))
-        foo-profiled (first (vals id-times))]
+        id-stats (.-id_stats ^PState (.-pstate_ ^PData (.-pd ^PStats ps)))
+        foo-profiled (first (vals id-times))
+        foo-profiled-stats (first (vals id-stats))]
+    (is (<= (count foo-profiled-stats) 10))
     (is (<= (count foo-profiled) 10))))
 
 (defn add-test-handler! []

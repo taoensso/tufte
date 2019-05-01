@@ -166,6 +166,11 @@
 (defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
 (comment (fast-into nil nil))
 
+(defn merge-stats-when-needed [stats nmax]
+  (if (<= (count stats) nmax)
+    stats
+    [(reduce stats/merge-stats stats)]))
+
 (defn merge-and-compact [pd1-id-times pd1-id-stats pd2-id-times pd2-id-stats nmax]
   (if pd1-id-times
     (reduce-kv
@@ -184,7 +189,7 @@
             ;; Times need compaction
             (let [stats<times (stats/stats pd2-times)]
               [(assoc pd2-id-times id nil)
-               (assoc pd2-id-stats id (conj pd2-stats stats<times))]))))
+               (assoc pd2-id-stats id (merge-stats-when-needed (conj pd2-stats stats<times) nmax))]))))
       [pd2-id-times pd2-id-stats]
       pd1-id-times)
     (reduce-kv
@@ -195,7 +200,7 @@
           ;; Times need compaction
           (let [stats<times (stats/stats pd2-times)]
             [(assoc pd2-id-times id nil)
-             (assoc pd2-id-stats id (conj (get pd2-id-stats id) stats<times))])))
+             (assoc pd2-id-stats id (merge-stats-when-needed (conj (get pd2-id-stats id) stats<times) nmax))])))
       [pd2-id-times pd2-id-stats]
       pd2-id-times)))
 
