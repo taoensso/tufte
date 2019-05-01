@@ -220,7 +220,7 @@
   (let [ps (reduce (fn [org _] (tufte/merge-pstats org (second (profiled {:nmax 10} (looped 10 (p :foo))))))
                    nil
                    (range 0 10))
-        id-times (.-id_times (.-pstate_ ^PData (.-pd ^PStats ps)))
+        id-times (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps)))
         foo-profiled (first (vals id-times))]
     (is (<= (count foo-profiled) 10))))
 

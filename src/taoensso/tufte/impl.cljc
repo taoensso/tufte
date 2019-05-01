@@ -166,6 +166,39 @@
 (defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
 (comment (fast-into nil nil))
 
+(defn merge-and-compact [pd1-id-times pd1-id-stats pd2-id-times pd2-id-stats nmax]
+  (if pd1-id-times
+    (reduce-kv
+      (fn [[pd2-id-times pd2-id-stats] id pd1-times]
+        (let [pd2-times (get pd2-id-times id)
+              pd2-stats (get pd2-id-stats id)
+              pd1-stats (get pd1-id-stats id)
+
+              pd2-times (fast-into pd2-times pd1-times)
+              pd2-stats (fast-into pd2-stats pd1-stats)]
+
+          (if (<= (count pd2-times) nmax) ; Common case
+            [(assoc pd2-id-times id pd2-times)
+             (assoc pd2-id-stats id pd2-stats)]
+
+            ;; Times need compaction
+            (let [stats<times (stats/stats pd2-times)]
+              [(assoc pd2-id-times id nil)
+               (assoc pd2-id-stats id (conj pd2-stats stats<times))]))))
+      [pd2-id-times pd2-id-stats]
+      pd1-id-times)
+    (reduce-kv
+      (fn [[pd2-id-times pd2-id-stats] id pd2-times]
+        (if (<= (count pd2-times) nmax) ; Common case
+          [pd2-id-times pd2-id-stats]
+
+          ;; Times need compaction
+          (let [stats<times (stats/stats pd2-times)]
+            [(assoc pd2-id-times id nil)
+             (assoc pd2-id-stats id (conj (get pd2-id-stats id) stats<times))])))
+      [pd2-id-times pd2-id-stats]
+      pd2-id-times)))
+
 (defn merge-pstats "Compacting merge"
   ([     ps0 ps1] (merge-pstats nil ps0 ps1))
   ([nmax ps0 ps1]
@@ -211,26 +244,7 @@
 
              ;; In a single pass, merge pd1 into base pd2 (based on pd0)
              [pd2-id-times pd2-id-stats]
-             (reduce-kv
-               (fn [[pd2-id-times pd2-id-stats] id pd1-times]
-                 (let [pd2-times (get pd2-id-times id)
-                       pd2-stats (get pd2-id-stats id)
-                       pd1-stats (get pd1-id-stats id)
-
-                       pd2-times (fast-into pd2-times pd1-times)
-                       pd2-stats (fast-into pd2-stats pd1-stats)]
-
-                   (if (<= (count pd2-times) nmax) ; Common case
-                     [(assoc pd2-id-times id pd2-times)
-                      (assoc pd2-id-stats id pd2-stats)]
-
-                     ;; Times need compaction
-                     (let [stats<times (stats/stats pd2-times)]
-                       [(assoc pd2-id-times id nil)
-                        (assoc pd2-id-stats id (conj pd2-stats stats<times))]))))
-
-               [pd2-id-times pd2-id-stats]
-               pd1-id-times)
+             (merge-and-compact pd1-id-times pd1-id-stats pd2-id-times pd2-id-stats nmax)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
          (PStats. pd2 ps2-t1 ps2-tsum (delay (deref-pstats pd2 ps2-t1 ps2-tsum))))
