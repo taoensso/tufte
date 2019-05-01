@@ -216,6 +216,14 @@
       (is (= (get-in @ps3 [:stats :tufte/compaction :n]) 20)) ; Merging does uncounted compaction
       )))
 
+(test/deftest merge-pstats-compaction
+  (let [ps (reduce (fn [org _] (tufte/merge-pstats org (second (profiled {:nmax 10} (looped 10 (p :foo))))))
+                   nil
+                   (range 0 10))
+        id-times (.-id_times (.-pstate_ ^PData (.-pd ^PStats ps)))
+        foo-profiled (first (vals id-times))]
+    (is (<= (count foo-profiled) 10))))
+
 (defn add-test-handler! []
   (let [p (promise)]
     (tufte/add-handler! :testing (fn [x] (p x)))
