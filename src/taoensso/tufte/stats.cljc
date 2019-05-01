@@ -48,6 +48,7 @@
        (aget a (Math/round (* 0.25 max-idx)))
        (aget a (Math/round (* 0.50 max-idx)))
        (aget a (Math/round (* 0.75 max-idx)))
+       (aget a (Math/round (* 0.90 max-idx)))
        (aget a (Math/round (* 0.95 max-idx)))
        (aget a (Math/round (* 0.99 max-idx)))
        (aget a                     max-idx)])))
