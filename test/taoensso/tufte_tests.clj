@@ -218,9 +218,10 @@
 
     ;; [#54] merging PStats with times still (only) in accumulator
     (let [[_ ps0] (profiled {:nmax 10} (p :foo))
-          ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 100)]
+          ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 1000)]
 
-      (is (<= (count (:foo (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10)))))
+      (is (<= (count (:foo (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))
+      (is (<= (count (:foo (.-id_stats ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10)))))
 
 (defn add-test-handler! []
   (let [p (promise)]
