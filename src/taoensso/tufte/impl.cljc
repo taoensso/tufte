@@ -202,26 +202,25 @@
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
 
-             pd0-id-times (.-id-times pd0-pstate)
+             pd0-id-times (times-into-id-times (.-id-times pd0-pstate) (.-acc pd0-pstate))
+             pd1-id-times (times-into-id-times (.-id-times pd1-pstate) (.-acc pd1-pstate))
              pd0-id-stats (.-id-stats pd0-pstate)
-             pd1-id-times (.-id-times pd1-pstate)
              pd1-id-stats (.-id-stats pd1-pstate)
 
-             ;;; Pour `acc`s into (left) pd0-id-time as base
-             pd2-id-times (times-into-id-times pd0-id-times (.-acc pd0-pstate))
-             pd2-id-times (times-into-id-times pd2-id-times (.-acc pd1-pstate))
-             pd2-id-stats pd0-id-stats
+             ;; All ids in pd0 or pd1
+             pd2-ids (keys (conj (or pd0-id-times {}) pd1-id-times))
 
-             ;; In a single pass, merge pd1 into base pd2 (based on pd0)
+             ;; Merge pd1 into pd0 to get pd2
              [pd2-id-times pd2-id-stats]
-             (reduce-kv
-               (fn [[pd2-id-times pd2-id-stats] id pd1-times]
-                 (let [pd2-times (get pd2-id-times id)
-                       pd2-stats (get pd2-id-stats id)
+             (reduce
+               (fn [[pd2-id-times pd2-id-stats] id]
+                 (let [pd0-times (get pd0-id-times id)
+                       pd0-stats (get pd0-id-stats id)
+                       pd1-times (get pd1-id-times id)
                        pd1-stats (get pd1-id-stats id)
 
-                       pd2-times (fast-into pd2-times pd1-times)
-                       pd2-stats (fast-into pd2-stats pd1-stats)]
+                       pd2-times (fast-into pd0-times pd1-times)
+                       pd2-stats (fast-into pd0-stats pd1-stats)]
 
                    (if (<= (count pd2-times) nmax) ; Common case
                      [(assoc pd2-id-times id pd2-times)
@@ -232,8 +231,8 @@
                        [(assoc pd2-id-times id nil)
                         (assoc pd2-id-stats id (conj pd2-stats stats<times))]))))
 
-               [pd2-id-times pd2-id-stats]
-               pd1-id-times)
+               [pd0-id-times pd0-id-stats]
+               pd2-ids)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
          (PStats. pd2 ps2-t1 ps2-tsum (delay (deref-pstats pd2 ps2-t1 ps2-tsum))))

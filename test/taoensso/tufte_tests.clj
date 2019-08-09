@@ -214,7 +214,13 @@
       (is (= (get-in @ps3 [:stats :foo :n]) 170))
       (is (= (get-in @ps3 [:stats :bar :n])  60))
       (is (= (get-in @ps3 [:stats :tufte/compaction :n]) 20)) ; Merging does uncounted compaction
-      )))
+      )
+
+    ;; [#54] merging PStats with times still (only) in accumulator
+    (let [[_ ps0] (profiled {:nmax 10} (p :foo))
+          ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 100)]
+
+      (is (<= (count (:foo (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10)))))
 
 (defn add-test-handler! []
   (let [p (promise)]
