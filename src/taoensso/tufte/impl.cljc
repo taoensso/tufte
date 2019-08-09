@@ -116,17 +116,20 @@
 
 ;;;;
 
-(defn- times-into-id-times [to-id-times from-times]
-  ;; NB treats `from-times` as read-only (may be mutable `acc`)!
-  (if-let [from-times (enc/force-ref from-times)]
-    (reduce
-      (fn [m ^Time in]
-        (let [id (.-id in)
-              t  (.-t  in)]
-          (assoc m id (conj (get m id) t))))
-      to-id-times
-      from-times)
-    to-id-times))
+(defn- times-into-id-times
+  "NB treats `from-times` as read-only (may be mutable `acc`)!"
+  [to-id-times from-times]
+  (not-empty
+    (if-let [from-times (enc/force-ref from-times)]
+      (persistent!
+        (reduce
+          (fn [m ^Time in]
+            (let [id (.-id in)
+                  t  (.-t  in)]
+              (assoc! m id (conj (get m id) t))))
+          (transient (or to-id-times {}))
+          from-times))
+      to-id-times)))
 
 (comment
   (times-into-id-times nil nil)
