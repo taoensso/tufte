@@ -131,12 +131,12 @@
         (.-tsum ^ElapsedTimeAcc
           (reduce
             (fn [^ElapsedTimeAcc acc ^TimeSpan tspan]
-              (let [t0     (.-t0     tspan)
-                    t1     (.-t1     tspan)
-                    tsum   (.-tsum   acc)
+              (let [t1     (.-t1     tspan)
                     max-t1 (.-max-t1 acc)]
                 (if (> t1 max-t1)
-                  (ElapsedTimeAcc. (+ tsum (- t1 (Math/max t0 max-t1))) t1)
+                  (let [t0   (.-t0   tspan)
+                        tsum (.-tsum acc)]
+                    (ElapsedTimeAcc. (+ tsum (- t1 (Math/max t0 max-t1))) t1))
                   acc)))
             (ElapsedTimeAcc. 0 0)
             sorted-tspans))))))
