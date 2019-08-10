@@ -1,9 +1,9 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.1.0-RC4 - 2019 Feb 15
+## v2.1.0-RC5 - 2019 Aug 10
 
 ```clojure
-[com.taoensso/tufte "2.1.0-RC4"]
+[com.taoensso/tufte "2.1.0-RC5"]
 ```
 
 > This is an API-non-breaking feature release (though `format-pstats` output has changed). Big thanks to **@ivarref** for much of the work+input on this release!
@@ -12,14 +12,16 @@
 >
 > Thank you!
 
-* **New** [#37]: More accurate clock-total when merging ordered disjoint pstats
-* **New** [#37]: Improve+expand accumulator utils to make one common pattern of app-wide profiling trivial
-* **New** [#32 #31 #30]: `format-pstats`: add configurable columns filter, sort, id format (@ivarref)
-* **New** [#41]: Add abbreviated `format-id-fn` (@ivarref)
-* **New** [#19]: Add `defnp-` macro
+* [#54] **New**: `merge-pstats` clock total should now mostly be lossless (@ivarref)
+* [#37] **New**: Improve+expand accumulator utils to make one common pattern of app-wide profiling trivial
+* [#32 #31 #30] **New**: `format-pstats`: add configurable columns filter, sort, id format (@ivarref)
+* [#41] **New**: Add abbreviated `format-id-fn` (@ivarref)
+* [#19] **New**: Add `defnp-` macro
 * **New**: `defnp`: add support for explicit `^{:tufte/id _}` to override automatic ids
-* **Change** [#40]: Left-align pid in `format-pstats` output (@meeseekz)
-* **Fix** [#33]: cljs implementation was broken
+* **New**: New optional stats columns: `:p25`, `:p75`
+* [#33] **Fix**: cljs implementation was broken
+* [#54] **Fix**: `merge-pstats` compaction wasn't always working, could lead to OOMs (@ivarref)
+* [#40] **Change**: Left-align pid in `format-pstats` output (@meeseekz)
 
 ## v2.0.1 - 2018 Apr 27
 
