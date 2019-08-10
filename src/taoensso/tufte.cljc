@@ -551,13 +551,7 @@
 (comment (refer-tufte))
 
 (defn merge-pstats
-  "Statistics are lossless unless data to merge are very large.
-  Accuracy of total clock time depends on merge order:
-    - Time is exact if pstats are merged in order of increasing
-      completion time (earliest to latest :t1).
-    - Otherwise time is estimated as the maximum possible clock
-      time, ignoring any disjoint intervals (periods when clock
-      was proceeding without any measured activity)."
+  "Statistics are lossless unless data to merge are very large."
   ([       ] nil)
   ([ps0    ] ps0)
   ([ps0 ps1] (impl/merge-pstats ps0 ps1)))
@@ -575,8 +569,7 @@
   ([ps opts]
    (when ps
      (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (stats/format-stats (get clock :total) stats
-         (assoc opts :approx-clock? (get clock :approx?)))))))
+       (stats/format-stats (get clock :total) stats opts)))))
 
 (comment
   ;; [:n-calls :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :total]
@@ -770,7 +763,7 @@
            ^long max-id-width
            (reduce-kv
              (fn [^long acc _ {:keys [clock stats]}]
-               (if-let [c (stats/get-max-id-width stats (assoc format-pstats-opts :approx-clock? (get clock :approx?)))]
+               (if-let [c (stats/get-max-id-width stats format-pstats-opts)]
                  (if (> (long c) acc) c acc)
                  acc))
              0

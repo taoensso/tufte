@@ -1,10 +1,11 @@
 (ns taoensso.tufte-tests
   (:require
    [clojure.test    :as test  :refer [is]]
-   [taoensso.tufte  :as tufte :refer [profiled profile p]]
+   [clojure.string  :as str]
    [taoensso.encore :as enc]
-   [clojure.string  :as str])
-  (:import [taoensso.tufte.impl PState PData PStats]))
+   [taoensso.tufte  :as tufte :refer [profiled profile p]]
+   [taoensso.tufte.impl :as impl])
+  (:import [taoensso.tufte.impl PState PData PStats TimeSpan]))
 
 (comment
   (remove-ns      'taoensso.tufte-tests)
@@ -222,6 +223,40 @@
 
       (is (<= (count (:foo (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))
       (is (<= (count (:foo (.-id_stats ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10)))))
+
+(defn- pstats-tspan [t0 t1]
+  (let [pd (PData. 8e5 t0 (PState. nil nil nil))
+        time-span [(TimeSpan. t0 t1)]]
+    (PStats. pd t1 time-span (delay (#'impl/deref-pstats pd t1 time-span)))))
+
+(test/deftest merge-time-spans
+  (test/testing "Merge discrete time-spans"
+    (is (= 13 (get-in @(tufte/merge-pstats (pstats-tspan 0 6) (pstats-tspan 10 17)) [:clock :total])))
+    (is (=  5 (get-in @(tufte/merge-pstats (pstats-tspan 1 3) (pstats-tspan  3  6)) [:clock :total]))))
+
+  (test/testing "Merge overlapping time-spans"
+    (is (=  9 (get-in @(tufte/merge-pstats (pstats-tspan 1 10) (pstats-tspan 3  6)) [:clock :total])))
+    (is (= 11 (get-in @(tufte/merge-pstats (pstats-tspan 0 10) (pstats-tspan 7 11)) [:clock :total])))
+    (is (= 16
+          (get-in
+            @(reduce tufte/merge-pstats
+               [(pstats-tspan 10 14)
+                (pstats-tspan  4 18)
+                (pstats-tspan 19 20)
+                (pstats-tspan 19 20)
+                (pstats-tspan 13 20)])
+            [:clock :total]))))
+
+  (test/testing "Accurate clock time even when merging non-increasing t0s" ; #52
+    (let [sacc (tufte/stats-accumulator)
+          _    (do                        (sacc :g1 (second (profiled {:id :foo} (p :p1))))) ; 1st-t0
+          f1   (future (Thread/sleep 800) (sacc :g1 (second (profiled {:id :foo} (p :p1))))) ; 3rd-t0
+          f2   (future                    (sacc :g1 (second (profiled {:id :foo} (p :p1 (Thread/sleep 1000)))))) ; 2nd-t0
+          ]
+
+      @f1
+      @f2
+      (is (>= (/ (double (get-in @(:g1 @sacc) [:clock :total])) 1e6) 1000)))))
 
 (defn add-test-handler! []
   (let [p (promise)]

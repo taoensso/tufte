@@ -31,7 +31,8 @@
 
 ;;;; Mutable accumulators
 
-(deftype Time [id ^long t])
+(deftype Time     [id ^long t])
+(deftype TimeSpan [^long t0 ^long t1])
 (comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
 
 (defmacro ^:private mt-acc     [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
@@ -43,7 +44,7 @@
 ;;;; PStats (Profiling Stats)
 ;; API-level state we'll return from `profiled`: derefable, mergeable
 
-(deftype PStats [pd ^long t1 ^long tsum realized_]
+(deftype PStats [pd ^long t1 tspans realized_]
   #?@(:clj  [clojure.lang.IDeref    (deref     [_]           @realized_)]
       :cljs [             IDeref   (-deref     [_]           @realized_)])
   #?@(:clj  [clojure.lang.IPending (isRealized [_] (realized? realized_))]
@@ -68,11 +69,13 @@
 (declare ^:private deref-pstats)
 (defn- deref-pdata "PData->PStats" [^PData pd]
   ;; NB (.-acc pd) should never be mutated from this point!
-  (let [t1   (enc/now-nano*)
-        tsum (- t1 (.-t0 pd))]
-    (PStats. pd t1 tsum (delay (deref-pstats pd t1 tsum)))))
+  (let [t1     (enc/now-nano*)
+        t0     (.-t0 pd)
+        tspans (list (TimeSpan. t0 t1))]
 
-(comment (enc/qb 1e6 @(new-pdata-local 10))) ; 194.94
+    (PStats. pd t1 tspans (delay (deref-pstats pd t1 tspans)))))
+
+(comment (enc/qb 1e6 @(new-pdata-local 10))) ; 245.08
 
 (def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
 
@@ -114,6 +117,59 @@
     (binding [*pdata* "foo"])
     (try (pdata-proxy-push "foo") (finally (pdata-proxy-pop)))))
 
+;;;; TimeSpan utils
+
+(deftype ElapsedTimeAcc [^long tsum ^long max-t1])
+(let [sort-tspans (fn [tspans] (sort-by (fn [^TimeSpan tspan] (.-t0 tspan)) tspans))]
+  (defn- tspans->tsum
+    "Returns `tsum` (elapsed time) given collection of `TimeSpan`s.
+    Based on https://codereview.stackexchange.com/a/126927."
+    ^long [tspans]
+    (if (empty? tspans)
+      0
+      (let [sorted-tspans (sort-tspans tspans)] ; O(n.logn)
+        (.-tsum ^ElapsedTimeAcc
+          (reduce
+            (fn [^ElapsedTimeAcc acc ^TimeSpan tspan]
+              (let [t0     (.-t0     tspan)
+                    t1     (.-t1     tspan)
+                    tsum   (.-tsum   acc)
+                    max-t1 (.-max-t1 acc)]
+                (if (> t1 max-t1)
+                  (ElapsedTimeAcc. (+ tsum (- t1 (Math/max t0 max-t1))) t1)
+                  acc)))
+            (ElapsedTimeAcc. 0 0)
+            sorted-tspans))))))
+
+(comment
+  (tspans->tsum nil)
+  (tspans->tsum [])
+  (tspans->tsum [(TimeSpan. 1   3) (TimeSpan. 3 6)])
+  (tspans->tsum [(TimeSpan. 3   6) (TimeSpan. 1 3)])
+  (tspans->tsum [(TimeSpan. 1  10) (TimeSpan. 3 6)])
+  (enc/qb 1e6
+    (tspans->tsum
+      [(TimeSpan. 10 14)
+       (TimeSpan.  4 18)
+       (TimeSpan. 19 20)
+       (TimeSpan. 19 20)
+       (TimeSpan. 13 20)])))
+
+(defn- merge-tspans [^long nmax ^long t1 tspans0 tspans1]
+  (let [n0      (count tspans0)
+        n1      (count tspans1)
+        tspans2 (if (> n1 n0) (into tspans1 tspans0) (into tspans0 tspans1))]
+
+    (if (> (+ n0 n1) nmax) ; Compact, may lose some accuracy
+      (let [tsum (tspans->tsum tspans2)]
+        (list (TimeSpan. (- t1 tsum) t1)))
+      tspans2)))
+
+(comment
+  (merge-tspans 2 50
+    (list (TimeSpan. 1 10) (TimeSpan. 5  20))
+    (list (TimeSpan. 1 10) (TimeSpan. 20 50))))
+
 ;;;;
 
 (defn- times-into-id-times
@@ -140,7 +196,7 @@
 
 (defn- deref-pstats
   "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
-  [^PData pd ^long t1 ^long tsum]
+  [^PData pd ^long t1 tspans]
   (let [t0      (.-t0      pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate (enc/force-ref pstate_)
@@ -157,12 +213,7 @@
           id-times)]
 
     {:stats id-stats
-     :clock
-     (let [approx-clock? (== tsum -1)]
-       {:t0 t0
-        :t1 t1
-        :total   (if approx-clock? (- t1 t0) tsum)
-        :approx?     approx-clock?})}))
+     :clock {:t0 t0 :t1 t1 :total (tspans->tsum tspans)}}))
 
 (comment @@(new-pdata-local 10))
 
@@ -190,19 +241,9 @@
              pd1-t0 (.-t0 pd1)
              ps1-t1 (.-t1 ps1)
 
-             pd2-t0 (if (< pd0-t0 pd1-t0) pd0-t0 pd1-t0)
-             ps2-t1 (if (> ps0-t1 ps1-t1) ps0-t1 ps1-t1)
-
-             ;; ps2-tsum (- ps2-t1 pd2-t0) ; Old logic (outer union)
-             ps2-tsum ; New logic (inner union)
-             (let [ps0-tsum (.-tsum ps0)
-                   ps1-tsum (.-tsum ps1)]
-               (if (or (== ps0-tsum -1) (== ps1-tsum -1) (< ps1-t1 ps0-t1))
-                 -1 ; Can't accurately do stream inner union on unsorted intervals
-                 (let [;; [[a0 a1] [b0 b1]] time = (- b1 (max b0 a1))
-                       sum (+ ps0-tsum (- ps1-t1 (enc/max* ps0-t1 pd1-t0)))]
-                   (if (< pd1-t0 pd0-t0) (+ sum (- pd0-t0 pd1-t0)) sum) ; Ref. #48
-                   )))
+             pd2-t0  (if (< pd0-t0 pd1-t0) pd0-t0 pd1-t0)
+             ps2-t1  (if (> ps0-t1 ps1-t1) ps0-t1 ps1-t1)
+             tspans2 (merge-tspans nmax ps2-t1 (.-tspans ps0) (.-tspans ps1))
 
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
@@ -242,7 +283,7 @@
                pd2-ids)
 
              pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
-         (PStats. pd2 ps2-t1 ps2-tsum (delay (deref-pstats pd2 ps2-t1 ps2-tsum))))
+         (PStats. pd2 ps2-t1 tspans2 (delay (deref-pstats pd2 ps2-t1 tspans2))))
 
        ps0)
      ps1)))

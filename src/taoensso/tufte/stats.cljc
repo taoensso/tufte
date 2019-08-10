@@ -255,22 +255,20 @@
 
 (def default-format-id-fn (fn [id] (str id)))
 
-(defn get-max-id-width [stats {:keys [format-id-fn approx-clock?]
+(defn get-max-id-width [stats {:keys [format-id-fn]
                                :or   {format-id-fn default-format-id-fn}}]
   (when stats
      (reduce-kv
        (fn [^long acc k v]
            (let [c (count (format-id-fn k))]
                 (if (> c acc) c acc)))
-       (if approx-clock?
-         10 ; (count "Clock est.")
-         9) ; (count "Accounted")
+       9 ; (count "Accounted")
        stats)))
 
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.
   Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  [clock-total id-stats {:keys [columns sort-fn format-id-fn approx-clock? max-id-width] :as opts
+  [clock-total id-stats {:keys [columns sort-fn format-id-fn max-id-width] :as opts
                          :or   {columns      default-format-columns
                                 sort-fn      (fn [m] (get m :sum))
                                 format-id-fn default-format-id-fn}}]
@@ -359,7 +357,7 @@
 
       ; Write clock row
       (enc/sb-append sb "\n")
-      (append-col :id (if approx-clock? "Clock est." "Clock"))
+      (append-col :id "Clock")
       (doseq [column columns]
         (enc/sb-append sb " ")
         (case column
