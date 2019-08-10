@@ -656,7 +656,6 @@
   (profiled {} (foo 5)))
 
 ;;;; Stats accumulators (experimental)
-;; TODO Document use
 
 (defn- sacc-drain-and-merge! [pstats_] (enc/reset-in! pstats_ {}))
 (defn- sacc-add!             [pstats_ group-id ps]
@@ -682,7 +681,8 @@
   Note that you may want some kind of async/buffer/serialization
   mechanism in front of merge calls for performance (e.g. by using an agent).
 
-  See also `add-accumulating-handler!`."
+  See also `add-accumulating-handler!`, example clj project."
+
   [] (StatsAccumulator. (atom {})))
 
 (comment
@@ -716,10 +716,10 @@
           (println (format-grouped-pstats m)))
         (Thread/sleep 60000))))
 
-  ;; (profile ...) used elsewhere in your application, e.g.
-  ;; wrapping relevant Ring routes in a web application.
+  (profile ...) ; Used elsewhere in your application, e.g.
+                ; wrapping relevant Ring routes in a web application.
 
-  See also `format-grouped-pstats`,"
+  See also `format-grouped-pstats`, example clj project."
 
   [{:keys [ns-pattern handler-id]
     :or   {handler-id :accumulating}}]
@@ -746,7 +746,9 @@
 (defn format-grouped-pstats
   "Alpha, subject to change.
   Takes a map of {<group-id> <PStats>} and formats a combined
-  output string using `format-pstats`."
+  output string using `format-pstats`.
+
+  See also example clj project."
   ([m] (format-grouped-pstats m nil))
   ([m {:keys [group-sort-fn format-pstats-opts]
        :or   {group-sort-fn (fn [m] (get-in m [:clock :total] 0))}}]

@@ -61,7 +61,7 @@
  * Arbitrary Clojure/Script **form-level** profiling
  * Full support for **thread-local** and **multi-threaded** profiling
  * **Stats are just Clojure maps**: aggregate, **analyse**, log, serialize to db, ...
- * Ideal for **ongoing application performance monitoring** in staging, production, etc.
+ * Ideal for **ongoing application performance monitoring** in staging, production, etc. ([example](https://github.com/ptaoussanis/tufte/tree/master/examples/clj)).
 
 ## Quickstart
 
@@ -222,10 +222,9 @@ through the `:format-pstats-opts` option:
 
 ## Example: monitoring Clojure application performance
 
-Please see the `add-accumulating-handler!` docstring for an example
-of one common/convenient way to do this.
+Please see the `add-accumulating-handler!` docstring for an example of one common/convenient way to do this.
 
-> **TODO**: Actually include an example web application project. PR welcome!
+There's also an [example project](https://github.com/ptaoussanis/tufte/tree/master/examples/clj).
 
 ## FAQ
 
