@@ -220,6 +220,13 @@ through the `:format-pstats-opts` option:
 ;; Clock                                           5.34s    100%
 ```
 
+## Example: monitoring Clojure application performance
+
+Please see the `add-accumulating-handler!` docstring for an example
+of one common/convenient way to do this.
+
+> **TODO**: Actually include an example web application project. PR welcome!
+
 ## FAQ
 
 ### How to use this for ongoing application performance monitoring?

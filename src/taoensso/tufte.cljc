@@ -672,7 +672,7 @@
       :cljs [             IDeref (-deref [_] (sacc-drain-and-merge! pstats_))]))
 
 (defn stats-accumulator
-  "Experimental, subject to change!
+  "Alpha, subject to change.
   Small util to help merge pstats from multiple runs or threads.
 
   Returns a stateful StatsAccumulator (`sacc`) with:
@@ -680,7 +680,7 @@
     - `@sacc`                      ; Drains accumulator and returns {<group-id> <merged-pstats>}
 
   Note that you may want some kind of async/buffer/serialization
-  mechanism in front of merge calls (e.g. an agent).
+  mechanism in front of merge calls for performance (e.g. by using an agent).
 
   See also `add-accumulating-handler!`."
   [] (StatsAccumulator. (atom {})))
@@ -694,18 +694,18 @@
     [@sacc @sacc]))
 
 (defn add-accumulating-handler!
-  "Experimental, subject to change!
+  "Alpha, subject to change.
 
   Creates a new StatsAccumulator (and agent in clj), then
   registers a handler to accumulate `profile` output to the
   StatsAccumulator using the agent.
 
-  Returns the StatsAccumulator. Deref it to drain the
-  accumulator and return {<group-id> <merged-pstats>}.
+  Returns the StatsAccumulator. You can deref the result to
+  drain the accumulator and return {<group-id> <merged-pstats>}.
 
   One common pattern is to deref the accumulator every n
-  minutes/etc. to get a view of performance over the
-  period, e.g.:
+  minutes/etc. to get a view of total-system performance over
+  the period, e.g.:
 
   (defonce my-sacc (add-accumulating-handler! \"*\"))
   (defonce my-sacc-drainer
@@ -715,6 +715,9 @@
         (when-let [m (not-empty @my-sacc)]
           (println (format-grouped-pstats m)))
         (Thread/sleep 60000))))
+
+  ;; (profile ...) used elsewhere in your application, e.g.
+  ;; wrapping relevant Ring routes in a web application.
 
   See also `format-grouped-pstats`,"
 
@@ -728,7 +731,7 @@
       (fn [{:keys [?id ?data pstats]}]
         (let [id (or ?id :tufte/nil-id)]
           #?(:clj (send @agent_ (fn [_] (sacc id pstats)))
-             :cljs                     (sacc id pstats)))))
+             :cljs                      (sacc id pstats)))))
 
     sacc))
 
@@ -741,7 +744,7 @@
              #_{:format-pstats-opts {:columns [:n-calls]}})))
 
 (defn format-grouped-pstats
-  "Experimental, subject to change.
+  "Alpha, subject to change.
   Takes a map of {<group-id> <PStats>} and formats a combined
   output string using `format-pstats`."
   ([m] (format-grouped-pstats m nil))
