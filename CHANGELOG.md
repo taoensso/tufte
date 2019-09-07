@@ -1,11 +1,13 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.1.0-RC5 - 2019 Aug 10
+## v2.1.0 - 2019 Sep 7
 
 ```clojure
-[com.taoensso/tufte "2.1.0-RC5"]
+[com.taoensso/tufte "2.1.0"]
 ```
 
+> Identical to "2.1.0-RC5" (besides some docstring tweaks).
+>
 > This is an API-non-breaking feature release (though `format-pstats` output has changed). Big thanks to **@ivarref** for much of the work+input on this release!
 >
 > Feedback and bug reports welcome, especially for the Cljs implementation which I'm not currently using myself.
