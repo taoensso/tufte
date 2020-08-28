@@ -1,4 +1,4 @@
-(defproject com.taoensso.examples/tufte "2.1.0-RC5"
+(defproject com.taoensso.examples/tufte "2.2.0-RC1"
   :description "Tufte example web-app project"
   :url "https://github.com/ptaoussanis/tufte"
 
@@ -15,6 +15,6 @@
    [ring/ring-defaults  "0.3.2"]
    [compojure           "1.6.2"]
    [hiccup              "1.0.5"]
-   [com.taoensso/tufte  "2.1.0"]]
+   [com.taoensso/tufte  "2.2.0-RC1"]]
 
   :main example.server)
