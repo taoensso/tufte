@@ -126,13 +126,19 @@
 
 #?(:clj
    (def ^:private compile-time-min-level
-     (when-let [level (enc/read-sys-val "TUFTE_MIN_LEVEL")]
+     (when-let [level (or (enc/read-sys-val "taoensso.tufte.min-level" "TAOENSSO_TUFTE_MIN_LEVEL")
+                          (enc/read-sys-val "TUFTE_MIN_LEVEL") ; Legacy
+                          )]
+
        (println (str "Compile-time (elision) Tufte min-level: " level))
        (valid-min-level level))))
 
 #?(:clj
    (def ^:private compile-time-ns-filter
-     (let [ns-pattern (enc/read-sys-val "TUFTE_NS_PATTERN")]
+     (let [ns-pattern (or (enc/read-sys-val "taoensso.tufte.ns-pattern" "TAOENSSO_TUFTE_NS_PATTERN")
+                          (enc/read-sys-val "TUFTE_NS_PATTERN") ; Legacy
+                          )]
+
        (when ns-pattern
          (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
        (-compile-ns-filter (or ns-pattern "*")))))
