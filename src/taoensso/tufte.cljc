@@ -373,10 +373,20 @@
        :nmax     - ~Max captures per id before compaction ; Default is 8e5
        :when     - Optional arbitrary conditional form (e.g. boolean expr)
 
-     Note on laziness:
-       Please note that lazy seqs and other forms of laziness (e.g. delays)
-       will only contribute to profiling results if/when evaluation actually
-       occurs. This is intentional and a useful property. Compare:
+     Async code:
+       Execution time of any code in body that runs asynchronously on a
+       different thread will generally NOT be automatically captured by default.
+
+       :dynamic? can be used to support capture in cases where Clojure's
+       binding conveyance applies (e.g. futures, agents, pmap).
+
+       In other advanced cases (notably core.async `go` blocks), please see
+       `with-profiling` and `capture-time!`.
+
+     Laziness:
+       Lazy seqs and other forms of laziness (e.g. delays) will only contribute
+       to profiling results if/when evaluation actually occurs.
+       This is intentional and a useful property. Compare:
 
        (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
        (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep"
@@ -440,13 +450,23 @@
        :id       - Optional group id provided to handlers (e.g. `::my-stats-1`)
        :data     - Optional arbitrary data provided to handlers
 
-     Note on laziness:
-       Please note that lazy seqs and other forms of laziness (e.g. delays)
-       will only contribute to profiling results if/when evaluation actually
-       occurs. This is intentional and a useful property. Compare:
+     Async code:
+       Execution time of any code in body that runs asynchronously on a
+       different thread will generally NOT be automatically captured by default.
 
-       (profile {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-       (profile {} @(delay (Thread/sleep 2000))) ; Does    count sleep"
+       :dynamic? can be used to support capture in cases where Clojure's
+       binding conveyance applies (e.g. futures, agents, pmap).
+
+       In other advanced cases (notably core.async `go` blocks), please see
+       `with-profiling` and `capture-time!`.
+
+     Laziness:
+       Lazy seqs and other forms of laziness (e.g. delays) will only contribute
+       to profiling results if/when evaluation actually occurs.
+       This is intentional and a useful property. Compare:
+
+       (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
+       (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep"
 
      [opts & body]
      (let [ns-str (str *ns*)]
