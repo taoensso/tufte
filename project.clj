@@ -12,7 +12,7 @@
 
   :dependencies
   [[org.clojure/clojure "1.7.0"]
-   [com.taoensso/encore "2.125.2"]]
+   [com.taoensso/encore "2.126.2"]]
 
   :plugins
   [[lein-pprint    "1.3.2"]

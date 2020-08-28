@@ -48,7 +48,7 @@
 
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
-(enc/assert-min-encore-version [2 85 0])
+(enc/assert-min-encore-version [2 126 2])
 
 ;;;; Level filtering
 
@@ -96,28 +96,34 @@
 
 ;;;; Namespace filtering
 
-(def -compile-ns-filter (enc/memoize_ enc/compile-ns-filter))
+(def ^:dynamic *ns-filter*
+  "(fn may-profile? [ns]) predicate, or ns-pattern.
+  Example ns-patterns:
+    #{}, \"*\", \"foo.bar\", \"foo.bar.*\", #{\"foo\" \"bar.*\"},
+    {:allow #{\"foo\" \"bar.*\"} :deny #{\"foo.*.bar.*\"}}"
+  "*")
 
-(def ^:dynamic *ns-filter* "(fn [?ns] -> truthy)." (-compile-ns-filter "*"))
+(let [compile    (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
+      ;; filter? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
+      filter?    (enc/fmemoize (fn [x ns] ((compile x) ns)))]
 
-(defn set-ns-pattern!
-  "Sets root binding of namespace filter.
-  See `compile-ns-filter` docstring for details on `ns-pattern` arg."
-  [ns-pattern]
-  (let [nsf? (-compile-ns-filter ns-pattern)]
-    #?(:cljs (set!             *ns-filter*        nsf?)
-       :clj  (alter-var-root #'*ns-filter* (fn [_] nsf?)))))
+  (defn -may-profile-ns?
+    ([          ns] (-may-profile-ns? *ns-filter* ns))
+    ([ns-filter ns]
+     (if (fn? ns-filter)
+       (ns-filter         ns) ; Note no auto cache, may be handy
+       (filter? ns-filter ns)))))
 
-(defmacro with-ns-pattern
-  "Executes body with dynamic namespace filter.
-  See `compile-ns-filter` docstring for details on `ns-pattern` arg."
-  [ns-pattern & body]
-  `(binding [*ns-filter* (-compile-ns-filter ~ns-pattern)]
-     ~@body))
+(comment (enc/qb 1e6 (-may-profile-ns? "taoensso.tufte"))) ; 154.42
+
+;;; Both of these could be deprecated: they don't add any value and the
+;;; names are now misleading
+(defmacro with-ns-pattern  [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
+(defn      set-ns-pattern! [ns-pattern]
+  #?(:cljs (set!             *ns-filter*         ns-pattern)
+     :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern))))
 
 (comment
-  (def nsf? (compile-ns-filter #{"foo.*" "bar"}))
-  (nsf? "foo.bar")
   (with-ns-pattern "foo.baz"    (profiled {} (p {:id "id"} "body")))
   (with-ns-pattern "taoensso.*" (profiled {} (p {:id "id"} "body"))))
 
@@ -139,13 +145,13 @@
                           (enc/read-sys-val "TUFTE_NS_PATTERN") ; Legacy
                           )]
 
-       (when ns-pattern
-         (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
-       (-compile-ns-filter (or ns-pattern "*")))))
+       (when ns-pattern (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
+       (or   ns-pattern "*"))))
 
-#?(:clj ; Called only at macro-expansiom time
+#?(:clj
    (defn -elide?
-     "Returns true iff level or ns are compile-time filtered."
+     "Returns true iff level or ns are compile-time filtered.
+     Called only at macro-expansiom time."
      [level-form ns-str-form]
      (not
        (and
@@ -156,7 +162,7 @@
 
          (or ; Namespace okay
            (not (string? ns-str-form)) ; Not a compile-time ns-str const
-           (compile-time-ns-filter ns-str-form))))))
+           (-may-profile-ns? compile-time-ns-filter ns-str-form))))))
 
 (defn #?(:clj may-profile? :cljs ^boolean may-profile?)
   "Returns true iff level and ns are runtime unfiltered."
@@ -166,10 +172,10 @@
          ;; ^long (valid-min-level *min-level*)
             ^long                  *min-level* ; Assume valid
          )
-     (if (*ns-filter* ns) true false)
+     (if (-may-profile-ns? *ns-filter* ns) true false)
      false)))
 
-(comment (enc/qb 1e5 (may-profile? 2))) ; 14.09
+(comment (enc/qb 1e6 (may-profile? 2))) ; 259.37
 
 ;;;; Output handlers
 ;; Handlers are used for `profile` output, let us nicely decouple stat
@@ -177,8 +183,9 @@
 
 (defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line])
 
-(def      handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
-(defn add-handler!
+(def         handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
+(defn remove-handler! [handler-id] (set (keys (swap! handlers_ dissoc handler-id))))
+(defn    add-handler!
   "Use this to register interest in stats output produced by `profile` calls.
   Each registered `handler-fn` will be called as:
 
@@ -202,7 +209,7 @@
 
   Ns filtering:
     Provide an optional `ns-pattern` arg to only call handler for matching
-    namespaces. See `compile-ns-filter` docstring for details on `ns-pattern`.
+    namespaces. See `*ns-filter*` for example patterns.
 
   Handler ideas:
     Save to a db, log, `put!` to an appropriate `core.async` channel, filter,
@@ -211,16 +218,15 @@
 
   ([handler-id handler-fn] (add-handler! handler-id nil handler-fn))
   ([handler-id ns-pattern handler-fn]
-   (let [f (if (or (nil? ns-pattern) (= ns-pattern "*"))
-             handler-fn
-             (let [nsf? (-compile-ns-filter ns-pattern)]
-               (fn [m]
-                 (when (nsf? (get m :ns-str))
-                   (handler-fn m)))))]
-     (set (keys (swap! handlers_ assoc handler-id f))))))
+   (let [f
+         (if (or (nil? ns-pattern) (= ns-pattern "*"))
+           handler-fn
+           (let [nsf? (enc/compile-str-filter ns-pattern)]
+             (fn [m]
+               (when (nsf? (get m :ns-str))
+                 (handler-fn m)))))]
 
-(defn remove-handler! [handler-id]
-  (set (keys (swap! handlers_ dissoc handler-id))))
+     (set (keys (swap! handlers_ assoc handler-id f))))))
 
 (declare format-pstats)
 
@@ -560,11 +566,8 @@
 
 ;;;; Public user utils
 
-(defn compile-ns-filter
-  "Returns (fn [?ns]) -> truthy. Some example patterns:
-    \"foo.bar\", \"foo.bar.*\", #{\"foo\" \"bar\"},
-    {:whitelist [\"foo.bar.*\"] :blacklist [\"baz.*\"]}"
-  [ns-pattern] (enc/compile-ns-filter ns-pattern))
+(defn compile-ns-filter "Wraps `taoensso.encore/compile-str-filter`."
+  [ns-pattern] (enc/compile-str-filter ns-pattern))
 
 (defn chance "Returns true with 0<`p`<1 probability."
   [p] (< ^double (rand) (double p)))
