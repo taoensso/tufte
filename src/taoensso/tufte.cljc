@@ -64,28 +64,12 @@
 (defn ^:static valid-min-level [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
 (comment (enc/qb 1e5 (valid-run-level 4))) ; 7.82
 
-(def ^:dynamic  *min-level* "e/o #{0 1 2 3 4 5 6}" 2)
-(defn        set-min-level!
-  "Sets root binding of minimum profiling level, e/o #{0 1 2 3 4 5 6}.
-    0 => Enable  all profiling.
-    6 => Disable all profiling."
-  [level]
-  (valid-min-level level)
-  #?(:cljs (set!             *min-level*        level)
-     :clj  (alter-var-root #'*min-level* (fn [_] level))))
+(def ^:dynamic *min-level*
+  "Integer e/o #{0 1 2 3 4 5 6}, or vector mapping ns-patterns to min-levels:
+    [[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]]
 
-(comment (enc/qb 1e6 *min-level*)) ; 25.93
-
-(defmacro with-min-level
-  "Executes body with dynamic minimum profiling level, e/o #{0 1 2 3 4 5 6}.
-    0 => Enable  all profiling.
-    6 => Disable all profiling."
-  [level & body]
-  (if (integer? level)
-    (do
-      (valid-min-level level)
-      `(binding [*min-level*                ~level ] ~@body))
-    `(binding [*min-level* (valid-min-level ~level)] ~@body)))
+  See `*ns-filter*` for example patterns."
+  2)
 
 ;;;; Namespace filtering
 
@@ -105,11 +89,11 @@
           (ns-filter           ns) ; Note no auto cache, may be handy
           (conform?* ns-filter ns)))]
 
-  (defn #?(:clj -may-profile-ns? :cljs ^boolean -may-profile-ns?)
+  (defn- #?(:clj may-profile-ns? :cljs ^boolean may-profile-ns?)
     ([          ns] (conform? *ns-filter* ns))
     ([ns-filter ns] (conform?  ns-filter  ns)))
 
-  (def -ns->?min-level
+  (def ^:private ns->?min-level
     "[[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]], ns -> ?min-level"
     (enc/fmemoize
       (fn [specs ns]
@@ -121,22 +105,44 @@
 
 (comment
   (enc/qb 1e6
-    (-may-profile-ns? "taoensso.tufte")
-    (-ns->?min-level [[#{"taoensso.*" "foo.bar"} 1] ["*" 2]] "foo.bar"))) ; [162.85 136.88]
+    (may-profile-ns? "taoensso.tufte")
+    (ns->?min-level [[#{"taoensso.*" "foo.bar"} 1] ["*" 2]] "foo.bar")) ; [162.85 136.88]
 
-;;; Both of these could be deprecated: they don't add any value and the
-;;; names are now misleading
-(defmacro with-ns-pattern  [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
-(defn      set-ns-pattern! [ns-pattern]
-  #?(:cljs (set!             *ns-filter*         ns-pattern)
-     :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern))))
-
-(comment
-  (with-ns-pattern "foo.baz"    (profiled {} (p {:id "id"} "body")))
-  (with-ns-pattern "taoensso.*" (profiled {} (p {:id "id"} "body"))))
+  (binding [*ns-filter* "foo.baz"]    (profiled {} (p {:id "id"} "body")))
+  (binding [*ns-filter* "taoensso.*"] (profiled {} (p {:id "id"} "body"))))
 
 ;;;; Combo filtering
-;; TODO Consider ns-pattern->min-level feature (+ sync with Timbre)
+
+(let [valid-min-level valid-min-level
+      ns->?min-level  ns->?min-level]
+
+  (defn- get-min-level [x ns] (valid-min-level (if (vector? x) (ns->?min-level x ns) x))))
+
+(comment
+  (let [ns *ns*] (enc/qb 1e6 (get-min-level *min-level* ns))) ; 260.34
+  (binding [*min-level* [["taoensso.*" 1] ["*" 4]]] (get-min-level "foo")))
+
+(let [valid-run-level valid-run-level
+      may-profile-ns? may-profile-ns?
+      get-min-level   get-min-level]
+
+  (defn #?(:clj may-profile? :cljs ^boolean may-profile?)
+    "Returns true iff level and ns are runtime unfiltered."
+    ([level   ] (may-profile? level *ns*))
+    ([level ns]
+     (if (>= ^long (valid-run-level    level)
+             (long (get-min-level *min-level* ns)))
+       (if (may-profile-ns? *ns-filter* ns) true false)
+       false))))
+
+(comment
+  (enc/qb 1e6 (may-profile? 2)) ; 468.24
+
+  (binding [*min-level* [["foo.bar" 1] ["*" 3]]
+            *ns-filter* "*"]
+    (may-profile? 2 "baz")))
+
+;;;; Compile-time filtering
 
 #?(:clj
    (def ^:private compile-time-min-level
@@ -145,7 +151,7 @@
                           )]
 
        (println (str "Compile-time (elision) Tufte min-level: " level))
-       (valid-min-level level))))
+       level)))
 
 #?(:clj
    (def ^:private compile-time-ns-filter
@@ -166,24 +172,11 @@
          (or ; Level okay
            (nil? compile-time-min-level)
            (not (valid-run-level? level-form)) ; Not a compile-time level const
-           (>= ^long level-form ^long compile-time-min-level))
+           (>= (long level-form) (long (get-min-level compile-time-min-level ns-str-form))))
 
          (or ; Namespace okay
            (not (string? ns-str-form)) ; Not a compile-time ns-str const
-           (-may-profile-ns? compile-time-ns-filter ns-str-form))))))
-
-(defn #?(:clj may-profile? :cljs ^boolean may-profile?)
-  "Returns true iff level and ns are runtime unfiltered."
-  ([level   ] (may-profile? level *ns*))
-  ([level ns]
-   (if (>=  ^long (valid-run-level level)
-         ;; ^long (valid-min-level *min-level*)
-            ^long                  *min-level* ; Assume valid
-         )
-     (if (-may-profile-ns? *ns-filter* ns) true false)
-     false)))
-
-(comment (enc/qb 1e6 (may-profile? 2))) ; 259.37
+           (may-profile-ns? compile-time-ns-filter ns-str-form))))))
 
 ;;;; Output handlers
 ;; Handlers are used for `profile` output, let us nicely decouple stat
@@ -821,6 +814,18 @@
       (when-let [m (not-empty @my-sacc)]
         (println (format-grouped-pstats m)))
       (Thread/sleep 10000))))
+
+;;;; Deprecated
+
+(defmacro with-min-level  "Deprecated" [level & body] `(binding [*min-level* ~level] ~@body))
+(defn      set-min-level! "Deprecated" [level]
+  #?(:cljs (set!             *min-level*         level)
+     :clj  (alter-var-root #'*min-level* (fn [_] level))))
+
+(defmacro with-ns-pattern  "Deprecated" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
+(defn      set-ns-pattern! "Deprecated" [ns-pattern]
+  #?(:cljs (set!             *ns-filter*         ns-pattern)
+     :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern))))
 
 ;;;;
 
