@@ -51,9 +51,9 @@
 (enc/assert-min-encore-version [2 126 2])
 
 ;;;; Level filtering
+;; Terminology note: we distinguish between call/form and min levels to ensure
+;; that it's always possible to set min-level > any call-level to disable profiling.
 
-;; We distinguish between call/form and min levels to ensure that it's always
-;; possible to set min-level > any call-level to disable profiling
 (defn- valid-call-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
 (defn- valid-min-level?  [x] (if (#{0 1 2 3 4 5 6} x) true false))
 
@@ -72,26 +72,30 @@
   2)
 
 ;;;; Namespace filtering
+;; Terminology note: we distinguish loosely between `ns-filter` (which may be a
+;; fn or `ns-pattern`) and `ns-pattern` (subtype of `ns-filter`).
 
 (def ^:dynamic *ns-filter*
-  "(fn may-profile? [ns]) predicate, or ns-pattern.
+  "(fn may-profile-ns? [ns]) predicate, or ns-pattern.
   Example ns-patterns:
     #{}, \"*\", \"foo.bar\", \"foo.bar.*\", #{\"foo\" \"bar.*\"},
     {:allow #{\"foo\" \"bar.*\"} :deny #{\"foo.*.bar.*\"}}"
   "*")
 
-(let [compile     (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
+(let [fn?         fn?
+      compile     (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
       conform?*   (enc/fmemoize (fn [x ns] ((compile x) ns)))
       ;; conform? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
       conform?
       (fn [ns-filter ns]
         (if (fn? ns-filter)
-          (ns-filter           ns) ; Note no auto cache, may be handy
+          (ns-filter           ns) ; Intentionally uncached, can be handy
           (conform?* ns-filter ns)))]
 
   (defn- #?(:clj may-profile-ns? :cljs ^boolean may-profile-ns?)
-    ([          ns] (conform? *ns-filter* ns))
-    ([ns-filter ns] (conform?  ns-filter  ns)))
+    "Implementation detail."
+    ([          ns] (if (conform? *ns-filter* ns) true false))
+    ([ns-filter ns] (if (conform?  ns-filter  ns) true false)))
 
   (def ^:private ns->?min-level
     "[[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]], ns -> ?min-level"
@@ -116,9 +120,14 @@
 (let [valid-min-level valid-min-level
       ns->?min-level  ns->?min-level]
 
-  (defn- get-min-level [x ns] (valid-min-level (if (vector? x) (ns->?min-level x ns) x))))
+  (defn- get-min-level [default x ns]
+    (valid-min-level
+      (or
+        (if (vector? x) (ns->?min-level x ns) x)
+        default))))
 
 (comment
+  (get-min-level 6 [["foo" 2]] *ns*) ; Default to 6 (don't profile)
   (let [ns *ns*] (enc/qb 1e6 (get-min-level *min-level* ns))) ; 260.34
   (binding [*min-level* [["taoensso.*" 1] ["*" 4]]] (get-min-level "foo")))
 
@@ -127,11 +136,12 @@
       get-min-level    get-min-level]
 
   (defn #?(:clj may-profile? :cljs ^boolean may-profile?)
-    "Returns true iff level and ns are runtime unfiltered."
+    "Implementation detail.
+    Returns true iff level and ns are runtime unfiltered."
     ([level   ] (may-profile? level *ns*))
     ([level ns]
-     (if (>= ^long (valid-call-level   level)
-             (long (get-min-level *min-level* ns)))
+     (if (>= ^long (valid-call-level     level)
+             (long (get-min-level 6 *min-level* ns)))
        (if (may-profile-ns? *ns-filter* ns) true false)
        false))))
 
@@ -146,18 +156,25 @@
 
 #?(:clj
    (def ^:private compile-time-min-level
-     (when-let [level (or (enc/read-sys-val "taoensso.tufte.min-level" "TAOENSSO_TUFTE_MIN_LEVEL")
-                          (enc/read-sys-val "TUFTE_MIN_LEVEL") ; Legacy
-                          )]
+     (when-let [level
+                (or
+                  (enc/read-sys-val "taoensso.tufte.min-level.edn" "TAOENSSO_TUFTE_MIN_LEVEL_EDN")
+                  (enc/read-sys-val "taoensso.tufte.min-level"     "TAOENSSO_TUFTE_MIN_LEVEL") ; Legacy
+                  (enc/read-sys-val "TUFTE_MIN_LEVEL") ; Legacy
+                  )]
 
+       (valid-min-level level)
        (println (str "Compile-time (elision) Tufte min-level: " level))
        level)))
 
 #?(:clj
    (def ^:private compile-time-ns-filter
-     (let [ns-pattern (or (enc/read-sys-val "taoensso.tufte.ns-pattern" "TAOENSSO_TUFTE_NS_PATTERN")
-                          (enc/read-sys-val "TUFTE_NS_PATTERN") ; Legacy
-                          )]
+     (let [ns-pattern
+           (or
+             (enc/read-sys-val "taoensso.tufte.ns-pattern.edn" "TAOENSSO_TUFTE_NS_PATTERN_EDN")
+             (enc/read-sys-val "taoensso.tufte.ns-pattern"     "TAOENSSO_TUFTE_NS_PATTERN") ; Legacy
+             (enc/read-sys-val "TUFTE_NS_PATTERN") ; Legacy
+             )]
 
        (when ns-pattern (println (str "Compile-time (elision) Tufte ns-pattern: " ns-pattern)))
        (or   ns-pattern "*"))))
@@ -172,7 +189,7 @@
          (or ; Level okay
            (nil? compile-time-min-level)
            (not (valid-call-level? level-form)) ; Not a compile-time level const
-           (>= (long level-form) (long (get-min-level compile-time-min-level ns-str-form))))
+           (>= (long level-form) (long (get-min-level 6 compile-time-min-level ns-str-form))))
 
          (or ; Namespace okay
            (not (string? ns-str-form)) ; Not a compile-time ns-str const
@@ -652,10 +669,10 @@
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
   (macroexpand '(fnp     [x]            (* x x)))
-  (macroexpand '(fn       [x]            (* x x)))
+  (macroexpand '(fn      [x]            (* x x)))
   (macroexpand '(fnp bob [x] {:pre [x]} (* x x)))
-  (macroexpand '(fn       [x] {:pre [x]} (* x x)))
-  (macroexpand '(fnp   ^{:tufte/id "foo/bar"} bob [x]))
+  (macroexpand '(fn      [x] {:pre [x]} (* x x)))
+  (macroexpand '(fnp   ^{:tufte/id "foo/bar"} bob  [x]))
   (macroexpand '(defnp ^{:tufte/id "foo/bar"} bob ([x]) ([x y])))
   (macroexpand '(defnp                        bob ([x]) ([x y]))))
 
@@ -817,15 +834,16 @@
 
 ;;;; Deprecated
 
-(defmacro with-min-level  "Deprecated" [level & body] `(binding [*min-level* ~level] ~@body))
-(defn      set-min-level! "Deprecated" [level]
-  #?(:cljs (set!             *min-level*         level)
-     :clj  (alter-var-root #'*min-level* (fn [_] level))))
+(enc/deprecated
+  (defmacro with-min-level  "Deprecated, just use `binding`" [level & body] `(binding [*min-level* ~level] ~@body))
+  (defn      set-min-level! "Deprecated, just use `alter-var-root`" [level]
+    #?(:cljs (set!             *min-level*         level)
+       :clj  (alter-var-root #'*min-level* (fn [_] level))))
 
-(defmacro with-ns-pattern  "Deprecated" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
-(defn      set-ns-pattern! "Deprecated" [ns-pattern]
-  #?(:cljs (set!             *ns-filter*         ns-pattern)
-     :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern))))
+  (defmacro with-ns-pattern  "Deprecated, just use `binding`" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
+  (defn      set-ns-pattern! "Deprecated, just use `alter-var-root`" [ns-pattern]
+    #?(:cljs (set!             *ns-filter*         ns-pattern)
+       :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern)))))
 
 ;;;;
 

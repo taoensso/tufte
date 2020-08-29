@@ -314,7 +314,7 @@
                   (if (compare-and-set! acc old-times nil) new-times (recur)))))]
 
         (when-let [times ?pulled-times] ; Do compaction, rare
-          (let [t0 (enc/nano-time*)]
+          (let [t0 (enc/now-nano*)]
             ;; Contention against `pstate_` unlikely since we just drained `acc`
             (swap! pstate_ (fn [pstate] (compact-pstate pstate times nmax true)))
             (recur pd :tufte/compaction (- (enc/now-nano*) t0)))))
