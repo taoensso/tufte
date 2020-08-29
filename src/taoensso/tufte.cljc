@@ -52,24 +52,17 @@
 
 ;;;; Level filtering
 
-;; We distinguish between run and min levels to ensure that it's
-;; always possible to set the min-level > any run level (i.e. to
-;; disable profiling)
+;; We distinguish between run and min levels to ensure that it's always
+;; possible to set the min-level > any run level to disable profiling
 (defn valid-run-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
 (defn valid-min-level? [x] (if (#{0 1 2 3 4 5 6} x) true false))
 
 (def ^:private ^:const invalid-run-level-msg         "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
 (def ^:private ^:const invalid-min-level-msg "Invalid minimum Tufte profiling level: should be int e/o #{0 1 2 3 4 5 6}")
 
-(defn ^:static valid-run-level [x]
-  (or (#{0 1 2 3 4 5} x)
-      (throw (ex-info invalid-run-level-msg {:given x :type (type x)}))))
-
+(defn ^:static valid-run-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-run-level-msg {:given x :type (type x)}))))
+(defn ^:static valid-min-level [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
 (comment (enc/qb 1e5 (valid-run-level 4))) ; 7.82
-
-(defn ^:static valid-min-level [x]
-  (or (#{0 1 2 3 4 5 6} x)
-      (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
 
 (def ^:dynamic  *min-level* "e/o #{0 1 2 3 4 5 6}" 2)
 (defn        set-min-level!
@@ -103,18 +96,33 @@
     {:allow #{\"foo\" \"bar.*\"} :deny #{\"foo.*.bar.*\"}}"
   "*")
 
-(let [compile    (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
-      ;; filter? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
-      filter?    (enc/fmemoize (fn [x ns] ((compile x) ns)))]
+(let [compile     (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
+      conform?*   (enc/fmemoize (fn [x ns] ((compile x) ns)))
+      ;; conform? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
+      conform?
+      (fn [ns-filter ns]
+        (if (fn? ns-filter)
+          (ns-filter           ns) ; Note no auto cache, may be handy
+          (conform?* ns-filter ns)))]
 
-  (defn -may-profile-ns?
-    ([          ns] (-may-profile-ns? *ns-filter* ns))
-    ([ns-filter ns]
-     (if (fn? ns-filter)
-       (ns-filter         ns) ; Note no auto cache, may be handy
-       (filter? ns-filter ns)))))
+  (defn #?(:clj -may-profile-ns? :cljs ^boolean -may-profile-ns?)
+    ([          ns] (conform? *ns-filter* ns))
+    ([ns-filter ns] (conform?  ns-filter  ns)))
 
-(comment (enc/qb 1e6 (-may-profile-ns? "taoensso.tufte"))) ; 154.42
+  (def -ns->?min-level
+    "[[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]], ns -> ?min-level"
+    (enc/fmemoize
+      (fn [specs ns]
+        (enc/rsome
+          (fn [[ns-pattern min-level]]
+            (when (conform?* ns-pattern ns)
+              (valid-min-level min-level)))
+          specs)))))
+
+(comment
+  (enc/qb 1e6
+    (-may-profile-ns? "taoensso.tufte")
+    (-ns->?min-level [[#{"taoensso.*" "foo.bar"} 1] ["*" 2]] "foo.bar"))) ; [162.85 136.88]
 
 ;;; Both of these could be deprecated: they don't add any value and the
 ;;; names are now misleading
