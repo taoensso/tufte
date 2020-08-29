@@ -8,11 +8,7 @@
 [com.taoensso/tufte "2.2.0-RC1"] ; Dev, see CHANGELOG for details
 ```
 
-> Please consider helping to [support my continued open-source Clojure/Script work]? 
-> 
-> Even small contributions can add up + make a big difference to help sustain my time writing, maintaining, and supporting Tufte and other Clojure/Script libraries. **Thank you!**
->
-> \- Peter Taoussanis
+> See [here](https://taoensso.com/clojure/backers) if you're interested in helping support my open-source work, thanks! - Peter Taoussanis
 
 # Tufte
 
@@ -120,46 +116,44 @@ Between the two, you have great flexibility for a wide range of use cases in pro
 
 Tufte offers extensive facilities to control if and when profiling happens.
 
-Both **compile-time elision** and **runtime filtering** are supported.
+Both **compile-time elision** and **runtime filtering** are supported. When both present, they stack.
 
-### Method 1/3: profiling levels
+### Method 1/3: namespace filtering
 
-Every `p`, `profiled`, and `profile` form can take an optional **profiling level** ∈ `#{0 1 2 3 4 5}`.
+`p`, `profiled`, and `profile` forms can be elided or filtered based on the **namespace in which they occur**.
 
-This level must be >= `tufte/*min-level*` for profiling to occur.
+Namespace filter | Control with                                                                                                       |
+---------------- | ------------------------------------------------------------------------------------------------------------------ |
+Runtime          | `tufte/*ns-filter*` (reset with `alter-var-root!`, or rebind with `binding`)                                       |
+Compile-time     | `taoensso.tufte.ns-pattern` JVM property or `TAOENSSO_TUFTE_NS_PATTERN` environment variable, both read **as edn** |
 
-For example:
-
-```clojure
-(profiled {:level 3} ...) ; Only activates profiling when (>= 3 *min-level*)
-```
-
-Min level    | Set with                                       |
------------- | ---------------------------------------------- |
-Runtime      | `tufte/set-min-level!`, `tufte/with-min-level` |
-Compile-time | `TUFTE_MIN_LEVEL` environment variable         |
-
-> Note that runtime filtering stacks with any compile-time elision
-
-### Method 2/3: namespace filtering
-
-Likewise- `p`, `profiled`, and `profile` forms can be elided or filtered by the namespace in which they occur.
-
-Namespace filter | Set with                                         |
----------------- | ------------------------------------------------ |
-Runtime          | `tufte/set-ns-pattern!`, `tufte-with-ns-pattern` |
-Compile-time     | `TUFTE_NS_PATTERN` environment variable          |
-
-> Note that runtime filtering stacks with any compile-time elision
-
-Some example namespace patterns:
+`*ns-filter*` can be an arbitrary `(fn may-profile? [ns])`, or a namespace pattern like:
 
 ```clojure
 "foo.bar.baz"
 "foo.bar.*"
 #{"foo.bar.*" "some.lib.*"}
-{:whitelist #{"foo.bar.*"} :blacklist #{"noisy.lib.*"}}
+{:allow #{"foo.bar.*"} :deny #{"noisy.lib.*"}}
 ```
+
+See `*ns-filter*` docstring for more info.
+
+### Method 2/3: profiling levels
+
+`p`, `profiled`, and `profile` forms can take an optional **profiling level** ∈ `#{0 1 2 3 4 5}`, e.g.:
+
+```clojure
+(profiled {:level 3} ...) ; Only activates profiling when (>= 3 *min-level*)
+```
+
+These form levels will be checked against `tufte/*min-level*` which can be an constant integer, or a `[[<ns-pattern> <min-level-int>] ... ["*" <default-min-level-int>]]` for namespace-specific levels.
+
+See `*min-level*` docstring for more info.
+
+Min level    | Control with                                                                                                     |
+------------ | ---------------------------------------------------------------------------------------------------------------- |
+Runtime      | `tufte/*min-level*` (reset with `alter-var-root!`, or rebind with `binding`)                                     |
+Compile-time | `taoensso.tufte.min-level` JVM property or `TAOENSSO_TUFTE_MIN_LEVEL` environment variable, both read **as edn** |
 
 ### Method 3/3: arbitrary runtime conditions
 
@@ -369,7 +363,7 @@ Otherwise, you can reach me at [Taoensso.com]. Happy hacking!
 ## License
 
 Distributed under the [EPL v1.0] \(same as Clojure).  
-Copyright &copy; 2016 [Peter Taoussanis].
+Copyright &copy; 2016-2020 [Peter Taoussanis].
 
 <!--- Standard links -->
 [Taoensso.com]: https://www.taoensso.com
@@ -377,7 +371,6 @@ Copyright &copy; 2016 [Peter Taoussanis].
 [@ptaoussanis]: https://www.taoensso.com
 [More by @ptaoussanis]: https://www.taoensso.com
 [Break Version]: https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md
-[support my continued open-source Clojure/Script work]: http://taoensso.com/clojure/backers
 
 <!--- Standard links (repo specific) -->
 [CHANGELOG]: https://github.com/ptaoussanis/tufte/releases
