@@ -52,17 +52,17 @@
 
 ;;;; Level filtering
 
-;; We distinguish between run and min levels to ensure that it's always
-;; possible to set the min-level > any run level to disable profiling
-(defn- valid-run-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
-(defn- valid-min-level? [x] (if (#{0 1 2 3 4 5 6} x) true false))
+;; We distinguish between call/form and min levels to ensure that it's always
+;; possible to set min-level > any call-level to disable profiling
+(defn- valid-call-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
+(defn- valid-min-level?  [x] (if (#{0 1 2 3 4 5 6} x) true false))
 
-(def ^:private ^:const invalid-run-level-msg         "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
+(def ^:private ^:const invalid-call-level-msg        "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
 (def ^:private ^:const invalid-min-level-msg "Invalid minimum Tufte profiling level: should be int e/o #{0 1 2 3 4 5 6}")
 
-(defn- ^:static valid-run-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-run-level-msg {:given x :type (type x)}))))
-(defn- ^:static valid-min-level [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
-(comment (enc/qb 1e5 (valid-run-level 4))) ; 7.82
+(defn- valid-call-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-call-level-msg {:given x :type (type x)}))))
+(defn- valid-min-level  [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg  {:given x :type (type x)}))))
+(comment (enc/qb 1e5 (valid-call-level 4))) ; 7.82
 
 (def ^:dynamic *min-level*
   "Integer e/o #{0 1 2 3 4 5 6}, or vector mapping ns-patterns to min-levels:
@@ -122,15 +122,15 @@
   (let [ns *ns*] (enc/qb 1e6 (get-min-level *min-level* ns))) ; 260.34
   (binding [*min-level* [["taoensso.*" 1] ["*" 4]]] (get-min-level "foo")))
 
-(let [valid-run-level valid-run-level
-      may-profile-ns? may-profile-ns?
-      get-min-level   get-min-level]
+(let [valid-call-level valid-call-level
+      may-profile-ns?  may-profile-ns?
+      get-min-level    get-min-level]
 
   (defn #?(:clj may-profile? :cljs ^boolean may-profile?)
     "Returns true iff level and ns are runtime unfiltered."
     ([level   ] (may-profile? level *ns*))
     ([level ns]
-     (if (>= ^long (valid-run-level    level)
+     (if (>= ^long (valid-call-level   level)
              (long (get-min-level *min-level* ns)))
        (if (may-profile-ns? *ns-filter* ns) true false)
        false))))
@@ -171,7 +171,7 @@
        (and
          (or ; Level okay
            (nil? compile-time-min-level)
-           (not (valid-run-level? level-form)) ; Not a compile-time level const
+           (not (valid-call-level? level-form)) ; Not a compile-time level const
            (>= (long level-form) (long (get-min-level compile-time-min-level ns-str-form))))
 
          (or ; Namespace okay
@@ -418,7 +418,7 @@
              test-form  (get opts :when     true)
              nmax (long (get opts :nmax     default-nmax))]
 
-         (when (integer? level-form) (valid-run-level level-form))
+         (when (integer? level-form) (valid-call-level level-form))
 
          (if (-elide? level-form ns-str)
            `[(do ~@body)]
@@ -494,7 +494,7 @@
              id-form    (get opts :id)
              data-form  (get opts :data)]
 
-         (when (integer? level-form) (valid-run-level level-form))
+         (when (integer? level-form) (valid-call-level level-form))
 
          `(let [[result# pstats#] (profiled ~opts ~@body)]
             (when pstats#
@@ -529,7 +529,7 @@
 
        ;; If *any* level is present, it must be a valid compile-time level
        ;; since this macro doesn't offer runtime level checking
-       (when level (valid-run-level level))
+       (when level (valid-call-level level))
 
        (when (nil? id-form)
          (throw
