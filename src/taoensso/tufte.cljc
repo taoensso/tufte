@@ -54,14 +54,14 @@
 
 ;; We distinguish between run and min levels to ensure that it's always
 ;; possible to set the min-level > any run level to disable profiling
-(defn valid-run-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
-(defn valid-min-level? [x] (if (#{0 1 2 3 4 5 6} x) true false))
+(defn- valid-run-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
+(defn- valid-min-level? [x] (if (#{0 1 2 3 4 5 6} x) true false))
 
 (def ^:private ^:const invalid-run-level-msg         "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
 (def ^:private ^:const invalid-min-level-msg "Invalid minimum Tufte profiling level: should be int e/o #{0 1 2 3 4 5 6}")
 
-(defn ^:static valid-run-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-run-level-msg {:given x :type (type x)}))))
-(defn ^:static valid-min-level [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
+(defn- ^:static valid-run-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-run-level-msg {:given x :type (type x)}))))
+(defn- ^:static valid-min-level [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
 (comment (enc/qb 1e5 (valid-run-level 4))) ; 7.82
 
 (def ^:dynamic *min-level*
