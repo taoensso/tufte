@@ -1,5 +1,27 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v2.2.0 - 2020 Sep 14
+
+```clojure
+[com.taoensso/tufte "2.2.0"]
+```
+
+> This is a major feature release. Should be **non-breaking**.  
+> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
+
+**Changes** since `v2.1.0`:
+
+* [DEPRECATED] `set-min-level!`, `set-ns-pattern!`, `with-min-level`, `with-ns-pattern`: prefer just using the relevant dynamic vars directly.
+
+**New** since `v2.1.0`:
+
+* `*min-level*` can now be an int, or a `[[<ns-pattern> <int>] ...]` for ns-specific levels.
+* `*min-level*` init val can now be set via `taoensso.tufte.min-level.edn` JVM property, or `TAOENSSO_TUFTE_MIN_LEVEL_EDN` env var.
+* `*ns-filter*` can now be a pred fn, or an ns-pattern (which will be auto compiled to a pred fn).
+* `*ns-filter*` init val can now be set via `taoensso.tufte.ns-pattern.edn` JVM property, or `TAOENSSO_TUFTE_NS_PATTERN_EDN` env var.
+* Docstring improvements.
+
+
 ## v2.2.0-RC1 - 2020 Aug 29
 
 ```clojure

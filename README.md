@@ -4,8 +4,7 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "2.1.0"]     ; Stable
-[com.taoensso/tufte "2.2.0-RC1"] ; Dev, see CHANGELOG for details
+[com.taoensso/tufte "2.2.0"] ; See CHANGELOG for details
 ```
 
 > See [here](https://taoensso.com/clojure/backers) if you're interested in helping support my open-source work, thanks! - Peter Taoussanis
@@ -64,7 +63,7 @@
 Add the necessary dependency to your project:
 
 ```clojure
-[com.taoensso/tufte "2.1.0"]
+[com.taoensso/tufte "2.2.0"]
 ```
 
 And setup your namespace imports:
