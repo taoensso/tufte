@@ -451,104 +451,106 @@
       (is (= (get-in @@pd [:stats :baz :n]) 1)))))
 
 (test/deftest format-stats-test
-  (test/testing "Basic format-stats"
-    (let [data {:clock {:total 15}
-                :stats {:foo {:n 10000
-                              :min 1
-                              :p50 2
-                              :p90 3
-                              :p95 4
-                              :p99 5
-                              :max 6
-                              :mean 7
-                              :mad 5.062294599999648
-                              :sum 15}}}]
+  (with-redefs [taoensso.tufte.stats/locale (java.util.Locale. "en" "US")]
 
-      (test/is
-        (= ["pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
-            ":foo          10,000     1.00ns     2.00ns     3.00ns     4.00ns     5.00ns     6.00ns     7.00ns  ±72%    15.00ns   100%"
-            "Accounted                                                                                                  15.00ns   100%"
-            "Clock                                                                                                      15.00ns   100%"]
-          (->>
-            (tufte/format-pstats data)
-            (str/split-lines)
-            (remove empty?))))
+    (test/testing "Basic format-stats"
+      (let [data {:clock {:total 15}
+                  :stats {:foo {:n 10000
+                                :min 1
+                                :p50 2
+                                :p90 3
+                                :p95 4
+                                :p99 5
+                                :max 6
+                                :mean 7
+                                :mad 5.062294599999648
+                                :sum 15}}}]
 
-      (test/is
-        (= ["pId           nCalls       Mean      Clock  Total"
-            ":foo          10,000     7.00ns    15.00ns   100%"
-            "Accounted                          15.00ns   100%"
-            "Clock                              15.00ns   100%"]
-          (->>
-            (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
-            (str/split-lines)
-            (remove empty?))))))
+        (test/is
+          (= ["pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
+              ":foo          10,000     1.00ns     2.00ns     3.00ns     4.00ns     5.00ns     6.00ns     7.00ns  ±72%    15.00ns   100%"
+              "Accounted                                                                                                  15.00ns   100%"
+              "Clock                                                                                                      15.00ns   100%"]
+            (->>
+              (tufte/format-pstats data)
+              (str/split-lines)
+              (remove empty?))))
 
-  (test/testing "format-stats with namespaced symbols"
-    (let [data {:clock {:total 15}
-                :stats {:foo/bar {:n 10000
-                                  :min 1
-                                  :p50 2
-                                  :p90 3
-                                  :p95 4
-                                  :p99 5
-                                  :max 6
-                                  :mean 7
-                                  :mad 5.062294599999648
-                                  :sum 15}}}]
+        (test/is
+          (= ["pId           nCalls       Mean      Clock  Total"
+              ":foo          10,000     7.00ns    15.00ns   100%"
+              "Accounted                          15.00ns   100%"
+              "Clock                              15.00ns   100%"]
+            (->>
+              (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
+              (str/split-lines)
+              (remove empty?))))))
 
-      (test/is
-        (= ["pId           nCalls       Mean      Clock  Total"
-            ":foo/bar      10,000     7.00ns    15.00ns   100%"
-            "Accounted                          15.00ns   100%"
-            "Clock                              15.00ns   100%"]
-          (->>
-            (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
-            (str/split-lines)
-            (remove empty?))))))
+    (test/testing "format-stats with namespaced symbols"
+      (let [data {:clock {:total 15}
+                  :stats {:foo/bar {:n 10000
+                                    :min 1
+                                    :p50 2
+                                    :p90 3
+                                    :p95 4
+                                    :p99 5
+                                    :max 6
+                                    :mean 7
+                                    :mad 5.062294599999648
+                                    :sum 15}}}]
 
-  (test/testing "Format seconds"
-    (let [data {:clock {:total 2e9}
-                :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
-                        :bar {:n 1 :mean 15  :sum 15}}}]
+        (test/is
+          (= ["pId           nCalls       Mean      Clock  Total"
+              ":foo/bar      10,000     7.00ns    15.00ns   100%"
+              "Accounted                          15.00ns   100%"
+              "Clock                              15.00ns   100%"]
+            (->>
+              (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
+              (str/split-lines)
+              (remove empty?))))))
 
-      (test/is
-        (= ["pId           nCalls       Mean"
-            ":foo               1     2.00s "
-            ":bar               1    15.00ns"]
-          (->>
-            (tufte/format-pstats data {:columns [:n-calls :mean]})
-            (str/split-lines)
-            (remove empty?)
-            (take 3))))))
+    (test/testing "Format seconds"
+      (let [data {:clock {:total 2e9}
+                  :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
+                          :bar {:n 1 :mean 15  :sum 15}}}]
 
-  (test/testing "Format seconds only"
-    (let [data {:clock {:total 2e9}
-                :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
-                        :bar {:n 1 :mean 1e9 :sum 1e9}}}]
+        (test/is
+          (= ["pId           nCalls       Mean"
+              ":foo               1     2.00s "
+              ":bar               1    15.00ns"]
+            (->>
+              (tufte/format-pstats data {:columns [:n-calls :mean]})
+              (str/split-lines)
+              (remove empty?)
+              (take 3))))))
 
-      (test/is
-        (= ["pId           nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
-            ":foo               1     2.00s " ; Current behaviour looks a little strange.
-            ":bar               1     1.00s "]
-          (->>
-            (tufte/format-pstats data {:columns [:n-calls :mean]})
-            (str/split-lines)
-            (remove empty?)
-            (take 3))))))
+    (test/testing "Format seconds only"
+      (let [data {:clock {:total 2e9}
+                  :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
+                          :bar {:n 1 :mean 1e9 :sum 1e9}}}]
 
-  (test/testing "Format id fn"
-    (let [data {:clock {:total 2e9}
-                :stats {:example.hello/foo {:n 1 :mean 2e9 :sum 2e9}}}]
-      (test/is
-        (= ["pId           nCalls       Mean"
-            "foo                1     2.00s "]
-           (->>
-             (tufte/format-pstats data {:columns [:n-calls :mean]
-                                        :format-id-fn name})
-             (str/split-lines)
-             (remove empty?)
-             (take 2)))))))
+        (test/is
+          (= ["pId           nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
+              ":foo               1     2.00s " ; Current behaviour looks a little strange.
+              ":bar               1     1.00s "]
+            (->>
+              (tufte/format-pstats data {:columns [:n-calls :mean]})
+              (str/split-lines)
+              (remove empty?)
+              (take 3))))))
+
+    (test/testing "Format id fn"
+      (let [data {:clock {:total 2e9}
+                  :stats {:example.hello/foo {:n 1 :mean 2e9 :sum 2e9}}}]
+        (test/is
+          (= ["pId           nCalls       Mean"
+              "foo                1     2.00s "]
+            (->>
+              (tufte/format-pstats data {:columns [:n-calls :mean]
+                                         :format-id-fn name})
+              (str/split-lines)
+              (remove empty?)
+              (take 2))))))))
 
 (test/deftest format-id-abbr-test
   (test/testing "Format id abbr test"

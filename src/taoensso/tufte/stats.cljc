@@ -226,29 +226,35 @@
 (defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
 (comment [(perc 1 1) (perc 1 100) (perc 12 44)])
 
-(let [round2 #?(:cljs enc/round2 :clj (fn [n] (format "%.2f" n)))]
-  (defn- fmt [nanosecs]
-    (let [ns (double nanosecs)]
-      (cond
-        (>= ns 6e10) (str (round2 (/ ns 6e10)) "m ")
-        (>= ns 1e9)  (str (round2 (/ ns 1e9))  "s ")
-        (>= ns 1e6)  (str (round2 (/ ns 1e6))  "ms")
-        (>= ns 1e3)  (str (round2 (/ ns 1e3))  "μs")
-        :else        (str (round2    ns)       "ns")))))
+#?(:clj (def ^:private locale (java.util.Locale/getDefault)))
+#?(:clj (defn- fmt [pattern & args] (String/format locale pattern (to-array args))))
+
+(defn- fmt-2f    [n] #?(:clj (fmt "%.2f" n) :cljs (str (enc/round2 n))))
+(defn- fmt-calls [n] #?(:clj (fmt "%,d"  n) :cljs
+                        (str ; Thousands separator
+                          (when (neg? n) "-")
+                          (->>
+                            (str (Math/abs n))
+                            (reverse)
+                            (partition 3 3 "")
+                            (map str/join)
+                            (str/join ",")
+                            (str/reverse)))))
+
+(defn- fmt-nano [nanosecs]
+  (let [ns (double nanosecs)]
+    (cond
+      (>= ns 6e10) (str (fmt-2f (/ ns 6e10)) "m ")
+      (>= ns 1e9)  (str (fmt-2f (/ ns 1e9))  "s ")
+      (>= ns 1e6)  (str (fmt-2f (/ ns 1e6))  "ms")
+      (>= ns 1e3)  (str (fmt-2f (/ ns 1e3))  "μs")
+      :else        (str (fmt-2f    ns)       "ns"))))
 
 (comment
-  (format "%.2f" 40484.005)
-  (fmt 2387387870))
-
-(defn- fmt-comma [^long n]
-  (str
-    (when (neg? n) "-")
-    (->> (str (Math/abs n))
-         (reverse)
-         (partition 3 3 "")
-         (map str/join)
-         (str/join ",")
-         (str/reverse))))
+  (fmt "%.2f" 12345.67890)
+  (fmt-2f     12345.67890)
+  (fmt-calls  12345)
+  (fmt-nano   12345.67890))
 
 (def     all-format-columns [:n-calls :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
 (def default-format-columns [:n-calls :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
@@ -336,12 +342,12 @@
           (doseq [column columns]
             (enc/sb-append sb " ")
             (case column
-              :n-calls (append-col column (fmt-comma (get s :n)))
-              :mean    (append-col column (fmt mean))
+              :n-calls (append-col column (fmt-calls (get s :n)))
+              :mean    (append-col column (fmt-nano mean))
               :mad     (append-col column (str "±" (perc (get s :mad) mean)))
               :total   (append-col column (perc sum clock-total))
-              :clock   (append-col column (fmt sum))
-              (do      (append-col column (fmt (get s column))))))
+              :clock   (append-col column (fmt-nano sum))
+              (do      (append-col column (fmt-nano (get s column))))))
 
           (enc/sb-append sb "\n")))
 
@@ -352,7 +358,7 @@
         (enc/sb-append sb " ")
         (case column
           :total (append-col column (perc accounted-total clock-total))
-          :clock (append-col column (fmt accounted-total))
+          :clock (append-col column (fmt-nano accounted-total))
           (do    (append-col column ""))))
 
       ; Write clock row
@@ -362,7 +368,7 @@
         (enc/sb-append sb " ")
         (case column
           :total (append-col column "100%")
-          :clock (append-col column (fmt clock-total))
+          :clock (append-col column (fmt-nano clock-total))
           (do    (append-col column ""))))
 
       (enc/sb-append sb "\n")
