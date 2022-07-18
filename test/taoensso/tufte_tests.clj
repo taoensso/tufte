@@ -312,84 +312,38 @@
 
     (tufte/remove-handler! :testing)))
 
+
+(let [get-ns (fn [ps] (enc/map-vals #(get % :n) (:stats @ps)))]
+  (defn- nested-profiled-output [[r ps]] [r (get-ns ps)]))
+
+(defmacro nested-profiled [outer-dynamic? inner-dynamic?]
+  `(let [inner_# (promise)
+         outer#
+         (profiled {:dynamic? ~outer-dynamic?}
+           (p :foo)
+           (p :bar
+             (deliver inner_#
+               (profiled {:dynamic? ~inner-dynamic?}
+                 (p :foo)
+                 (p :baz)
+                 "inner")))
+
+           (p :qux) ; Captured *after* inner pdata released (needs stack)
+           "outer")]
+
+     [(nested-profiled-output   outer#)
+      (nested-profiled-output @inner_#)]))
+
+(comment (nested-profiled true true))
+
+(def ^:private nested-reference [["outer" {:qux 1, :bar 1, :foo 1}] ["inner" {:baz 1, :foo 1}]])
+
 (test/deftest profiled-nesting
   (test/testing "Profiled/nesting"
-
-    ;; Local, local
-    (let [[[r ps1] ps0]
-          (profiled {}
-            (p :foo)
-            (p :bar
-              (profiled {}
-                (p :foo)
-                (p :baz)
-                "qux")))]
-
-      (is (= r "qux"))
-      (is (ps? ps0))
-      (is (= (get-in @ps0 [:stats :foo :n]) 1))
-      (is (= (get-in @ps0 [:stats :baz :n]) nil))
-
-      (is (ps? ps1))
-      (is (= (get-in @ps1 [:stats :foo :n]) 1))
-      (is (= (get-in @ps1 [:stats :baz :n]) 1)))
-
-    ;; Dynamic, dynamic
-    (let [[[r ps1] ps0]
-          (profiled {:dynamic? true}
-            (p :foo)
-            (p :bar
-              (profiled {:dynamic? true}
-                (p :foo)
-                (p :baz)
-                "qux")))]
-
-      (is (= r "qux"))
-      (is (ps? ps0))
-      (is (= (get-in @ps0 [:stats :foo :n]) 1))
-      (is (= (get-in @ps0 [:stats :baz :n]) nil))
-
-      (is (ps? ps1))
-      (is (= (get-in @ps1 [:stats :foo :n]) 1))
-      (is (= (get-in @ps1 [:stats :baz :n]) 1)))
-
-    ;; Dynamic, local
-    (let [[[r ps1] ps0]
-          (profiled {:dynamic? true}
-            (p :foo)
-            (p :bar
-              (profiled {}
-                (p :foo)
-                (p :baz)
-                "qux")))]
-
-      (is (= r "qux"))
-      (is (ps? ps0))
-      (is (= (get-in @ps0 [:stats :foo :n]) 2))
-      (is (= (get-in @ps0 [:stats :baz :n]) 1))
-
-      (is (ps? ps1))
-      (is (= (get-in @ps1 [:stats :foo :n]) nil))
-      (is (= (get-in @ps1 [:stats :baz :n]) nil)))
-
-    ;; Local, dynamic
-    (let [[[r ps1] ps0]
-          (profiled {}
-            (p :foo)
-            (p :bar
-              (profiled {:dynamic? true}
-                (p :foo)
-                (p :baz)
-                "qux")))]
-
-      (is (= r "qux"))
-      (is (ps? ps0))
-      (is (= (get-in @ps0 [:stats :foo :n]) 1))
-      (is (= (get-in @ps0 [:stats :baz :n]) nil))
-
-      (is (ps? ps1))
-      (is (= (get-in @ps1 [:stats :foo :n]) 1))
-      (is (= (get-in @ps1 [:stats :baz :n]) 1)))))
+    (is (= (nested-profiled false false) nested-reference) "(local   (local   ...))")
+    (is (= (nested-profiled true  true)  nested-reference) "(dynamic (dynamic ...))")
+    (is (= (nested-profiled false true)  nested-reference) "(local   (dynamic ...))")
+    (is (= (nested-profiled true  false) nested-reference) "(dynamic (local   ...)")))
 
 (test/deftest advanced
   (test/testing "Advanced"
