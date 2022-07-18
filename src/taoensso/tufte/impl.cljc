@@ -23,7 +23,7 @@
             [taoensso.encore :as enc :refer-macros []]
             [taoensso.tufte.stats :as stats])
   #?(:clj
-     (:import [java.util LinkedList]
+     (:import [java.util LinkedList Stack]
               [java.util.concurrent ArrayBlockingQueue]))
   #?(:cljs
      (:require-macros
@@ -80,19 +80,22 @@
 (def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
 
 #?(:clj
-   (let [stack (java.util.Stack.) ; To support `profile/d` nesting
+   (let [;; Stack to support `profile/d` nesting
+         ^ThreadLocal stack-proxy (proxy [ThreadLocal] [] (initialValue [] (Stack.)))
          ^ThreadLocal pdata-proxy (proxy [ThreadLocal] [])]
 
      (defn pdata-local-get [] (.get pdata-proxy)) ; => nnil iff thread-local profiling active
      (defn pdata-local-pop []
-       (if-let [stashed (when-not (.empty stack) (.pop stack))]
-         (do (.set pdata-proxy stashed) stashed)
-         (do (.set pdata-proxy nil)     nil)))
+       (let [^Stack stack (.get stack-proxy)]
+         (if-let [stashed (when-not (.empty stack) (.pop stack))]
+           (do (.set pdata-proxy stashed) stashed)
+           (do (.set pdata-proxy nil)     nil))))
 
      (defn pdata-local-push [v]
-       (if-let [to-stash (.get pdata-proxy)]
-         (do (.push stack to-stash) (.set pdata-proxy v) v)
-         (do                        (.set pdata-proxy v) v))))
+       (let [^Stack stack  (.get stack-proxy)]
+         (if-let [to-stash (.get pdata-proxy)]
+           (do (.push stack to-stash) (.set pdata-proxy v) v)
+           (do                        (.set pdata-proxy v) v)))))
 
    :cljs ; Note single-threaded platform
    (let [stack #js [] ; To support `profile/d` nesting

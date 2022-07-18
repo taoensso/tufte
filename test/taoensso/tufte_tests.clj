@@ -339,11 +339,17 @@
 (def ^:private nested-reference [["outer" {:qux 1, :bar 1, :foo 1}] ["inner" {:baz 1, :foo 1}]])
 
 (test/deftest profiled-nesting
-  (test/testing "Profiled/nesting"
+  (test/testing "Profiled/nesting (single-threaded)"
     (is (= (nested-profiled false false) nested-reference) "(local   (local   ...))")
     (is (= (nested-profiled true  true)  nested-reference) "(dynamic (dynamic ...))")
     (is (= (nested-profiled false true)  nested-reference) "(local   (dynamic ...))")
-    (is (= (nested-profiled true  false) nested-reference) "(dynamic (local   ...)")))
+    (is (= (nested-profiled true  false) nested-reference) "(dynamic (local   ...))"))
+
+  (test/testing "Profile/nesting (multi-threaded)"
+    (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled false false)))))) "(local   (local   ...))")
+    (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled true  true))))))  "(dynamic (dynamic ...))")
+    (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled false true))))))  "(local   (dynamic ...))")
+    (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled true  false)))))) "(dynamic (local   ...))")))
 
 (test/deftest advanced
   (test/testing "Advanced"
