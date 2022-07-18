@@ -79,35 +79,35 @@
 
 (def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
 
-#?(:clj ; get nnil iff thread-local profiling active
-   (let [stack (java.util.Stack.) ; To support nesting
-         ^ThreadLocal proxy (proxy [ThreadLocal] [])]
+#?(:clj
+   (let [stack (java.util.Stack.) ; To support `profile/d` nesting
+         ^ThreadLocal pdata-proxy (proxy [ThreadLocal] [])]
 
-     (defn pdata-local-get [] (.get proxy))
+     (defn pdata-local-get [] (.get pdata-proxy)) ; => nnil iff thread-local profiling active
      (defn pdata-local-pop []
        (if-let [stashed (when-not (.empty stack) (.pop stack))]
-         (do (.set proxy stashed) stashed)
-         (do (.set proxy nil)     nil)))
+         (do (.set pdata-proxy stashed) stashed)
+         (do (.set pdata-proxy nil)     nil)))
 
      (defn pdata-local-push [v]
-       (if-let [to-stash (.get proxy)]
-         (do (.push stack to-stash) (.set proxy v) v)
-         (do                        (.set proxy v) v))))
+       (if-let [to-stash (.get pdata-proxy)]
+         (do (.push stack to-stash) (.set pdata-proxy v) v)
+         (do                        (.set pdata-proxy v) v))))
 
-   :cljs
-   (let [stack #js [] ; To support nesting
-         state_ (volatile! false)] ; Automatically thread-local in js
+   :cljs ; Note single-threaded platform
+   (let [stack #js [] ; To support `profile/d` nesting
+         pdata_ (volatile! false)]
 
-     (defn pdata-local-get [] @state_)
+     (defn pdata-local-get [] @pdata_) ; => nnil iff thread-local profiling active
      (defn pdata-local-pop []
        (if-let [stashed (.pop stack)]
-         (vreset! state_ stashed)
-         (vreset! state_ nil)))
+         (vreset! pdata_ stashed)
+         (vreset! pdata_ nil)))
 
      (defn pdata-local-push [v]
-       (if-let [to-stash @state_]
-         (do (.push stack to-stash) (vreset! state_ v))
-         (do                        (vreset! state_ v))))))
+       (if-let [to-stash @pdata_]
+         (do (.push stack to-stash) (vreset! pdata_ v))
+         (do                        (vreset! pdata_ v))))))
 
 (comment
   (pdata-local-push "foo")
@@ -115,7 +115,13 @@
   (enc/qb 1e6 *pdata* (pdata-local-get)) ; [63.7 48.77]
   (enc/qb 1e6  ; [507.58 74.62]
     (binding [*pdata* "foo"])
-    (try (pdata-local-push "foo") (finally (pdata-local-pop)))))
+    (try (pdata-local-push "foo") (finally (pdata-local-pop))))
+
+  (do
+    (pdata-local-push "pd1")
+    (pdata-local-push "pd2")
+    [(let [pd (pdata-local-get)] (pdata-local-pop) pd)
+     (let [pd (pdata-local-get)] (pdata-local-pop) pd)]))
 
 ;;;; TimeSpan utils
 
