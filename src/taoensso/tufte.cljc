@@ -491,10 +491,11 @@
 
                `(if ~runtime-check
                   (let [pd# (impl/new-pdata-local ~nmax)]
-                    (try
-                      (impl/pdata-local-push pd#)
-                      [(do ~@body) @pd#]
-                      (finally (impl/pdata-local-pop))))
+                    (binding [impl/*pdata* nil] ; Ensure no dynamic parent (=>nesting) steals local captures
+                      (try
+                        (impl/pdata-local-push pd#)
+                        [(do ~@body) @pd#]
+                        (finally (impl/pdata-local-pop)))))
                   [(do ~@body)]))))))))
 
 (comment (enc/qb 1e6 (profiled {}))) ; 277.51

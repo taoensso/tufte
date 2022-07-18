@@ -334,7 +334,7 @@
      [(nested-profiled-output   outer#)
       (nested-profiled-output @inner_#)]))
 
-(comment (nested-profiled true true))
+(comment (nested-profiled true false))
 
 (def ^:private nested-reference [["outer" {:qux 1, :bar 1, :foo 1}] ["inner" {:baz 1, :foo 1}]])
 
