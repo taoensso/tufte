@@ -403,9 +403,11 @@
        :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99
 
      Compile-time opts:
-       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
        :nmax     - ~Max captures per id before compaction ; Default is 8e5
+
+     Runtime opts:
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
        :when     - Optional arbitrary conditional form (e.g. boolean expr)
 
      Laziness in body:
@@ -500,9 +502,11 @@
      Otherwise see `profiled`.
 
      Compile-time opts:
-       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
        :nmax     - ~Max captures per id before compaction ; Default is 8e5
+
+     Runtime opts:
+       :level    - e/o #{0 1 2 3 4 5} ; Default is `5`
        :when     - Optional arbitrary conditional form (e.g. boolean expr)
        :id       - Optional group id provided to handlers (e.g. `::my-stats-1`)
        :data     - Optional arbitrary data provided to handlers
