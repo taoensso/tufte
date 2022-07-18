@@ -301,7 +301,7 @@
 
 (comment (enc/qb 1e6 (profiling?))) ; 49.69
 
-(def ^:const ^:private default-nmax 8e5)
+(def ^:const ^:private default-nmax (long 8e5))
 (defn new-pdata
   "Note: this is a low-level primitive for advanced users!
   Returns a new pdata object for use with `with-profiling` and/or `capture-time!`.
@@ -385,6 +385,12 @@
 
 ;;;; Core macros
 
+(defn- valid-compile-time-opts [dynamic? nmax]
+  (when-not (contains? #{false true} dynamic?) (throw (ex-info "[profile/d] `:dynamic?` opt must be compile-time bool value" {:value dynamic?})))
+  (when-not (integer? nmax)                    (throw (ex-info "[profile/d] `:nmax` opt must be compile-time integer value"  {:value nmax}))))
+
+(comment (valid-compile-time-opts 'sym 'sym))
+
 #?(:clj
    (defmacro profiled
      "Always executes body, and always returns [<body-result> <?pstats>].
@@ -462,7 +468,10 @@
        (let [level-form (get opts :level    5)
              dynamic?   (get opts :dynamic? false)
              test-form  (get opts :when     true)
-             nmax (long (get opts :nmax     default-nmax))]
+             nmax       (get opts :nmax     default-nmax)
+
+             _ (valid-compile-time-opts dynamic? nmax)
+             nmax (long nmax)]
 
          (when (integer? level-form) (valid-call-level level-form))
 
