@@ -83,13 +83,13 @@
    (let [stack (java.util.Stack.) ; To support nesting
          ^ThreadLocal proxy (proxy [ThreadLocal] [])]
 
-     (defn pdata-proxy-get [] (.get proxy))
-     (defn pdata-proxy-pop []
+     (defn pdata-local-get [] (.get proxy))
+     (defn pdata-local-pop []
        (if-let [stashed (when-not (.empty stack) (.pop stack))]
          (do (.set proxy stashed) stashed)
          (do (.set proxy nil)     nil)))
 
-     (defn pdata-proxy-push [v]
+     (defn pdata-local-push [v]
        (if-let [to-stash (.get proxy)]
          (do (.push stack to-stash) (.set proxy v) v)
          (do                        (.set proxy v) v))))
@@ -98,24 +98,24 @@
    (let [stack #js [] ; To support nesting
          state_ (volatile! false)] ; Automatically thread-local in js
 
-     (defn pdata-proxy-get [] @state_)
-     (defn pdata-proxy-pop []
+     (defn pdata-local-get [] @state_)
+     (defn pdata-local-pop []
        (if-let [stashed (.pop stack)]
          (vreset! state_ stashed)
          (vreset! state_ nil)))
 
-     (defn pdata-proxy-push [v]
+     (defn pdata-local-push [v]
        (if-let [to-stash @state_]
          (do (.push stack to-stash) (vreset! state_ v))
          (do                        (vreset! state_ v))))))
 
 (comment
-  (pdata-proxy-push "foo")
-  (pdata-proxy-pop)
-  (enc/qb 1e6 *pdata* (pdata-proxy-get)) ; [63.7 48.77]
+  (pdata-local-push "foo")
+  (pdata-local-pop)
+  (enc/qb 1e6 *pdata* (pdata-local-get)) ; [63.7 48.77]
   (enc/qb 1e6  ; [507.58 74.62]
     (binding [*pdata* "foo"])
-    (try (pdata-proxy-push "foo") (finally (pdata-proxy-pop)))))
+    (try (pdata-local-push "foo") (finally (pdata-local-pop)))))
 
 ;;;; TimeSpan utils
 
@@ -355,9 +355,9 @@
 
 (comment
   (try
-    (pdata-proxy-push (new-pdata-local 1e7))
-    (enc/qb 1e6 (capture-time! (pdata-proxy-get) :foo 1))
-    (finally (pdata-proxy-pop)))) ; 98.35
+    (pdata-local-push (new-pdata-local 1e7))
+    (enc/qb 1e6 (capture-time! (pdata-local-get) :foo 1))
+    (finally (pdata-local-pop)))) ; 98.35
 
 ;;;; Output handlers
 
