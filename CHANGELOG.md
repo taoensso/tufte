@@ -16,8 +16,8 @@
 ### Fixes since `v2.2.0`
 
 * `add-accumulating-handler!`: fix broken default val and examples
-* [#64] Broken concurrent (local (local ...)) nested profiling (Clj only) (@awkay)
-* Broken (dynamic (local ...)) nested profiling
+* [#64] Broken concurrent `(local (local ...))` nested profiling (Clj only) (@awkay)
+* Broken `(dynamic (local ...))` nested profiling
 * Broken nested profiling tests
 * Correctly document which `profile/d` options are compile-time and runtime
 
