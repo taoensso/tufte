@@ -4,7 +4,8 @@
 **[CHANGELOG]** | [API] | current [Break Version]:
 
 ```clojure
-[com.taoensso/tufte "2.2.0"] ; See CHANGELOG for details
+[com.taoensso/tufte "2.3.0-RC1"] ; Recommended, see CHANGELOG for details
+[com.taoensso/tufte "2.2.0"]     ; Previous release, known bugs with nested profiling
 ```
 
 <!-- ![build status](https://github.com/ptaoussanis/tufte/workflows/build/badge.svg?branch=master) -->
@@ -63,8 +64,8 @@
 Add the necessary dependency to your project:
 
 ```clojure
-Leiningen: [com.taoensso/tufte "2.2.0"] ; or
-deps.edn:   com.taoensso/tufte {:mvn/version "2.2.0"}
+Leiningen: [com.taoensso/tufte "2.3.0-RC1"] ; or
+deps.edn:   com.taoensso/tufte {:mvn/version "2.3.0-RC1"}
 ```
 
 And setup your namespace imports:
