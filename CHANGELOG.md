@@ -1,5 +1,40 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v2.3.0 - 2022 Sep 5
+
+> Identical to `v2.3.0-RC1` (2022 Jul 18)
+
+```clojure
+[com.taoensso/tufte "2.3.0"]
+```
+
+> This is a major feature and fix release. Should be **non-breaking** for vast majority of folks.  
+> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
+
+### Behavioural changes since `v2.2.0`
+
+* Stats format: refactor, use default JVM locale thousands separator for call counts (Clj only)
+
+### Fixes since `v2.2.0`
+
+* `add-accumulating-handler!`: fix broken default val and examples
+* [#64] Broken concurrent `(local (local ...))` nested profiling (Clj only) (@awkay)
+* Broken `(dynamic (local ...))` nested profiling
+* Broken nested profiling tests
+* Correctly document which `profile/d` options are compile-time and runtime
+
+### New since `v2.2.0`
+
+* Throw on invalid compile-time `profile/d` options
+* [#61] Improve docstrings re: async code
+
+### Other changes since `v2.2.0`
+
+* Refactor: rename `pdata-proxy` -> `pdata-local`
+* Refactor `pdata-local`
+* Update dependencies
+
+
 ## v2.3.0-RC1 - 2022 Jul 18
 
 ```clojure
