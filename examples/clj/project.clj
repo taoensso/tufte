@@ -1,4 +1,4 @@
-(defproject com.taoensso.examples/tufte "2.2.0"
+(defproject com.taoensso.examples/tufte "2.3.0"
   :description "Tufte example web-app project"
   :url "https://github.com/ptaoussanis/tufte"
 
@@ -8,13 +8,13 @@
    :distribution :repo
    :comments "Same as Clojure"}
 
-  :plugins [[lein-ancient "0.6.15"]]
+  :plugins [[lein-ancient "0.7.0"]]
   :dependencies
-  [[org.clojure/clojure "1.10.1"]
-   [ring                "1.8.1"]
-   [ring/ring-defaults  "0.3.2"]
-   [compojure           "1.6.2"]
+  [[org.clojure/clojure "1.11.1"]
+   [ring                "1.9.6"]
+   [ring/ring-defaults  "0.3.4"]
+   [compojure           "1.7.0"]
    [hiccup              "1.0.5"]
-   [com.taoensso/tufte  "2.2.0"]]
+   [com.taoensso/tufte  "2.3.0"]]
 
   :main example.server)
