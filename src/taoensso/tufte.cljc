@@ -263,7 +263,7 @@
           "\n" (format-pstats pstats format-pstats-opts))))))
 
 (defn format-id-abbr
-  "Returns a (fn [id]) -> abbreviated id string.
+  "Returns a cached (fn [id]) -> abbreviated id string.
   Takes `n` (default 1), the number of namespace parts to keep unabbreviated.
 
   Examples:
@@ -277,23 +277,24 @@
   ([ ] (format-id-abbr 1))
   ([n]
    (let [n (long (enc/have enc/int? n))]
-     (fn [id]
-       (let [kw (if (keyword? id) id (keyword (enc/have string? id)))
-             ns-parts (pop (enc/explode-keyword kw))
-             cnt      (count ns-parts)
-             sb
-             (enc/reduce-indexed
-               (fn [sb ^long idx in]
-                 (when-not (zero? idx) (enc/sb-append sb "."))
-                 (if (<= (- cnt idx) n)
-                   (enc/sb-append sb                 in)
-                   (enc/sb-append sb (enc/get-substr in 0 1))))
-               (enc/str-builder)
-               ns-parts)]
+     (enc/fmemoize
+       (fn [id]
+         (let [kw (if (keyword? id) id (keyword (enc/have string? id)))
+               ns-parts (pop (enc/explode-keyword kw))
+               cnt      (count ns-parts)
+               sb
+               (enc/reduce-indexed
+                 (fn [sb ^long idx in]
+                   (when-not (zero? idx) (enc/sb-append sb "."))
+                   (if (<= (- cnt idx) n)
+                     (enc/sb-append sb                 in)
+                     (enc/sb-append sb (enc/get-substr in 0 1))))
+                 (enc/str-builder)
+                 ns-parts)]
 
-         (when (pos? cnt) (enc/sb-append sb "/"))
-         (do              (enc/sb-append sb (enc/str-replace (name kw) #"^defn_" "")))
-         (str sb))))))
+           (when (pos? cnt) (enc/sb-append sb "/"))
+           (do              (enc/sb-append sb (enc/str-replace (name kw) #"^defn_" "")))
+           (str sb)))))))
 
 (comment
   ((format-id-abbr 1) :foo.bar/baz)
