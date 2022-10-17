@@ -48,7 +48,9 @@
 
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
-(enc/assert-min-encore-version [2 126 2])
+(if (vector? enc/encore-version)
+  (enc/assert-min-encore-version [3 26 0])
+  (enc/assert-min-encore-version  3.26))
 
 ;;;; Level filtering
 ;; Terminology note: we distinguish between call/form and min levels to ensure
@@ -287,8 +289,8 @@
                  (fn [sb ^long idx in]
                    (when-not (zero? idx) (enc/sb-append sb "."))
                    (if (<= (- cnt idx) n)
-                     (enc/sb-append sb                 in)
-                     (enc/sb-append sb (enc/get-substr in 0 1))))
+                     (enc/sb-append sb                        in)
+                     (enc/sb-append sb (enc/get-substr-by-idx in 0 1))))
                  (enc/str-builder)
                  ns-parts)]
 
