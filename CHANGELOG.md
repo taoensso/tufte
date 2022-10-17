@@ -1,5 +1,20 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
+## v2.4.0 - 2022 Oct 14
+
+```clojure
+[com.taoensso/tufte "2.4.0"]
+```
+
+> This is a very minor maintenance release. It should be **non-breaking**.
+> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
+
+### Changes since `v2.3.0`
+
+* Update dependencies
+* Some minor refactoring and performance improvements
+
+
 ## v2.3.0 - 2022 Sep 5
 
 > Identical to `v2.3.0-RC1` (2022 Jul 18)
