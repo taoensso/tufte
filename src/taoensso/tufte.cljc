@@ -32,20 +32,14 @@
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
-  #?(:clj
-     (:require
-      [taoensso.encore      :as enc]
-      [taoensso.tufte.stats :as stats]
-      [taoensso.tufte.impl  :as impl]))
+  (:require
+   [taoensso.encore      :as enc :refer [have have?]]
+   [taoensso.tufte.stats :as stats]
+
+   #?(:clj  [taoensso.tufte.impl  :as impl]
+      :cljs [taoensso.tufte.impl  :as impl :refer [PStats]]))
 
   #?(:clj (:import [taoensso.tufte.impl PStats]))
-
-  #?(:cljs
-     (:require
-      [taoensso.encore      :as enc  :refer-macros []]
-      [taoensso.tufte.stats :as stats]
-      [taoensso.tufte.impl  :as impl :refer [PStats]]))
-
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
 (if (vector? enc/encore-version)
@@ -320,7 +314,7 @@
       (with-profiling pd {}
         (p :foo (Thread/sleep 100))
         (capture-time! pd :bar (- t0 (System/nanoTime))))
-      @pd)
+      (deref pd))
 
   Dynamic (thread-safe) by default.
   *WARNING*: don't change this default unless you're very sure the resulting

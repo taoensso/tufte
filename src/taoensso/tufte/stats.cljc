@@ -1,7 +1,8 @@
 (ns taoensso.tufte.stats
   "Basic stats utils. Private, subject to change."
-  (:require [taoensso.encore :as enc]
-            [clojure.string  :as str]
+  (:require
+   [clojure.string  :as str]
+   [taoensso.encore :as enc]
    #?(:cljs [goog.array])))
 
 (comment

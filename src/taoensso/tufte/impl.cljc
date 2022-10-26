@@ -19,12 +19,15 @@
         - Generates {<id> <stats/stats>} from id-times.
         - Merges with id-stats."
 
-  (:require [clojure.string  :as str]
-            [taoensso.encore :as enc :refer-macros []]
-            [taoensso.tufte.stats :as stats])
+  (:require
+   [clojure.string  :as str]
+   [taoensso.encore :as enc :refer-macros []]
+   [taoensso.tufte.stats :as stats])
+
   #?(:clj
      (:import [java.util LinkedList Stack]
               [java.util.concurrent ArrayBlockingQueue]))
+
   #?(:cljs
      (:require-macros
       [taoensso.tufte.impl :refer [mt-acc mt-add mt-count atom?]])))
