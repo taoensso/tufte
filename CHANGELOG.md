@@ -1,9 +1,9 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
 
-## v2.4.0 - 2022 Oct 14
+## v2.4.5 - 2022 Oct 27
 
 ```clojure
-[com.taoensso/tufte "2.4.0"]
+[com.taoensso/tufte "2.4.5"]
 ```
 
 > This is a very minor maintenance release. It should be **non-breaking**.
