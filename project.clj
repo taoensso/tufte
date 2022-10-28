@@ -2,11 +2,12 @@
   :author "Peter Taoussanis <https://www.taoensso.com>"
   :description "Simple profiling and performance monitoring for Clojure/Script"
   :url "https://github.com/ptaoussanis/tufte"
-  :license {:name "Eclipse Public License"
-            :url  "http://www.eclipse.org/legal/epl-v10.html"
-            :distribution :repo
-            :comments "Same as Clojure"}
   :min-lein-version "2.3.3"
+
+  :license
+  {:name "Eclipse Public License 1.0"
+   :url  "http://www.eclipse.org/legal/epl-v10.html"}
+
   :global-vars
   {*warn-on-reflection* true
    *assert*             true
@@ -35,7 +36,7 @@
    :test     {:dependencies [[org.clojure/test.check "1.1.1"]
                              [com.taoensso/timbre    "5.2.1"]]}}
 
-  :test-paths ["src" "test"]
+  :test-paths ["test" #_"src"]
 
   :cljsbuild
   {:test-commands {"node" ["node" "target/test.js"]}
