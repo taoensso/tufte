@@ -1,19 +1,17 @@
 <a href="https://www.taoensso.com" title="More stuff by @ptaoussanis at www.taoensso.com">
-<img src="https://www.taoensso.com/taoensso-open-source.png" alt="Taoensso open-source" width="400"/></a>
+<img src="https://www.taoensso.com/taoensso-open-source.png" alt="Taoensso open-source" width="350"/></a>
 
-**[CHANGELOG]** | [API] | current [Break Version]:
+**[CHANGELOG][]** | [API][] | current [Break Version][]:
 
 ```clojure
 [com.taoensso/tufte "2.4.5"] ; See CHANGELOG for details
 ```
 
-<!-- ![build status](https://github.com/ptaoussanis/tufte/workflows/build/badge.svg?branch=master) -->
-
-> See [here](https://taoensso.com/clojure/backers) if you're interested in helping support my open-source work, thanks! - Peter Taoussanis
+> See [here][backers] if to help support my open-source work, thanks! - [Peter Taoussanis][Taoensso.com]
 
 # Tufte: simple profiling and performance monitoring for Clojure/Script
 
-![Hero]
+![Hero][]
 
 > Charles Joseph Minard's _Carte Figurative_, one of [Edward Tufte][]'s favourite examples of good data visualization.
 
@@ -243,7 +241,7 @@ If something's remotely worth profiling, Tufte's overhead should be completely i
 
 Also, keep in mind that Tufte's **conditional profiling** gives you complete control over if and when you do pay (however little) for profiling.
 
-### Why not just use [YourKit], [JProfiler], or [VisualVM]?
+### Why not just use [YourKit][], [JProfiler][], or [VisualVM][]?
 
 The traditional recommendation for Clojure profiling has usually been to use a standard JVM profiling tool like one of the above.
 
@@ -252,7 +250,7 @@ And they can certainly do the job, but they also tend to be a little hairy: requ
 In contrast, Tufte offers some interesting benefits:
 
  * A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
- * Arbitrary **application-aware, form-level** profiling; measure [just] what you care about at the application level
+ * Arbitrary **application-aware, form-level** profiling; measure _just_ what you care about at the application level
  * Simple **thread-local or multi-threaded semantics**
  * During dev/debug: check performance **right from within your REPL**
  * During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**)
@@ -261,7 +259,7 @@ Note that JVM profiling tools can still be very handy. Tufte doesn't offer memor
 
 If you want to know `clojure.lang.Numbers$LongOps.lt(Number, Number)` or memory stats, you'll want a JVM tool. If you want to know `my-fn` stats, or you want ongoing stats in production - Tufte could be a good fit.
 
-### How does Tufte compare to the profiling in [@ptaoussanis/Timbre]?
+### How does Tufte compare to the profiling in [@ptaoussanis/Timbre][]?
 
 Actually, I developed Tufte one weekend while refactoring Timbre's profiling. It's basically a refinement of the ideas from there.
 
@@ -280,7 +278,7 @@ API        | Timbre              | Tufte                              |
 
 **[1]** See `tufte.timbre/add-timbre-logging-handler!` for directing Tufte's `profile` output to Timbre.
 
-### How does Tufte compare to [@hugoduncan/Criterium]?
+### How does Tufte compare to [@hugoduncan/Criterium][]?
 
 Basically, they serve different use cases: **benchmarking** for Criterium, and **profiling** for Tufte.
 
@@ -354,23 +352,21 @@ A low-level util (`capture-time!`) is provided for this and similar use cases. S
 
 ## Contacting me / contributions
 
-Please use the project's [GitHub issues page] for all questions, ideas, etc. **Pull requests welcome**. See the project's [GitHub contributors page] for a list of contributors.
+Please use the project's [GitHub issues page][] for all questions, ideas, etc. **Pull requests welcome**. See the project's [GitHub contributors page][] for a list of contributors.
 
-Otherwise, you can reach me at [Taoensso.com]. Happy hacking!
+Otherwise, you can reach me at [Taoensso.com][]. Happy hacking!
 
-\- [Peter Taoussanis]
+\- [Peter Taoussanis][Taoensso.com]
 
 ## License
 
-Distributed under the [EPL v1.0] \(same as Clojure).  
-Copyright &copy; 2016-2022 [Peter Taoussanis].
+Distributed under the [EPL v1.0][] \(same as Clojure).  
+Copyright &copy; 2016-2023 [Peter Taoussanis][Taoensso.com].
 
 <!--- Standard links -->
 [Taoensso.com]: https://www.taoensso.com
-[Peter Taoussanis]: https://www.taoensso.com
-[@ptaoussanis]: https://www.taoensso.com
-[More by @ptaoussanis]: https://www.taoensso.com
 [Break Version]: https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md
+[backers]: https://taoensso.com/clojure/backers
 
 <!--- Standard links (repo specific) -->
 [CHANGELOG]: https://github.com/ptaoussanis/tufte/releases
