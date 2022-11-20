@@ -20,16 +20,17 @@
 
 ;;;;
 
-(defmacro looped
-  "Like `dotimes` but returns final body result."
-  [n & body]
-  `(let [n# (long ~n)]
-     (when (> n# 0)
-       (loop [i# 1]
-         (let [result# (do ~@body)]
-           (if (< i# n#)
-             (recur (inc i#))
-             result#))))))
+#?(:clj
+   (defmacro looped
+     "Like `dotimes` but returns final body result."
+     [n & body]
+     `(let [n# (long ~n)]
+        (when (> n# 0)
+          (loop [i# 1]
+            (let [result# (do ~@body)]
+              (if (< i# n#)
+                (recur (inc i#))
+                result#)))))))
 
 (comment (looped 10 (println "x") "x"))
 
@@ -338,23 +339,24 @@
 (let [get-ns (fn [ps] (enc/map-vals #(get % :n) (:stats @ps)))]
   (defn- nested-profiled-output [[r ps]] [r (get-ns ps)]))
 
-(defmacro nested-profiled [outer-dynamic? inner-dynamic?]
-  `(let [inner_# (atom nil)
-         outer#
-         (profiled {:dynamic? ~outer-dynamic?}
-           (p :foo)
-           (p :bar
-             (reset! inner_#
-               (profiled {:dynamic? ~inner-dynamic?}
-                 (p :foo)
-                 (p :baz)
-                 "inner")))
+#?(:clj
+   (defmacro nested-profiled [outer-dynamic? inner-dynamic?]
+     `(let [inner_# (atom nil)
+            outer#
+            (profiled {:dynamic? ~outer-dynamic?}
+              (p :foo)
+              (p :bar
+                (reset! inner_#
+                  (profiled {:dynamic? ~inner-dynamic?}
+                    (p :foo)
+                    (p :baz)
+                    "inner")))
 
-           (p :qux) ; Captured *after* inner pdata released (needs stack)
-           "outer")]
+              (p :qux) ; Captured *after* inner pdata released (needs stack)
+              "outer")]
 
-     [(nested-profiled-output   outer#)
-      (nested-profiled-output @inner_#)]))
+        [(nested-profiled-output   outer#)
+         (nested-profiled-output @inner_#)])))
 
 (comment (nested-profiled true false))
 

@@ -38,9 +38,11 @@
 (deftype TimeSpan [^long t0 ^long t1])
 (comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
 
-(defmacro ^:private mt-acc     [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
-(defmacro ^:private mt-add [mt x] `(enc/if-cljs (.push   ~mt ~x) (.add  ~(with-meta mt {:tag 'LinkedList}) ~x)))
-(defmacro ^:private mt-count [mt] `(enc/if-cljs (alength ~mt)    (.size ~(with-meta mt {:tag 'LinkedList}))))
+#?(:clj
+   (do
+     (defmacro ^:private mt-acc     [] `(enc/if-cljs (cljs.core/array) (LinkedList.)))
+     (defmacro ^:private mt-add [mt x] `(enc/if-cljs (.push   ~mt ~x) (.add  ~(with-meta mt {:tag 'LinkedList}) ~x)))
+     (defmacro ^:private mt-count [mt] `(enc/if-cljs (alength ~mt)    (.size ~(with-meta mt {:tag 'LinkedList}))))))
 
 (comment (enc/qb 1e6 (mt-acc) (atom nil))) ; [29.14 57.76]
 
@@ -302,10 +304,11 @@
 
 ;;;; Time capture
 
-(defmacro ^:private atom? [x]
-  `(enc/if-cljs
-     (instance?    cljs.core.Atom ~x)
-     (instance? clojure.lang.Atom ~x)))
+#?(:clj
+   (defmacro ^:private atom? [x]
+     `(enc/if-cljs
+        (instance?    cljs.core.Atom ~x)
+        (instance? clojure.lang.Atom ~x))))
 
 (declare ^:private compact-pstate)
 (defn capture-time! [^PData pd id ns-elapsed]

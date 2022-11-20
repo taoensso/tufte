@@ -336,23 +336,24 @@
     @pd) ; => pstats
   )
 
-(defmacro with-profiling
-  "Note: this is a low-level primitive for advanced users!
-  Enables `p` forms in body and returns body's result.
+#?(:clj
+   (defmacro with-profiling
+     "Note: this is a low-level primitive for advanced users!
+     Enables `p` forms in body and returns body's result.
 
-  If `:dynamic?` is false (default), body's evaluation MUST begin
-  and end without interruption on the same thread. In particular
-  this means that body MUST NOT contain any parking `core.async`
-  calls.
+     If `:dynamic?` is false (default), body's evaluation MUST begin
+     and end without interruption on the same thread. In particular
+     this means that body MUST NOT contain any parking `core.async`
+     calls.
 
-  See `new-pdata` for more info on low-level primitives."
-  [pdata {:keys [dynamic? nmax] :or {nmax default-nmax}} & body]
-  (if dynamic?
-    `(binding [impl/*pdata* ~pdata] (do ~@body))
-    `(try
-       (impl/pdata-local-push ~pdata)
-       (do ~@body)
-       (finally (impl/pdata-local-pop)))))
+     See `new-pdata` for more info on low-level primitives."
+     [pdata {:keys [dynamic? nmax] :or {nmax default-nmax}} & body]
+     (if dynamic?
+       `(binding [impl/*pdata* ~pdata] (do ~@body))
+       `(try
+          (impl/pdata-local-push ~pdata)
+          (do ~@body)
+          (finally (impl/pdata-local-pop))))))
 
 (defn capture-time!
   "Note: this is a low-level primitive for advanced users!
@@ -719,15 +720,17 @@
           sigs)]
     new-sigs))
 
-(defmacro fnp "Like `fn` but wraps fn bodies with `p` macro."
-  {:arglists '([name?  [params*] prepost-map? body]
-               [name? ([params*] prepost-map? body)+])}
-  [& sigs]
-  (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
-        new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) (or ?fn-sym (gensym "")) sigs)]
-    (if ?fn-sym
-      `(fn ~?fn-sym ~@new-sigs)
-      `(fn          ~@new-sigs))))
+#?(:clj
+   (defmacro fnp
+     "Like `fn` but wraps fn bodies with `p` macro."
+     {:arglists '([name?  [params*] prepost-map? body]
+                  [name? ([params*] prepost-map? body)+])}
+     [& sigs]
+     (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
+           new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) (or ?fn-sym (gensym "")) sigs)]
+       (if ?fn-sym
+         `(fn ~?fn-sym ~@new-sigs)
+         `(fn          ~@new-sigs)))))
 
 (comment
   (fn-sigs "foo"       '([x]            (* x x)))
@@ -739,23 +742,27 @@
   (macroexpand '(defnp ^{:tufte/id "foo/bar"} bob ([x]) ([x y])))
   (macroexpand '(defnp                        bob ([x]) ([x y]))))
 
-(defmacro defnp "Like `defn` but wraps fn bodies with `p` macro."
-  {:arglists
-   '([name doc-string? attr-map?  [params*] prepost-map? body]
-     [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
-  [& sigs]
-  (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
-        new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
-    `(defn ~fn-sym ~@new-sigs)))
+#?(:clj
+   (defmacro defnp
+     "Like `defn` but wraps fn bodies with `p` macro."
+     {:arglists
+      '([name doc-string? attr-map?  [params*] prepost-map? body]
+        [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
+     [& sigs]
+     (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
+           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+       `(defn ~fn-sym ~@new-sigs))))
 
-(defmacro defnp- "Like `defn-` but wraps fn bodies with `p` macro."
-  {:arglists
-   '([name doc-string? attr-map?  [params*] prepost-map? body]
-     [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
-  [& sigs]
-  (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
-        new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
-    `(defn ~fn-sym ~@new-sigs)))
+#?(:clj
+   (defmacro defnp-
+     "Like `defn-` but wraps fn bodies with `p` macro."
+     {:arglists
+      '([name doc-string? attr-map?  [params*] prepost-map? body]
+        [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
+     [& sigs]
+     (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
+           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+       `(defn ~fn-sym ~@new-sigs))))
 
 (comment
   (defnp foo "Docstring"                [x]   (* x x))
@@ -899,13 +906,13 @@
 ;;;; Deprecated
 
 (enc/deprecated
-  (defmacro with-min-level  "Deprecated, just use `binding`" [level & body] `(binding [*min-level* ~level] ~@body))
-  (defn      set-min-level! "Deprecated, just use `alter-var-root`" [level]
+  #?(:clj (defmacro with-min-level  "Deprecated, just use `binding`" [level & body] `(binding [*min-level* ~level] ~@body)))
+  (defn              set-min-level! "Deprecated, just use `alter-var-root`" [level]
     #?(:cljs (set!             *min-level*         level)
        :clj  (alter-var-root #'*min-level* (fn [_] level))))
 
-  (defmacro with-ns-pattern  "Deprecated, just use `binding`" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body))
-  (defn      set-ns-pattern! "Deprecated, just use `alter-var-root`" [ns-pattern]
+  #?(:clj (defmacro with-ns-pattern  "Deprecated, just use `binding`" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body)))
+  (defn              set-ns-pattern! "Deprecated, just use `alter-var-root`" [ns-pattern]
     #?(:cljs (set!             *ns-filter*         ns-pattern)
        :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern)))))
 
