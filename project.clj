@@ -14,7 +14,7 @@
    *unchecked-math*     false #_:warn-on-boxed}
 
   :dependencies
-  [[com.taoensso/encore "3.31.0"]]
+  [[com.taoensso/encore "3.57.0"]]
 
   :plugins
   [[lein-pprint    "1.3.2"]
@@ -34,7 +34,7 @@
    :depr     {:jvm-opts ["-Dtaoensso.elide-deprecated=true"]}
    :dev      [:c1.11 :test :server-jvm :depr]
    :test     {:dependencies [[org.clojure/test.check "1.1.1"]
-                             [com.taoensso/timbre    "5.2.1"]]}}
+                             [com.taoensso/timbre    "6.1.0"]]}}
 
   :test-paths ["test" #_"src"]
 

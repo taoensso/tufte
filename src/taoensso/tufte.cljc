@@ -42,7 +42,7 @@
   #?(:clj (:import [taoensso.tufte.impl PStats]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
-(enc/assert-min-encore-version [3 31 0])
+(enc/assert-min-encore-version [3 57 0])
 
 ;;;; Level filtering
 ;; Terminology note: we distinguish between call/form and min levels to ensure
