@@ -1,4 +1,4 @@
-(ns taoensso.tufte.impl
+(ns ^:no-doc taoensso.tufte.impl
   "Private implementation details.
   `profiled` -> [<result> <derefable-and-mergeable-pstats>].
 
@@ -169,12 +169,12 @@
        (TimeSpan. 19 20)
        (TimeSpan. 13 20)])))
 
-(defn- merge-tspans [^long nmax ^long t1 tspans0 tspans1]
-  (let [n0      (count tspans0)
-        n1      (count tspans1)
-        tspans2 (if (> n1 n0) (into tspans1 tspans0) (into tspans0 tspans1))]
+(defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
+(comment (fast-into nil nil))
 
-    (if (> (+ n0 n1) nmax) ; Compact, may lose some accuracy
+(defn- merge-tspans [^long nmax ^long t1 tspans0 tspans1]
+  (let [tspans2 (fast-into tspans0 tspans1)]
+    (if (> (count tspans2) nmax) ; Compact, may lose some accuracy
       (let [tsum (tspans->tsum tspans2)]
         (list (TimeSpan. (- t1 tsum) t1)))
       tspans2)))
@@ -230,9 +230,6 @@
      :clock {:t0 t0 :t1 t1 :total (tspans->tsum tspans)}}))
 
 (comment @@(new-pdata-local 10))
-
-(defn- fast-into [c0 c1] (if (> (count c0) (count c1)) (into c0 c1) (into c1 c0)))
-(comment (fast-into nil nil))
 
 (defn- merge-stats-when-needed [^long nmax stats]
   (if (<= (count stats) nmax)
@@ -320,10 +317,11 @@
     (if (atom? acc)
 
       ;; Dynamic profiling
-      (let [?pulled-times
+      (let [new-time (Time. id ns-elapsed)
+            ?pulled-times
             (loop []
               (let [old-times @acc
-                    new-times (conj old-times (Time. id ns-elapsed))]
+                    new-times (conj old-times new-time)]
                 (if (<= (count new-times) nmax)
                   (if (compare-and-set! acc old-times new-times) nil (recur))
                   (if (compare-and-set! acc old-times nil) new-times (recur)))))]
