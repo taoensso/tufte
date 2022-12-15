@@ -11,13 +11,13 @@
 
   Basic implementation:
     - Capture [<id> <elapsed>]s into single mutable acc
-      - May compact acc      to id-times, {<id> (<time>        ...)}
-      - May compact id-times to id-stats, {<id> (<stats/stats> ...)}
+      - May compact acc      to id-times,  {<id> (<time>         ...)}
+      - May compact id-times to id-sstats, {<id> (<stats/sstats> ...)}
     - Merge pours (read-only) acc0 + acc1 into id-times
-      - May compact id-times to id-stats, {<id> (<stats/stats> ...)}
+      - May compact id-times to id-sstats, {<id> (<stats/sstats> ...)}
     - Realization:
-        - Generates {<id> <stats/stats>} from id-times.
-        - Merges with id-stats."
+        - Generates {<id> <stats/sstats>} from id-times.
+        - Merges with id-sstats."
 
   (:require
    [clojure.string  :as str]
@@ -57,11 +57,11 @@
 
 ;;;; PData (Profiling Data)
 ;; Implementation-level state while profiling,
-;;   - id-times: ?{<id> (<time>        ...)}
-;;   - id-stats: ?{<id> (<stats/stats> ...)}
+;;   - id-times:  ?{<id> (<time>         ...)}
+;;   - id-sstats: ?{<id> (<stats/sstats> ...)}
 
 (declare ^:private deref-pdata)
-(deftype PState [acc id-times id-stats])
+(deftype PState [acc id-times id-sstats])
 (deftype  PData [^long nmax ^long t0 pstate_]
   #?@(:clj  [clojure.lang.IDeref  (deref [this] (deref-pdata this))]
       :cljs [             IDeref (-deref [this] (deref-pdata this))]))
@@ -209,32 +209,34 @@
     (times-into-id-times {:foo '(1)} mt)))
 
 (defn- deref-pstats
-  "PStats->{:clock _ :stats {<id> <stats/stats>}} (API output)"
+  "PStats->{:clock _ :stats {<id> <stats/sstats-map>}} (API output)"
   [^PData pd ^long t1 tspans]
   (let [t0      (.-t0      pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate (enc/force-ref pstate_)
-        id-times (.-id-times pstate)
-        id-stats (.-id-stats pstate)
-        id-times (times-into-id-times id-times (.-acc pstate))
-        id-stats ; Final {<id> <stats/stats>}
+        id-times  (.-id-times  pstate)
+        id-sstats (.-id-sstats pstate)
+        id-times  (times-into-id-times id-times (.-acc pstate))
+
+        public-stats-output ; {<id> <stats/sstats-map>}
         (reduce-kv
           (fn [m id times]
-            (let [stats<times (stats/stats times)
-                  merged (reduce stats/merge-stats stats<times (get id-stats id))]
-              (assoc m id merged)))
+            (let [sstats<times  (stats/summary-stats times)
+                  sstats-merged (reduce stats/summary-stats-merge sstats<times
+                                  (get id-sstats id))]
+              (assoc m id @sstats-merged)))
           id-times
           id-times)]
 
-    {:stats id-stats
-     :clock {:t0 t0 :t1 t1 :total (tspans->tsum tspans)}}))
+    {:clock {:t0 t0 :t1 t1 :total (tspans->tsum tspans)}
+     :stats public-stats-output}))
 
 (comment @@(new-pdata-local 10))
 
-(defn- merge-stats-when-needed [^long nmax stats]
-  (if (<= (count stats) nmax)
-    stats
-    (list (reduce stats/merge-stats stats))))
+(defn- merge-sstats-when-needed [^long nmax sstats]
+  (if (<= (count sstats) nmax)
+    (do                                     sstats)
+    (list (reduce stats/summary-stats-merge sstats))))
 
 (defn merge-pstats "Compacting merge"
   ([     ps0 ps1] (merge-pstats nil ps0 ps1))
@@ -259,41 +261,41 @@
              ^PState pd0-pstate (enc/force-ref (.-pstate_ pd0))
              ^PState pd1-pstate (enc/force-ref (.-pstate_ pd1))
 
-             pd0-id-times (times-into-id-times (.-id-times pd0-pstate) (.-acc pd0-pstate))
-             pd1-id-times (times-into-id-times (.-id-times pd1-pstate) (.-acc pd1-pstate))
-             pd0-id-stats (.-id-stats pd0-pstate)
-             pd1-id-stats (.-id-stats pd1-pstate)
+             pd0-id-times  (times-into-id-times (.-id-times pd0-pstate) (.-acc pd0-pstate))
+             pd1-id-times  (times-into-id-times (.-id-times pd1-pstate) (.-acc pd1-pstate))
+             pd0-id-sstats (.-id-sstats pd0-pstate)
+             pd1-id-sstats (.-id-sstats pd1-pstate)
 
              ;; All ids in pd0 or pd1
              pd2-ids (keys (conj (or pd0-id-times {}) pd1-id-times))
 
              ;; Merge pd1 into pd0 to get pd2
-             [pd2-id-times pd2-id-stats]
+             [pd2-id-times pd2-id-sstats]
              (reduce
-               (fn [[pd2-id-times pd2-id-stats] id]
-                 (let [pd0-times (get pd0-id-times id)
-                       pd0-stats (get pd0-id-stats id)
-                       pd1-times (get pd1-id-times id)
-                       pd1-stats (get pd1-id-stats id)
+               (fn [[pd2-id-times pd2-id-sstats] id]
+                 (let [pd0-times  (get pd0-id-times  id)
+                       pd0-sstats (get pd0-id-sstats id)
+                       pd1-times  (get pd1-id-times  id)
+                       pd1-sstats (get pd1-id-sstats id)
 
-                       pd2-times (fast-into pd0-times pd1-times)
-                       pd2-stats (fast-into pd0-stats pd1-stats)]
+                       pd2-times  (fast-into pd0-times  pd1-times)
+                       pd2-sstats (fast-into pd0-sstats pd1-sstats)]
 
                    (if (<= (count pd2-times) nmax) ; Common case
-                     [(assoc pd2-id-times id pd2-times)
-                      (assoc pd2-id-stats id pd2-stats)]
+                     [(assoc pd2-id-times  id pd2-times)
+                      (assoc pd2-id-sstats id pd2-sstats)]
 
                      ;; Times need compaction
-                     (let [stats<times (stats/stats pd2-times)]
-                       [(assoc pd2-id-times id nil)
-                        (assoc pd2-id-stats id
-                          (merge-stats-when-needed nmax
-                            (conj pd2-stats stats<times)))]))))
+                     (let [sstats<times (stats/summary-stats pd2-times)]
+                       [(assoc pd2-id-times  id nil)
+                        (assoc pd2-id-sstats id
+                          (merge-sstats-when-needed nmax
+                            (conj pd2-sstats sstats<times)))]))))
 
-               [pd0-id-times pd0-id-stats]
+               [pd0-id-times pd0-id-sstats]
                pd2-ids)
 
-             pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-stats))]
+             pd2 (PData. nmax pd2-t0 (PState. nil pd2-id-times pd2-id-sstats))]
          (PStats. pd2 ps2-t1 tspans2 (delay (deref-pstats pd2 ps2-t1 tspans2))))
 
        ps0)
@@ -343,28 +345,28 @@
 (defn- compact-pstate [^PState pstate pulled-times ^long nmax dynamic?]
   ;; Note that compaction expense doesn't distort p times unless there's
   ;; p nesting (where outer p time includes inner p's capture time).
-  (let [id-times (.-id-times pstate)
-        id-stats (.-id-stats pstate)
-        id-times (times-into-id-times id-times pulled-times)
+  (let [id-times  (.-id-times  pstate)
+        id-sstats (.-id-sstats pstate)
+        id-times  (times-into-id-times id-times pulled-times)
 
-        [id-times id-stats]
+        [id-times id-sstats]
         (reduce-kv
           (fn [acc id times]
             (if (<= (count times) nmax)
               acc
-              (let [[id-times id-stats] acc
-                    stats<times (stats/stats times)]
-                [(assoc id-times id nil)
-                 (assoc id-stats id
-                   (merge-stats-when-needed nmax
-                     (conj (get id-stats id) stats<times)))])))
+              (let [[id-times id-sstats] acc
+                    sstats<times (stats/summary-stats times)]
+                [(assoc id-times  id nil)
+                 (assoc id-sstats id
+                   (merge-sstats-when-needed nmax
+                     (conj (get id-sstats id) sstats<times)))])))
 
-          [id-times id-stats]
+          [id-times id-sstats]
           id-times)
 
         new-acc (if dynamic? (.-acc pstate) (mt-acc))]
 
-    (PState. new-acc id-times id-stats)))
+    (PState. new-acc id-times id-sstats)))
 
 (comment
   (try

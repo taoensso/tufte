@@ -236,8 +236,8 @@
      (let [[_ ps0] (profiled {:nmax 10} (p :foo))
            ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 1000)]
 
-       [(is (<= (count (:foo (.-id_times ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))
-        (is (<= (count (:foo (.-id_stats ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))])]))
+       [(is (<= (count (:foo (.-id-times  ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))
+        (is (<= (count (:foo (.-id-sstats ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))])]))
 
 (defn- pstats-tspan [t0 t1]
   (let [pd (PData. 8e5 t0 (PState. nil nil nil))

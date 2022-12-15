@@ -1,226 +1,531 @@
 (ns ^:no-doc taoensso.tufte.stats
-  "Basic stats utils. Private, subject to change."
+  "Stats stuff.
+  Private ns, implementation detail."
   (:require
    [clojure.string  :as str]
-   [taoensso.encore :as enc]
-   #?(:cljs [goog.array])))
+   [taoensso.encore :as enc  :refer [have have? have!]]
+   #?(:cljs [goog.array]))
+
+  #?(:clj (:import [java.util LinkedList])))
 
 (comment
-  (do
-    (defn rand-vs [n & [max]] (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
-    (def v1 (rand-vs 1e5))
-    (def v1-sorted (sort-longs v1))))
+  (remove-ns 'taoensso.tufte.stats)
+  (:public (enc/interns-overview)))
 
-#?(:clj (def ^:const longs-class (Class/forName "[J")))
-#?(:clj (defn- longs? [x] (instance? longs-class x)))
-(comment (longs? (long-array 10)))
+;;;; TODO
+;; - Add SummaryStatsRolling (rolling by max len and/or date)?
 
-(deftype SortedLongs [^longs a]
-  #?@(:clj  [clojure.lang.Counted  (count [_] (alength a))]
-      :cljs [            ICounted (-count [_] (alength a))]))
+;;;;
 
-(defn sorted-longs? [x] (instance? SortedLongs x))
-(defn sort-longs ^SortedLongs [longs]
-  (if (sorted-longs? longs)
-    longs
-    #?(:cljs
-       (let [a (if (array? longs) longs (to-array longs))]
+#?(:clj (let [c (Class/forName "[J")] (defn longs?   "Returns true iff given long array"   [x] (instance? c x))))
+#?(:clj (let [c (Class/forName "[D")] (defn doubles? "Returns true iff given double array" [x] (instance? c x))))
+
+(defn is-p [x]
+  (if (enc/pnum? x)
+    x
+    (throw
+      (ex-info "Expected number between 0 and 1"
+        {:value x :type (type x)}))))
+
+;;;; Sorted nums
+
+(deftype SortedDoubles [^doubles a last]
+  #?@(:clj
+      [Object               (toString [_] "SortedDoubles[len=" (alength a) "]")
+       clojure.lang.Counted (count    [_]                      (alength a))
+       clojure.lang.Indexed
+       (nth [_ idx] (aget a idx))
+       (nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else           (aget a idx))))
+
+       clojure.lang.IReduceInit
+       (reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc idx]   (f acc (aget a idx)))
+           init (range (alength a))))]
+
+      :cljs
+      [Object   (toString [_] "SortedDoubles[len=" (alength a) "]")
+       ICounted (-count   [_]                      (alength a))
+       IIndexed
+       (-nth [_ idx] (aget a idx))
+       (-nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else           (aget a idx))))
+
+       IReduce
+       (-reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc i]     (f acc (aget a i)))
+           init (range (alength a))))]))
+
+(defn sorted-doubles? [x] (instance? SortedDoubles x))
+
+(defn sorted-doubles ^SortedDoubles [nums]
+  (if (sorted-doubles? nums)
+    nums
+    #?(:clj
+       (let [^doubles a (if (doubles? nums) nums #_(aclone ^doubles nums) (double-array nums))
+             last-num   (let [n (dec (alength a))] (when (>= n 0) (aget a n)))]
+         (java.util.Arrays/sort a) ; O(n.log_n) on JDK 7+
+         (SortedDoubles.        a last-num))
+
+       :cljs
+       (let [a        (if (array? nums) (aclone nums) (to-array nums))
+             last-num (let [n (dec (alength a))] (when (>= n 0) (aget a n)))]
          (goog.array/sort a)
-         (SortedLongs. a))
+         (SortedDoubles.  a last-num)))))
 
-       :clj
-       (let [^longs a (if (longs? longs) longs (long-array longs))]
-         (java.util.Arrays/sort a) ; O(n.log(n)) on JDK 7+
-         (SortedLongs. a)))))
+;;;; Tuples
 
-(comment
-  (vec (.-a (sort-longs nil)))
-  (vec (.-a (sort-longs [])))
-  (vec (.-a (sort-longs (rand-vs 10)))))
+(do
+  (deftype Tup2 [x y  ])
+  (deftype Tup3 [x y z]))
 
-(defn long-percentiles
-  "Returns ?[min p25 p50 p75 p90 p95 p99 max]"
-  [longs]
-  (let [^longs a (.-a (sort-longs longs))
-        max-idx (dec (alength a))]
-    (if (< max-idx 0)
-      nil
-      [(aget a 0)
-       (aget a (Math/round (* 0.25 max-idx)))
-       (aget a (Math/round (* 0.50 max-idx)))
-       (aget a (Math/round (* 0.75 max-idx)))
-       (aget a (Math/round (* 0.90 max-idx)))
-       (aget a (Math/round (* 0.95 max-idx)))
-       (aget a (Math/round (* 0.99 max-idx)))
-       (aget a                     max-idx)])))
+(defn multi-reduce
+  "Like `reduce` but supports separate simultaneous accumulators
+  as a micro-optimisation when reducing a large collection multiple
+  times."
+  ;; Faster than using volatiles
+  ([f  init           coll] (reduce f init coll))
+  ([f1 init1 f2 init2 coll]
+   (let [^Tup2 tuple
+         (reduce
+           (fn [^Tup2 tuple in]
+             (Tup2.
+               (f1 (.-x tuple) in)
+               (f2 (.-y tuple) in)))
+           (Tup2. init1 init2)
+           coll)]
 
-(comment
-  (long-percentiles nil)
-  (long-percentiles [])
-  (enc/qb 100
-    (long-percentiles v1)
-    (long-percentiles v1-sorted)) ; [1580.76 0.02]
-  )
+     [(.-x tuple) (.-y tuple)]))
 
-(deftype MinMax [^long vmin ^long vmax])
-(defn min-max "Returns ?[<min> <max>]" [longs]
-  (if (sorted-longs? longs)
-    (let [^longs a (.-a ^SortedLongs longs)
-          max-idx (dec (alength a))]
-      (if (< max-idx 0)
+  ([f1 init1 f2 init2 f3 init3 coll]
+   (let [^Tup3 tuple
+         (reduce
+           (fn [^Tup3 tuple in]
+             (Tup3.
+               (f1 (.-x tuple) in)
+               (f2 (.-y tuple) in)
+               (f2 (.-z tuple) in)))
+           (Tup3. init1 init2 init3)
+           coll)]
+
+     [(.-x tuple) (.-y tuple) (.-z tuple)])))
+
+;;;; Percentiles
+
+(defn- double-nth
+  ^double [nums ^double idx]
+  (let [idx-floor (Math/floor idx)
+        idx-ceil  (Math/ceil  idx)]
+
+    (if (== idx-ceil idx-floor)
+      (double (nth nums (int idx)))
+
+      ;; Generalization of (floor+ceil)/2
+      (let [weight-floor (- idx-ceil idx)
+            weight-ceil  (- 1 weight-floor)]
+        (+
+          (* weight-floor (double (nth nums (int idx-floor))))
+          (* weight-ceil  (double (nth nums (int idx-ceil)))))))))
+
+(defn percentile
+  "Returns ?double"
+  [nums p]
+  (let [snums (sorted-doubles nums)
+        max-idx  (dec (count snums))]
+    (when (>= max-idx 0)
+      (let [idx (* max-idx (double (is-p p)))]
+        (double-nth snums idx)))))
+
+(comment (percentile (range 101) 0.8))
+
+(defn percentiles
+  "Returns ?[min p25 p50 p75 p90 p95 p99 max] doubles in:
+    - O(1) for Sorted types (SortedLongs, SortedDoubles),
+    - O(n.log_n) otherwise."
+  [nums]
+  (let [snums (sorted-doubles nums)
+        max-idx   (dec (count nums))]
+    (when (>= max-idx 0)
+      [(double (nth snums 0))
+       (double-nth  snums (* max-idx 0.25))
+       (double-nth  snums (* max-idx 0.50))
+       (double-nth  snums (* max-idx 0.75))
+       (double-nth  snums (* max-idx 0.90))
+       (double-nth  snums (* max-idx 0.95))
+       (double-nth  snums (* max-idx 0.99))
+       (double (nth snums    max-idx))])))
+
+(comment (percentiles (range 101)))
+
+;;;;
+
+(defn bessel-correction ^double [n ^double add] (+ (double n) add))
+
+(defn rf-sum          ^double [^double acc ^double in] (+ acc in))
+(defn rf-sum-variance ^double [^double xbar ^double acc x]
+  (+ acc (Math/pow (- (double x) xbar) 2.0)))
+
+(defn rf-sum-abs-deviation ^double [^double central-point ^double acc x]
+  (+ acc (Math/abs (- (double x) central-point))))
+
+;;;; SummaryStats
+
+(deftype SummaryStats
+    ;; - Field names chosen to avoid shadowing.
+    ;; - Includes -sum data to support merging.
+    [^boolean xlongs?
+     ^long    nx
+     ^double  xmin
+     ^double  xmax
+     ^double  xlast
+     ^double  xsum
+     ^double  xmean
+     ^double  xvar-sum
+     ^double  xmad-sum
+              xvar ; May be nil
+     ^double  xmad
+     ^double  p25
+     ^double  p50
+     ^double  p75
+     ^double  p90
+     ^double  p95
+     ^double  p99
+     as-map_]
+
+  Object (toString [_] (str "SummaryStats[n=" nx "]"))
+  #?@(:clj  [clojure.lang.IDeref ( deref [this] @as-map_)]
+      :cljs [             IDeref (-deref [this] @as-map_)]))
+
+(defn summary-stats?
+  "Returns true iff given a SummaryStats argument."
+  [x] (instance? SummaryStats x))
+
+(defn ^:public summary-stats
+  "Given a coll of numbers or previously dereffed SummaryStats map,
+  returns a new mergeable ?SummaryStats with:
+    (deref ss) => {:keys [n min max p25 ... p99 mean var mad]}
+
+  See also `summary-stats-merge`."
+  {:arglists '([nums-or-ss-map])}
+  [x]
+  (when x
+    (enc/cond
+      (summary-stats? x) x
+      (map?           x)
+      (let [{:keys [n min max last sum mean var-sum mad-sum var mad
+                    p25 p50 p75 p90 p95 p99]} x]
+
+        (SummaryStats. (int? last)
+          n min max last sum mean var-sum mad-sum var mad
+          p25 p50 p75 p90 p95 p99 (delay x)))
+
+      :else
+      (let [nums x
+            n1             (first nums) ; Before (possibly mutable) sort
+            snums (sorted-doubles nums)
+            nx            (count snums)]
+
+        (when-not (zero? nx)
+          (let [xsum (double (reduce rf-sum 0.0 snums))
+                xbar (/ xsum (double nx))
+
+                [^double xvar-sum ^double xmad-sum]
+                (multi-reduce
+                  (partial rf-sum-variance      xbar) 0.0
+                  (partial rf-sum-abs-deviation xbar) 0.0
+                  snums)
+
+                xvar (/ xvar-sum nx) ; nx w/o bessel-correction
+                xmad (/ xmad-sum nx)
+
+                [xmin p25 p50 p75 p90 p95 p99 xmax]
+                (percentiles snums)
+
+                xlongs? (int? n1)
+                xlast (.-last snums)]
+
+            (SummaryStats. xlongs?
+              nx xmin xmax xlast xsum xbar xvar-sum xmad-sum xvar xmad
+              p25 p50 p75 p90 p95 p99
+              (delay
+                (let [fin (if xlongs? #(Math/round (double %)) identity)]
+                  {:n       nx
+                   :min     (fin xmin)
+                   :max     (fin xmax)
+                   :last    (fin xlast)
+                   :sum     (fin xsum)
+                   :mean    xbar
+                   :var-sum xvar-sum
+                   :mad-sum xmad-sum
+                   :var     xvar
+                   :mad     xmad
+                   :p25     p25
+                   :p50     p50
+                   :p75     p75
+                   :p90     p90
+                   :p95     p95
+                   :p99     p99})))))))))
+
+(comment @(summary-stats [1 2 3]))
+
+(defn ^:public summary-stats-merge
+  "Given one or more SummaryStats, returns a new ?SummaryStats with:
+    (summary-stats-merge
+       (summary-stats nums1)
+       (summary-stats nums2))
+
+    an approximatation of (summary-stats (merge nums1 nums2))
+
+  Useful when you want summary stats for a large coll of numbers for which
+  it would be infeasible/expensive to keep all numbers for accurate merging."
+  ([ss1    ] ss1)
+  ([ss1 ss2]
+   (if ss1
+     (if ss2
+       (let [^SummaryStats ss1 ss1
+             ^SummaryStats ss2 ss2
+
+             nx1 (.-nx ss1)
+             nx2 (.-nx ss2)
+
+             _ (assert (pos? nx1))
+             _ (assert (pos? nx2))
+
+             xlongs1?  (.-xlongs?  ss1)
+             xmin1     (.-xmin     ss1)
+             xmax1     (.-xmax     ss1)
+             ;; xlast1 (.-xlast    ss1)
+             xsum1     (.-xsum     ss1)
+             xvar-sum1 (.-xvar-sum ss1)
+             xmad-sum1 (.-xmad-sum ss1)
+             p25-1     (.-p25      ss1)
+             p50-1     (.-p50      ss1)
+             p75-1     (.-p75      ss1)
+             p90-1     (.-p90      ss1)
+             p95-1     (.-p95      ss1)
+             p99-1     (.-p99      ss1)
+
+             xlongs2?  (.-xlongs?  ss2)
+             xmin2     (.-xmin     ss2)
+             xmax2     (.-xmax     ss2)
+             xlast2    (.-xlast    ss2)
+             xsum2     (.-xsum     ss2)
+             xvar-sum2 (.-xvar-sum ss2)
+             xmad-sum2 (.-xmad-sum ss2)
+             p25-2     (.-p25      ss2)
+             p50-2     (.-p50      ss2)
+             p75-2     (.-p75      ss2)
+             p90-2     (.-p90      ss2)
+             p95-2     (.-p95      ss2)
+             p99-2     (.-p99      ss2)
+
+             xlongs3?  (and xlongs1? xlongs2?)
+             nx3       (+ nx1 nx2)
+             nx1-ratio (/ (double nx1) (double nx3))
+             nx2-ratio (/ (double nx2) (double nx3))
+
+             xsum3 (+ xsum1 xsum2)
+             xbar3 (/ (double xsum3) (double nx3))
+             xmin3 (if (< xmin1 xmin2) xmin1 xmin2)
+             xmax3 (if (> xmax1 xmax2) xmax1 xmax2)
+
+             ;; Batched "online" calculation here is better= the standard
+             ;; Knuth/Welford method, Ref. http://goo.gl/QLSfOc,
+             ;;                            http://goo.gl/mx5eSK.
+             ;; No apparent advantage in using `xbar3` asap (?).
+             xvar-sum3 (+ xvar-sum1 xvar-sum2)
+             xmad-sum3 (+ xmad-sum1 xmad-sum2)
+
+             ;; These are pretty rough approximations. More sophisticated
+             ;; approaches not worth the extra cost/effort in our case.
+             p25-3 (+ (* nx1-ratio p25-1) (* nx2-ratio p25-2))
+             p50-3 (+ (* nx1-ratio p50-1) (* nx2-ratio p50-2))
+             p75-3 (+ (* nx1-ratio p75-1) (* nx2-ratio p75-2))
+             p90-3 (+ (* nx1-ratio p90-1) (* nx2-ratio p90-2))
+             p95-3 (+ (* nx1-ratio p95-1) (* nx2-ratio p95-2))
+             p99-3 (+ (* nx1-ratio p99-1) (* nx2-ratio p99-2))
+
+             xvar3 (when (> nx3 2) (/ xvar-sum3 (bessel-correction nx3 -2.0)))
+             xmad3                 (/ xmad-sum3                         nx3)]
+
+         (SummaryStats. xlongs3?
+           nx3 xmin3 xmax3 xlast2 xsum3 xbar3 xvar-sum3 xmad-sum3 xvar3 xmad3
+           p25-3 p50-3 p75-3 p90-3 p95-3 p99-3
+           (delay
+             (let [fin (if xlongs3? #(Math/round (double %)) identity)]
+               {:n       nx3
+                :min     (fin xmin3)
+                :max     (fin xmax3)
+                :last    (fin xlast2)
+                :sum     (fin xsum3)
+                :mean    xbar3
+                :var-sum xvar-sum3
+                :mad-sum xmad-sum3
+                :var     xvar3
+                :mad     xmad3
+                :p25     p25-3
+                :p50     p50-3
+                :p75     p75-3
+                :p90     p90-3
+                :p95     p95-3
+                :p99     p99-3}))))
+       ss1)
+     ss2)))
+
+;;;; Stateful SummaryStats
+
+(defn- buf-new
+  ([    ] #?(:clj (LinkedList.) :cljs (array)))
+  ([init]
+   #?(:clj  (if init (LinkedList. init) (LinkedList.))
+      :cljs (if init (array       init) (array)))))
+
+(defn- buf-add [buf x]
+  #?(:clj  (.add ^LinkedList buf x)
+     :cljs (.push            buf x)))
+
+(defn- buf-len ^long [buf]
+  #?(:clj  (.size ^LinkedList buf)
+     :cljs (alength           buf)))
+
+(defprotocol ISummaryStatsBuffered
+  ;; TODO Later generalize protocol for other stateful SummaryStats types?
+  (ssb-deref [_] [_ flush-buffer?] "Returns current ?sstats.")
+  (ssb-clear [_]   "Clears all internal state and returns nil.")
+  (ssb-flush [_]   "Flushes internal buffer and returns newly merged sstats or nil.")
+  (ssb-push  [_ n] "Adds given num to internal buffer."))
+
+(defn ^:public summary-stats-clear!
+  "Clears internal state (incl. stats and buffers, etc.) for given
+  stateful SummaryStats instance and returns nil."
+  [stateful-summary-stats]
+  (ssb-clear stateful-summary-stats))
+
+(deftype SummaryStatsBuffered [sstats_ buf_ buf-size merge-counter merge-cb]
+  Object
+  (toString [_] ; "SummaryStatsBuffered[n=1, pending=8, merged=0]"
+    (str
+      "SummaryStatsBuffered[n=" (get @sstats_ :n 0)
+      ", pending=" (buf-len @buf_)
+      (when-let [mc merge-counter] (str ", merged=" @mc))
+      "]"))
+
+  #?@(:clj  [clojure.lang.IDeref ( deref [this] (ssb-deref this))]
+      :cljs [             IDeref (-deref [this] (ssb-deref this))])
+
+  #?@(:clj  [clojure.lang.IFn ( invoke [this n] (ssb-push this n))]
+      :cljs [             IFn (-invoke [this n] (ssb-push this n))])
+
+  ISummaryStatsBuffered
+  (ssb-deref [this              ] (ssb-deref this true))
+  (ssb-deref [this flush-buffer?] (or (and flush-buffer? (ssb-flush this)) @sstats_))
+  (ssb-clear [_]
+    #?(:clj (locking buf_ (reset! buf_ (buf-new)))
+       :cljs              (reset! buf_ (buf-new)))
+
+    (reset! sstats_ nil)
+    (when-let [mc merge-counter] (mc :set 0))
+    nil)
+
+  (ssb-flush [this]
+    (let [[drained]
+          #?(:clj (locking buf_ (reset-vals! buf_ (buf-new nil)))
+             :cljs              (reset-vals! buf_ (buf-new nil)))]
+
+      (if (== (buf-len drained) 0)
         nil
-        [(aget a 0) (aget a max-idx)]))
+        (let [t0             (when merge-cb (enc/now-nano*))
+              _              (when-let [mc merge-counter] (mc))
+              sstats-drained (summary-stats drained)
 
-    (if (zero? (count longs))
-      nil
-      (let [[v1] longs
-            ^MinMax min-max
-            (reduce
-              (fn [^MinMax acc ^long in]
-                (let [vmin (.-vmin acc)
-                      vmax (.-vmax acc)]
-                  (if (> in vmax)
-                    (MinMax. vmin in)
-                    (if (< in vmin)
-                      (MinMax. in vmin)
-                      acc))))
-              (MinMax. v1 v1)
-              longs)]
-        [(.-vmin min-max) (.-vmax min-max)]))))
+              sstats-merged ; Only drainer will update, so should be no contention
+              (swap! sstats_ summary-stats-merge sstats-drained)]
 
-(comment (enc/qb 1e6 (min-max [10 9 -3 12]))) ; 267.25
+          (when merge-cb ; Handy for profilers, etc.
+            (merge-cb this (- (enc/now-nano*) ^long t0)))
 
-(comment
-  (let [a (long-array v1)]
-    (enc/qb 1e2
-      (reduce (fn [^long acc ^long in] (unchecked-add acc in)) v1)
-      (areduce a idx ret 0 (unchecked-add ret (aget a idx))))))
+          sstats-merged))))
 
-(defn stats
-  "Given a collection of longs, returns map with keys:
-  #{:n :min :max :sum :mean :mad-sum :mad :p25 :p50 :p75 :p90 :p95 :p99}, or nil
-  if collection is empty."
-  [longs]
-  (when longs
-    (let [sorted-longs (sort-longs longs)
-          ^longs a (.-a sorted-longs)
-          n (alength a)]
-      (if (zero? n)
-        nil
-        (let [sum     (areduce a i acc 0 (+ acc (aget a i)))
-              mean    (/ (double sum) (double n))
-              mad-sum (areduce a i acc 0.0 (+ acc (Math/abs (- (double (aget a i)) mean))))
-              mad     (/ (double mad-sum) (double n))
+  (ssb-push [this n]
+    #?(:clj (locking buf_ (buf-add @buf_ n))
+       :cljs              (buf-add @buf_ n))
 
-              [vmin p25 p50 p75 p90 p95 p99 vmax] (long-percentiles sorted-longs)]
+    (when-let [^long nmax buf-size]
+      (when (> (buf-len @buf_) nmax)
+        (ssb-flush this)))
 
-          {:n n :min vmin :max vmax :sum sum :mean mean
-           :mad-sum mad-sum :mad mad
-           :p25 p25 :p50 p50 :p75 p75
-           :p90 p90 :p95 p95 :p99 p99})))))
+    nil))
 
-(comment (enc/qb 100 (stats v1) (stats v1-sorted))) ; [1604.23 38.3]
+(defn ^:public summary-stats-buffered
+  "Returns a new stateful SummaryStatsBuffered with:
+    (ssb <num>) => Adds given number to internal buffer.
+    (deref ssb) => Flushes buffer if necessary, and returns a mergeable
+                   ?SummaryStats. Deref again to get a map of summary
+                   stats for all numbers ever added to ssb:
+                     {:keys [n min max p25 ... p99 mean var mad]}.
 
-(defn merge-stats
-  "`(merge-stats (stats c0) (stats c1))` is a basic approximation of `(stats (into c0 c1)))`."
-  [m0 m1]
-  (if m0
-    (if m1
-      (let [_ (assert (get m0 :n))
-            _ (assert (get m1 :n))
+  Useful for summarizing a (possibly infinite) stream of numbers.
 
-            {^long   n0       :n
-             ^long   min0     :min
-             ^long   max0     :max
-             ^long   sum0     :sum
-             ^double mad-sum0 :mad-sum
-             ^long   p25-0    :p25
-             ^long   p50-0    :p50
-             ^long   p75-0    :p75
-             ^long   p90-0    :p90
-             ^long   p95-0    :p95
-             ^long   p99-0    :p99} m0
+  Options:
+    :buffer-size - The maximum number of numbers that may be buffered
+                   before next (ssb <num>) call will block to flush
+                   buffer and merge with any existing summary stats.
 
-            {^long   n1       :n
-             ^long   min1     :min
-             ^long   max1     :max
-             ^long   sum1     :sum
-             ^double mad-sum1 :mad-sum
-             ^long   p25-1    :p25
-             ^long   p50-1    :p50
-             ^long   p75-1    :p75
-             ^long   p90-1    :p90
-             ^long   p95-1    :p95
-             ^long   p99-1    :p99} m1
+                   Larger buffers mean better performance and more
+                   accurate stats, at the cost of more memory use
+                   while buffering.
 
-            _ (assert (pos? n0))
-            _ (assert (pos? n1))
+    :buffer-init - Initial buffer content, useful for persistent ssb.
+    :sstats-init - Initial summary stats,  useful for persistent ssb."
 
-            n2       (+ n1 n0)
-            n0-ratio (/ (double n0) (double n2))
-            n1-ratio (/ (double n1) (double n2))
+  ([] (summary-stats-buffered nil))
+  ([{:keys [buffer-size buffer-init sstats-init merge-cb]
+     :or   {buffer-size 1e5}
+     :as   opts}]
 
-            sum2  (+ sum0 sum1)
-            mean2 (/ (double sum2) (double n2))
-            min2  (if (< min0 min1) min0 min1)
-            max2  (if (> max0 max1) max0 max1)
+   (SummaryStatsBuffered.
+     (atom (summary-stats sstats-init))
+     (atom       (buf-new buffer-init))
+     (long                buffer-size)
+     (enc/counter)
+     merge-cb ; Undocumented
+     )))
 
-            ;; Batched "online" MAD calculation here is better= the standard
-            ;; Knuth/Welford method, Ref. http://goo.gl/QLSfOc,
-            ;;                            http://goo.gl/mx5eSK.
-            ;;
-            ;; Note that there's empirically no advantage in using `mean2` here
-            ;; asap, i.e. to reducing (- v1_i mean2).
-            mad-sum2 (+ mad-sum0 ^double mad-sum1)
-
-            ;;; These are pretty rough approximations. More sophisticated
-            ;;; approaches not worth the extra cost/effort in our case.
-            p25-2 (Math/round (+ (* n0-ratio (double p25-0)) (* n1-ratio (double p25-1))))
-            p50-2 (Math/round (+ (* n0-ratio (double p50-0)) (* n1-ratio (double p50-1))))
-            p75-2 (Math/round (+ (* n0-ratio (double p75-0)) (* n1-ratio (double p75-1))))
-            p90-2 (Math/round (+ (* n0-ratio (double p90-0)) (* n1-ratio (double p90-1))))
-            p95-2 (Math/round (+ (* n0-ratio (double p95-0)) (* n1-ratio (double p95-1))))
-            p99-2 (Math/round (+ (* n0-ratio (double p99-0)) (* n1-ratio (double p99-1))))
-
-            mad2 (/ (double mad-sum2) (double n2))]
-
-        {:n n2 :min min2 :max max2 :sum sum2 :mean mean2
-         :mad-sum mad-sum2 :mad mad2
-         :p25 p25-2 :p50 p50-2 :p75 p75-2
-         :p90 p90-2 :p95 p95-2 :p99 p99-2})
-      m0)
-    m1))
+(defn summary-stats-buffered-fast
+  "Returns fastest possible SummaryStatsBuffered."
+  [^long buffer-size merge-cb]
+  (SummaryStatsBuffered.
+     (atom nil)
+     (atom (buf-new))
+     buffer-size
+     nil
+     merge-cb))
 
 (comment
-  (def v2 [1 2 2 3 2 1])
-  (def v3 [1 3 5 2 1 6])
-  (def v4 (into v2 v3))
+  (let [ssb (summary-stats-buffered {:buffer-size 10})] ; 266 qb
+    [(enc/qb 1e6 (ssb (rand-int 1000))) (str ssb) @@ssb]))
 
-  (stats v2) {:min 1, :mean 1.8333333333333333, :mad-sum 3.333333333333333,  :p99 3, :n 6,  :p90 3, :max 3, :mad 0.5555555555555555, :p50 2, :sum 11, :p95 3}
-  (stats v3) {:min 1, :mean 3.0,                :mad-sum 10.0,               :p99 6, :n 6,  :p90 6, :max 6, :mad 1.6666666666666667, :p50 3, :sum 18, :p95 6}
-  (stats v4) {:min 1, :mean 2.4166666666666665, :mad-sum 14.666666666666666, :p99 6, :n 12, :p90 5, :max 6, :mad 1.222222222222222,  :p50 2, :sum 29, :p95 5}
+(defn summary-stats-buffered?
+  "Returns true iff given a SummaryStatsBuffered instance."
+  [x] (instance? SummaryStatsBuffered x))
 
-  (merge-stats (stats v2) (stats v3))
-  {:min 1, :mean 2.4166666666666665, :mad-sum 13.333333333333332, :p99 5, :n 12, :p90 5, :max 6, :mad 1.111111111111111, :p50 3, :sum 29, :p95 5}
+(defn summary-stats-stateful?
+  "Returns true iff given a stateful SummaryStats instance."
+  [x] (summary-stats-buffered? x))
 
-  (stats (stats v2) v3)
-  {:min 1, :mean 2.4166666666666665, :mad-sum 13.333333333333332, :p99 5, :n 12, :p90 5, :max 6, :mad 1.111111111111111, :p50 3, :sum 29, :p95 5}
+;;;; Print methods
 
-  (merge-stats (stats v2) (stats v2))
-  {:min 1, :mean 1.8333333333333333, :mad-sum 6.666666666666666, :p99 3, :n 12, :p90 3, :max 3, :mad 0.5555555555555555, :p50 2, :sum 22, :p95 3}
-
-  (let [v1 (rand-vs 1e5 80)
-        v2 (rand-vs 1e5 20)
-        v3 (into v1 v2)]
-    (mapv :mad
-      [(stats v1)
-       (stats v2)
-       (stats v3)
-       (merge-stats (stats v1) (stats v2))
-       (stats (stats v1) v2)]))
-
-  [19.943705799999858 5.015891904000014 18.906570458826117 12.479798851999936 12.479798851999936]
-  [20.033054674800002 5.013648978000108 18.914174079741983 12.523351826400054 12.523351826400054])
+#?(:clj (enc/deftype-print-methods SummaryStats SummaryStatsBuffered))
 
 ;;;; Formatting
 
@@ -262,39 +567,50 @@
 
 (def default-format-id-fn (fn [id] (str id)))
 
-(defn get-max-id-width [id-stats {:keys [format-id-fn]
-                                  :or   {format-id-fn default-format-id-fn}}]
-  (when id-stats
+;; id-sstats* => {<id> <sstats>} or {<id> <sstats-map>}
+
+(defn get-max-id-width
+  [id-sstats*
+   {:keys [format-id-fn]
+    :or   {format-id-fn default-format-id-fn}}]
+
+  (when id-sstats*
     (reduce-kv
-      (fn [^long acc id _stats]
+      (fn [^long acc id _sstats*]
         (let [c (count (format-id-fn id))]
           (if (> c acc) c acc)))
       9 ; (count "Accounted")
-      id-stats)))
+      id-sstats*)))
 
-(defn format-stats
-  "Returns a formatted table string for given `{<id> <stats>}` map.
-  Assumes nanosecond clock, stats based on profiling id'd nanosecond times."
-  [clock-total id-stats {:keys [columns sort-fn format-id-fn max-id-width] :as opts
-                         :or   {columns      default-format-columns
-                                sort-fn      (fn [m] (get m :sum))
-                                format-id-fn default-format-id-fn}}]
-  (when id-stats
+(defn summary-stats-format
+  "Given {<id> <sstats>} or {<id> <sstats-map>}, returns a formatted table
+  string. Assumes nanosecond clock, and stats based on profiling id'd
+  nanosecond times."
+  [clock-total id-sstats*
+   {:keys [columns sort-fn format-id-fn max-id-width] :as opts
+    :or   {columns      default-format-columns
+           sort-fn      (fn [ss] (get (enc/force-ref ss) :sum))
+           format-id-fn default-format-id-fn}}]
+
+  (when id-sstats*
     (enc/have? [:el all-format-columns] :in columns)
     (let [clock-total (long clock-total)
           ^long accounted-total
           (reduce-kv
-            (fn [^long acc _id s]
-              (+ acc (long (get s :sum))))
-            0 id-stats)
+            (fn [^long acc _id ss]
+              (+ acc (long (get (enc/force-ref ss) :sum))))
+            0 id-sstats*)
 
           sorted-ids
           (sort-by
-            (fn [id] (sort-fn (get id-stats id)))
+            (fn [id] (sort-fn (get id-sstats* id)))
             enc/rcompare
-            (keys id-stats))
+            (keys id-sstats*))
 
-          ^long max-id-width (or max-id-width (get-max-id-width id-stats opts))
+          ^long max-id-width
+          (or
+            max-id-width
+            (get-max-id-width id-sstats* opts))
 
           column->pattern
           {:id      {:heading "pId"    :min-width max-id-width :align :left}
@@ -335,20 +651,20 @@
 
       ; Write id rows
       (doseq [id sorted-ids]
-        (let [s (get id-stats id)
-              sum  (get s :sum)
-              mean (get s :mean)]
+        (let [ssm  (enc/force-ref (get id-sstats* id))
+              sum  (get ssm :sum)
+              mean (get ssm :mean)]
 
           (append-col :id (format-id-fn id))
           (doseq [column columns]
             (enc/sb-append sb " ")
             (case column
-              :n-calls (append-col column (fmt-calls (get s :n)))
+              :n-calls (append-col column (fmt-calls (get ssm :n)))
               :mean    (append-col column (fmt-nano mean))
-              :mad     (append-col column (str "±" (perc (get s :mad) mean)))
+              :mad     (append-col column (str "±" (perc (get ssm :mad) mean)))
               :total   (append-col column (perc sum clock-total))
               :clock   (append-col column (fmt-nano sum))
-              (do      (append-col column (fmt-nano (get s column))))))
+              (do      (append-col column (fmt-nano (get ssm column))))))
 
           (enc/sb-append sb "\n")))
 
@@ -376,8 +692,18 @@
       (str sb))))
 
 (comment
+  (defn rand-vs [n & [max]]
+    (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
+
   (println
-    (format-stats (* 1e6 30)
-      {:foo (stats (rand-vs 1e4 20))
-       :bar (stats (rand-vs 1e2 50))
-       :baz (stats (rand-vs 1e5 30))}) "\n"))
+    (summary-stats-format (* 1e6 30)
+      {:foo (summary-stats (rand-vs 1e4 20))
+       :bar (summary-stats (rand-vs 1e2 50))
+       :baz (summary-stats (rand-vs 1e5 30))}
+      {}) "\n"))
+
+;;;; Aliases
+
+;; (enc/defalias sstats       summary-stats)
+;; (enc/defalias sstats-merge summary-stats-merge)
+
