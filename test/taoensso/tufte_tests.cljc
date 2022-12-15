@@ -40,13 +40,13 @@
 
 (deftest profiled-basics
   (testing "Profiled/basics"
-    [(let [[r ps] (profiled {})]                     (is (= r  nil))  (is (ps? ps)) (is (:clock @ps)) (is (nil? (:stats @ps))))
-     (let [[r ps] (profiled {:dynamic? true})]       (is (= r  nil))  (is (ps? ps)) (is (:clock @ps)) (is (nil? (:stats @ps))))
-     (let [[r ps] (profiled {}               "foo")] (is (= r "foo")) (is (ps? ps)) (is (:clock @ps)) (is (nil? (:stats @ps))))
-     (let [[r ps] (profiled {:dynamic? true} "foo")] (is (= r "foo")) (is (ps? ps)) (is (:clock @ps)) (is (nil? (:stats @ps))))
+    [(let [[r ps] (profiled {})]                     [(is (= r  nil))  (is (ps? ps)) (is (map? (:clock @ps))) (is (nil? (:stats @ps)))])
+     (let [[r ps] (profiled {:dynamic? true})]       [(is (= r  nil))  (is (ps? ps)) (is (map? (:clock @ps))) (is (nil? (:stats @ps)))])
+     (let [[r ps] (profiled {}               "foo")] [(is (= r "foo")) (is (ps? ps)) (is (map? (:clock @ps))) (is (nil? (:stats @ps)))])
+     (let [[r ps] (profiled {:dynamic? true} "foo")] [(is (= r "foo")) (is (ps? ps)) (is (map? (:clock @ps))) (is (nil? (:stats @ps)))])
 
-     (let [[r ps] (profiled {:when false}                "foo")] (is (= r "foo")) (is (nil? ps)))
-     (let [[r ps] (profiled {:when false :dynamic? true} "foo")] (is (= r "foo")) (is (nil? ps)))]))
+     (let [[r ps] (profiled {:when false}                "foo")] [(is (= r "foo")) (is (nil? ps))])
+     (let [[r ps] (profiled {:when false :dynamic? true} "foo")] [(is (= r "foo")) (is (nil? ps))])]))
 
 (deftest capture-basics
   (testing "Capture/basics"
@@ -54,11 +54,11 @@
     [(is (= (p :foo "foo")          "foo"))
      (is (= (p :foo (p :bar "bar")) "bar"))
 
-     (let [[r ps] (profiled {:when false}                (p :foo "foo"))] (is (= r "foo")) (is (nil? ps)))
-     (let [[r ps] (profiled {:when false :dynamic? true} (p :foo "foo"))] (is (= r "foo")) (is (nil? ps)))
+     (let [[r ps] (profiled {:when false}                (p :foo "foo"))] [(is (= r "foo")) (is (nil? ps))])
+     (let [[r ps] (profiled {:when false :dynamic? true} (p :foo "foo"))] [(is (= r "foo")) (is (nil? ps))])
 
-     (let [[r ps] (profiled {}               (p :foo "foo"))] (is (= r "foo")) (is (ps? ps)) (is (= (get-in @ps [:stats :foo :n]) 1)))
-     (let [[r ps] (profiled {:dynamic? true} (p :foo "foo"))] (is (= r "foo")) (is (ps? ps)) (is (= (get-in @ps [:stats :foo :n]) 1)))
+     (let [[r ps] (profiled {}               (p :foo "foo"))] [(is (= r "foo")) (is (ps? ps)) (is (= (get-in @ps [:stats :foo :n]) 1))])
+     (let [[r ps] (profiled {:dynamic? true} (p :foo "foo"))] [(is (= r "foo")) (is (ps? ps)) (is (= (get-in @ps [:stats :foo :n]) 1))])
 
      (let [[r ps]
            (profiled {}
@@ -66,10 +66,10 @@
              (looped 50  (p :bar "bar"))
              (looped 10  (p :foo "foo")))]
 
-       (is (= r "foo"))
-       (is (ps? ps))
-       (is (= (get-in @ps [:stats :foo :n]) 110))
-       (is (= (get-in @ps [:stats :bar :n]) 50)))
+       [(is (= r "foo"))
+        (is (ps? ps))
+        (is (= (get-in @ps [:stats :foo :n]) 110))
+        (is (= (get-in @ps [:stats :bar :n]) 50))])
 
      (let [[r ps]
            (profiled {:dynamic? true}
@@ -77,16 +77,16 @@
              (looped  50 (p :bar "bar"))
              (looped  10 (p :foo "foo")))]
 
-       (is (= r "foo"))
-       (is (ps? ps))
-       (is (= (get-in @ps [:stats :foo :n]) 110))
-       (is (= (get-in @ps [:stats :bar :n]) 50)))]))
+       [(is (= r "foo"))
+        (is (ps? ps))
+        (is (= (get-in @ps [:stats :foo :n]) 110))
+        (is (= (get-in @ps [:stats :bar :n]) 50))])]))
 
 (deftest capture-nested
   (testing "Capture/nested"
 
-    [(let [[r ps] (profiled {:when false}                (p :foo (p :bar (p :baz "baz"))))] (is (= r "baz") (is (nil? ps))))
-     (let [[r ps] (profiled {:when false :dynamic? true} (p :foo (p :bar (p :baz "baz"))))] (is (= r "baz") (is (nil? ps))))
+    [(let [[r ps] (profiled {:when false}                (p :foo (p :bar (p :baz "baz"))))] [(is (= r "baz") (is (nil? ps)))])
+     (let [[r ps] (profiled {:when false :dynamic? true} (p :foo (p :bar (p :baz "baz"))))] [(is (= r "baz") (is (nil? ps)))])
 
      (let [[r ps]
            (profiled {}
@@ -94,10 +94,10 @@
              (looped  10 (p :bar (p :bar "bar")))
              (looped   5 (p :foo (p :bar (p :foo "foo")))))]
 
-       (is (= r "foo"))
-       (is (ps? ps))
-       (is (= (get-in @ps [:stats :foo :n]) 110))
-       (is (= (get-in @ps [:stats :bar :n]) 125)))
+       [(is (= r "foo"))
+        (is (ps? ps))
+        (is (= (get-in @ps [:stats :foo :n]) 110))
+        (is (= (get-in @ps [:stats :bar :n]) 125))])
 
      (let [[r ps]
            (profiled {:dynamic? true}
@@ -105,10 +105,10 @@
              (looped  10 (p :bar (p :bar "bar")))
              (looped   5 (p :foo (p :bar "bar" (p :foo "foo")))))]
 
-       (is (= r "foo"))
-       (is (ps? ps))
-       (is (= (get-in @ps [:stats :foo :n]) 110))
-       (is (= (get-in @ps [:stats :bar :n]) 125)))]))
+       [(is (= r "foo"))
+        (is (ps? ps))
+        (is (= (get-in @ps [:stats :foo :n]) 110))
+        (is (= (get-in @ps [:stats :bar :n]) 125))])]))
 
 #?(:clj
    (deftest capture-threaded
@@ -121,10 +121,10 @@
                 (Thread/sleep 100)
                 (p :foo "foo"))]
 
-          (is (= r "foo"))
-          (is (ps? ps))
-          (is (= (get-in @ps [:stats :foo :n]) 1))
-          (is (= (get-in @ps [:stats :bar :n]) nil)))
+          [(is (= r "foo"))
+           (is (ps? ps))
+           (is (= (get-in @ps [:stats :foo :n]) 1))
+           (is (= (get-in @ps [:stats :bar :n]) nil))])
 
         (let [[r ps]
               (profiled {:dynamic? true}
@@ -133,10 +133,10 @@
                 (Thread/sleep 100)
                 (p :foo "foo"))]
 
-          (is (= r "foo"))
-          (is (ps? ps))
-          (is (= (get-in @ps [:stats :foo :n]) 2))
-          (is (= (get-in @ps [:stats :bar :n]) 1)))])))
+          [(is (= r "foo"))
+           (is (ps? ps))
+           (is (= (get-in @ps [:stats :foo :n]) 2))
+           (is (= (get-in @ps [:stats :bar :n]) 1))])])))
 
 (deftest merging-basics
   [(testing "Merging/basics"

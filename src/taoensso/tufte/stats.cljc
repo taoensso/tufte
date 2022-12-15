@@ -262,15 +262,15 @@
 
 (def default-format-id-fn (fn [id] (str id)))
 
-(defn get-max-id-width [stats {:keys [format-id-fn]
-                               :or   {format-id-fn default-format-id-fn}}]
-  (when stats
-     (reduce-kv
-       (fn [^long acc k v]
-           (let [c (count (format-id-fn k))]
-                (if (> c acc) c acc)))
-       9 ; (count "Accounted")
-       stats)))
+(defn get-max-id-width [id-stats {:keys [format-id-fn]
+                                  :or   {format-id-fn default-format-id-fn}}]
+  (when id-stats
+    (reduce-kv
+      (fn [^long acc id _stats]
+        (let [c (count (format-id-fn id))]
+          (if (> c acc) c acc)))
+      9 ; (count "Accounted")
+      id-stats)))
 
 (defn format-stats
   "Returns a formatted table string for given `{<id> <stats>}` map.

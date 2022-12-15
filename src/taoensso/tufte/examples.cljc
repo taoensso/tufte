@@ -1,6 +1,5 @@
 (ns taoensso.tufte.examples
   "This is mostly stuff for the README atm."
-  {:author "Peter Taoussanis (@ptaoussanis)"}
   (:require [taoensso.tufte]))
 
 (comment
