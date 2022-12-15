@@ -680,7 +680,7 @@
   ([ps opts]
    (when ps
      (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (stats/format-stats (get clock :total) stats opts)))))
+       (stats/summary-stats-format (get clock :total) stats opts)))))
 
 (comment
   ;; [:n-calls :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :total]
@@ -890,7 +890,7 @@
                  (if (> (long c) acc) c acc)
                  acc))
              0
-            m)]
+             m)]
 
        (enc/str-join "\n\n"
          (map (fn [id] (str id ",\n" (format-pstats (get m id) (assoc format-pstats-opts :max-id-width max-id-width)))))
