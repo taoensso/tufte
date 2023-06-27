@@ -629,7 +629,9 @@
                     ~'__t1     (enc/now-nano*)]
 
                 ;; Note that `capture-time!` expense is excl. from p time
-                (impl/capture-time! ~'__pd ~id-form (- ~'__t1 ~'__t0))
+                (impl/capture-time! ~'__pdcapture-source
+                                    (impl/capture-source ~id-form ~(impl/get-source &form &env))
+                                    (- ~'__t1 ~'__t0))
 
                 ~'__result)
               (do ~@body)))))))

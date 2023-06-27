@@ -22,7 +22,8 @@
   (:require
    [clojure.string  :as str]
    [taoensso.encore :as enc :refer-macros []]
-   [taoensso.tufte.stats :as stats])
+   [taoensso.tufte.stats :as stats]
+   #?(:clj [clojure.java.io :as io]))
 
   #?(:clj
      (:import [java.util LinkedList Stack]
@@ -341,6 +342,24 @@
           (let [t0 (enc/now-nano*)]
             (vreset! pstate_ (compact-pstate pstate acc nmax false))
             (recur pd :tufte/compaction (- (enc/now-nano*) t0))))))))
+
+(defn get-source [form env]
+  (let [{:keys [line column file]} (meta form)]
+    {:line   line
+     :column column
+     :file   #?(:clj  (if (:ns env) ;; cljs target
+                        (if-let [classpath-file (io/resource file)]
+                          (.getPath (io/file classpath-file))
+                          file)
+                        *file*)
+                :cljs nil)}))
+
+(defn- can-meta? [value]
+  #?(:clj  (instance? clojure.lang.IObj value)
+     :cljs (implements? IMeta value)))
+
+(defn capture-source [id-form m]
+  (cond-> id-form (can-meta? id-form) (vary-meta merge m)))
 
 (defn- compact-pstate [^PState pstate pulled-times ^long nmax dynamic?]
   ;; Note that compaction expense doesn't distort p times unless there's
