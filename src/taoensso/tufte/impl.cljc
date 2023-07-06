@@ -34,9 +34,9 @@
 
 ;;;; Mutable accumulators
 
-(deftype Time     [id ^long t])
+(deftype Time     [id ^long t location-info])
 (deftype TimeSpan [^long t0 ^long t1])
-(comment (enc/qb 1e6 (Time. :foo 1000))) ; 33.59
+(comment (enc/qb 1e6 (Time. :foo 1000 nil))) ; 33.59
 
 #?(:clj
    (do
@@ -194,18 +194,26 @@
       (persistent!
         (reduce
           (fn [m ^Time in]
-            (let [id (.-id in)
-                  t  (.-t  in)]
-              (assoc! m id (conj (get m id) t))))
+            (let [t   (.-t             in)
+                  id  (.-id            in)
+                  loc (.-location-info in)
+                  id* [id loc]]
+
+              ;; We'll use [id loc] as a pseudo id from here on in
+              ;; order to track location info. We'll then reverse
+              ;; the wrapping on final `deref-pstats`.
+              (assoc! m id* (conj (get m id*) t))))
+
           (transient (or to-id-times {}))
           from-times))
+
       to-id-times)))
 
 (comment
   (times-into-id-times nil nil)
   (times-into-id-times {}  nil)
   (let [mt (mt-acc)]
-    (mt-add mt (Time. :foo 2))
+    (mt-add mt (Time. :foo 2 nil))
     (times-into-id-times {:foo '(1)} mt)))
 
 (defn- deref-pstats
@@ -218,15 +226,48 @@
         id-sstats (.-id-sstats pstate)
         id-times  (times-into-id-times id-times (.-acc pstate))
 
-        public-stats-output ; {<id> <stats/sstats-map>}
-        (reduce-kv
-          (fn [m id times]
-            (let [sstats<times  (stats/summary-stats times)
-                  sstats-merged (reduce stats/summary-stats-merge sstats<times
-                                  (get id-sstats id))]
-              (assoc m id @sstats-merged)))
-          id-times
-          id-times)]
+        public-stats-output ; {<id*> <stats/sstats-map>}
+        (when id-times
+          (let [;;; Disposable internal state
+                id*-sstats_ (volatile! (transient {})) ; {<id*>  <sstats>}
+                id*-loc_    (volatile! (transient {})) ; {<id*> <map-or-set>}
+                ]
+
+            (persistent!
+              (reduce-kv
+                (fn [m id times]
+                  (let [[id* loc] id ; Reverse [id loc] wrapping done at `times-into-id-times`
+
+                        sstats<times  (stats/summary-stats times)
+                        sstats-merged (reduce stats/summary-stats-merge sstats<times
+                                        (get id-sstats id))
+
+                        ;; Note that a single id* may have >1 locs and so >1
+                        ;; [id loc] entries in id-times. While uncommon, this is
+                        ;; is sensible and supported.
+
+                        ;; Final sstats merged from all locations for given id*
+                        new-id*-sstats
+                        (if-let [old (get @id*-sstats_ id*)]
+                          (stats/summary-stats-merge old sstats-merged)
+                          (do                            sstats-merged))
+
+                        ;; Location (map or set) for given id*
+                        new-id*-loc
+                        (if-let [old (get @id*-loc_ id*)]
+                          (if (set? old)
+                            (conj old loc)
+                            (if (= old loc) old #{old loc}))
+                          loc)
+
+                        new-id*-entry (assoc @new-id*-sstats :loc new-id*-loc)]
+
+                    (vswap! id*-sstats_ assoc!   id* new-id*-sstats)
+                    (vswap! id*-loc_    assoc!   id* new-id*-loc)
+                    (do                (assoc! m id* new-id*-entry))))
+
+                (transient {})
+                id-times))))]
 
     {:clock {:t0 t0 :t1 t1 :total (tspans->tsum tspans)}
      :stats public-stats-output}))
@@ -310,7 +351,7 @@
         (instance? clojure.lang.Atom ~x))))
 
 (declare ^:private compact-pstate)
-(defn capture-time! [^PData pd id ns-elapsed]
+(defn capture-time! [^PData pd id ns-elapsed location-info]
   (let [nmax    (.-nmax    pd)
         pstate_ (.-pstate_ pd)
         ^PState pstate @pstate_
@@ -319,7 +360,7 @@
     (if (atom? acc)
 
       ;; Dynamic profiling
-      (let [new-time (Time. id ns-elapsed)
+      (let [new-time (Time. id ns-elapsed location-info)
             ?pulled-times
             (loop []
               (let [old-times @acc
@@ -332,15 +373,15 @@
           (let [t0 (enc/now-nano*)]
             ;; Contention against `pstate_` unlikely since we just drained `acc`
             (swap! pstate_ (fn [pstate] (compact-pstate pstate times nmax true)))
-            (recur pd :tufte/compaction (- (enc/now-nano*) t0)))))
+            (recur pd :tufte/compaction (- (enc/now-nano*) t0) nil))))
 
       (do ; Common case: thread-local profiling
-        (mt-add acc (Time. id ns-elapsed))
+        (mt-add acc (Time. id ns-elapsed location-info))
 
         (when (> (mt-count acc) nmax) ; Do compaction, rare
           (let [t0 (enc/now-nano*)]
             (vreset! pstate_ (compact-pstate pstate acc nmax false))
-            (recur pd :tufte/compaction (- (enc/now-nano*) t0))))))))
+            (recur pd :tufte/compaction (- (enc/now-nano*) t0) nil)))))))
 
 (defn- compact-pstate [^PState pstate pulled-times ^long nmax dynamic?]
   ;; Note that compaction expense doesn't distort p times unless there's
@@ -371,7 +412,7 @@
 (comment
   (try
     (pdata-local-push (new-pdata-local 1e7))
-    (enc/qb 1e6 (capture-time! (pdata-local-get) :foo 1))
+    (enc/qb 1e6 (capture-time! (pdata-local-get) :foo 1 nil))
     (finally (pdata-local-pop)))) ; 98.35
 
 ;;;; Output handlers

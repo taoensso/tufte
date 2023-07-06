@@ -80,7 +80,11 @@
        [(is (= r "foo"))
         (is (ps? ps))
         (is (= (get-in @ps [:stats :foo :n]) 110))
-        (is (= (get-in @ps [:stats :bar :n]) 50))])]))
+        (is (= (get-in @ps [:stats :bar :n]) 50))])
+
+     (let [[r ps] (profiled {} (p :foo) (p ::foo) (p 'foo) (p `foo))]
+       [(is (enc/submap? @ps {:stats {:foo {} ::foo {} 'foo {} `foo {}}})
+          "Support un/qualified keyword and symbol pids")])]))
 
 (deftest capture-nested
   (testing "Capture/nested"
@@ -550,7 +554,7 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                      fn1  [x] x)
+  (tufte/defnp                      fn1  [x] x) ; Line 557
   (tufte/defnp                      fn2  [x] x)
   (tufte/defnp ^{:tufte/id :__fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "__fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -582,6 +586,51 @@
                      ::defn_fn5 {:n 1}
                      ::fn_fn6   {:n 1}
                      :__fn7     {:n 1}}}))])])
+
+;;;; Location info
+
+(deftest location-info
+  ;; Note that these tests are sensitive to line numbers and will
+  ;; need to be updated when line numbers change.
+  [(let [[r ps]
+         (profiled {}
+           (p :foo) (p :bar) ; Line 597
+           (p :baz
+             (p :qux)))]
+
+     [(is (enc/submap? @ps
+            {:stats {:foo {:loc {:line 597}}
+                     :bar {:loc {:line 597}}
+                     :baz {:loc {:line 598}}
+                     :qux {:loc {:line 599}}}}))])
+
+   (let [[r ps]
+         (profiled {}
+           (p          :foo) ; Line 609
+           (p          :foo)
+           (p          :foo)
+           (tufte/pspy :foo))
+
+         loc (get-in @ps [:stats :foo :loc])]
+
+     [(is (set? loc) "id with >1 locations")
+      (is (= (into #{} (map :line) loc) #{609 610 611 612}))
+      (is (enc/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
+
+   (let [[r ps] (profiled {} (run-test-fns))]
+     [(is
+        (enc/submap? @ps
+          {:stats {::defn_fn1 {:loc {:line 557}}
+                   ::defn_fn2 {:loc {:line 558}}
+                   :__fn3     {:loc {:line 559}}
+                   :__fn4     {:loc {:line 560}}
+                   :__fn4_1   {:loc {:line 560}}
+                   :__fn4_2   {:loc {:line 560}}
+                   ::defn_fn5 {:loc {:line 561}}
+                   ::fn_fn6   {:loc {:line 564}}
+                   :__fn7     {:loc {:line 565}}}}))])])
+
+(comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 
 ;;;;
 

@@ -257,7 +257,7 @@
           "\n" (format-pstats pstats format-pstats-opts))))))
 
 (defn format-id-abbr
-  "Returns a cached (fn [id]) -> abbreviated id string.
+  "Returns a cached (fn [id]) => abbreviated id string.
   Takes `n` (default 1), the number of namespace parts to keep unabbreviated.
 
   Examples:
@@ -355,16 +355,25 @@
           (do ~@body)
           (finally (impl/pdata-local-pop))))))
 
-(defn capture-time!
-  "Note: this is a low-level primitive for advanced users!
-  Can be useful when tracking time across arbitrary thread boundaries or for
-  async jobs / callbacks / etc.
+#?(:clj
+   (defmacro capture!
+     "Note: this is a low-level primitive for advanced users!
+     Can be useful when tracking time across arbitrary thread boundaries or for
+     async jobs / callbacks / etc.
 
-  See `new-pdata` for more info on low-level primitives."
-  ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed))
+     See `new-pdata` for more info on low-level primitives.
+     See also `capture-time!`."
+     ([pdata id nano-secs-elapsed] `(impl/capture-time! ~pdata ~id ~nano-secs-elapsed ~(enc/get-source &form &env)))
+     ([      id nano-secs-elapsed]
+      `(when-let [~'pd (or impl/*pdata* (impl/pdata-local-get))]
+         (impl/capture-time! ~'pd ~id ~nano-secs-elapsed ~(enc/get-source &form &env))))))
+
+(defn capture-time!
+  "Like `capture-time!` but: a function, and does not collect callsite location info."
+  ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed nil))
   ([      id nano-secs-elapsed]
    (when-let [pd (or impl/*pdata* (impl/pdata-local-get))]
-     (impl/capture-time! pd id nano-secs-elapsed))))
+     (impl/capture-time! pd id nano-secs-elapsed nil))))
 
 (comment
   @(second
@@ -403,11 +412,15 @@
      Otherwise see `profile`.
 
      `pstats` objects are derefable and mergeable:
-       - @pstats                 -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
-       - @(merge-pstats ps1 ps2) -> {:stats {:n _ :min _ ...} :clock {:t0 _ :t1 _ :total _}}
+       - @pstats                 => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n min ...]}}}
+       - @(merge-pstats ps1 ps2) => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n min ...]}}}
 
-     Full set of `:stats` keys:
-       :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99
+     Full set of keys in `:stats` maps:
+       :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99 :loc
+
+       All values are numerical (usu. doubles), except for `:loc` which
+       is a map of `p` callsite location information, e.g.:
+         {:ns \"my-ns\", :file \"/tmp/my-ns.clj\", :line 122, :column 21}
 
      Compile-time opts:
        :dynamic? - Use multi-threaded profiling? ; Default is `false`
@@ -606,7 +619,8 @@
      (let [ns-str  (str *ns*)
            opts    (if (map? s1) s1 {:level 5 :id s1})
            level   (get opts :level)
-           id-form (get opts :id)]
+           id-form (get opts :id)
+           loc (or (get opts :loc) (enc/get-source &form &env))]
 
        ;; If *any* level is present, it must be a valid compile-time level
        ;; since this macro doesn't offer runtime level checking
@@ -615,7 +629,7 @@
        (when (nil? id-form)
          (throw
            (ex-info "`tufte/p` requires an id."
-             {:ns-str ns-str :line (:line (meta &form))
+             {:loc  loc
               :opts opts
               :form (cons 'p (cons s1 body))})))
 
@@ -628,13 +642,15 @@
                     ~'__result (do ~@body)
                     ~'__t1     (enc/now-nano*)]
 
-                ;; Note that `capture-time!` expense is excl. from p time
-                (impl/capture-time! ~'__pd ~id-form (- ~'__t1 ~'__t0))
+                ;; ~(println [id-form (:line loc)]) ; Debug location info
 
+                ;; Note that `capture-time!` expense is excl. from p time
+                (impl/capture-time! ~'__pd ~id-form (- ~'__t1 ~'__t0) ~loc )
                 ~'__result)
+
               (do ~@body)))))))
 
-#?(:clj (defmacro pspy "`p` alias" [& args] `(p ~@args)))
+#?(:clj (defmacro pspy "`p` alias" [& args] (enc/keep-callsite `(p ~@args))))
 
 (comment
   (p :p1 "body")
@@ -696,7 +712,7 @@
 
 ;;;; fnp stuff
 
-(defn- fn-sigs [def? ?meta-pid ?fn-sym sigs]
+(defn- fn-sigs [def? ?meta-pid ?fn-sym sigs loc]
   (let [single-arity?    (vector? (first sigs))
         sigs    (if single-arity? (list  sigs) sigs)
         fn-sym  (or ?fn-sym (gensym))
@@ -721,12 +737,12 @@
 
               (if ?prepost-map
                 (if-let [arity-id ?arity-id]
-                  `(~params ~?prepost-map (p ~base-id (p ~arity-id ~@body)))
-                  `(~params ~?prepost-map (p ~base-id              ~@body)))
+                  `(~params ~?prepost-map (p {:id ~base-id, :loc ~loc} (p {:id ~arity-id, :loc ~loc} ~@body)))
+                  `(~params ~?prepost-map (p {:id ~base-id, :loc ~loc}                               ~@body)))
 
                 (if-let [arity-id ?arity-id]
-                  `(~params               (p ~base-id (p ~arity-id ~@body)))
-                  `(~params               (p ~base-id              ~@body))))))
+                  `(~params               (p {:id ~base-id, :loc ~loc} (p {:id ~arity-id, :loc ~loc} ~@body)))
+                  `(~params               (p {:id ~base-id, :loc ~loc}                               ~@body))))))
 
           sigs)]
     new-sigs))
@@ -738,7 +754,8 @@
                   [name? ([params*] prepost-map? body)+])}
      [& sigs]
      (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
-           new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) ?fn-sym sigs)]
+           new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) ?fn-sym sigs
+                            (enc/get-source &form &env))]
        (if ?fn-sym
          `(fn ~?fn-sym ~@new-sigs)
          `(fn          ~@new-sigs)))))
@@ -761,7 +778,8 @@
         [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
-           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs
+                           (enc/get-source &form &env))]
        `(defn ~fn-sym ~@new-sigs))))
 
 #?(:clj
@@ -772,7 +790,8 @@
         [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
-           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs)]
+           new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs
+                           (enc/get-source &form &env))]
        `(defn ~fn-sym ~@new-sigs))))
 
 (comment
