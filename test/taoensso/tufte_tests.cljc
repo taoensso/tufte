@@ -547,6 +547,42 @@
      (is (= "e.h.world/foo"     ((tufte/format-id-abbr 1) :example.hello.world/defn_foo)))
      (is (= "e.hello.world/foo" ((tufte/format-id-abbr 2) :example.hello.world/defn_foo)))]))
 
+;;;; Util macros
+
+(do
+  (tufte/defnp                      fn1  [x] x)
+  (tufte/defnp                      fn2  [x] x)
+  (tufte/defnp ^{:tufte/id :__fn3}  fn3  [x] x)
+  (tufte/defnp ^{:tufte/id "__fn4"} fn4 ([x] x) ([x y] [x y]))
+  (tufte/defnp-                     fn5  [x] x)
+
+  (defn run-test-fns []
+    (let [fn6 (tufte/fnp                     fn6 [x] x)
+          fn7 (tufte/fnp ^{:tufte/id :__fn7} fn7 [x] x)]
+      [(fn1 "fn1")
+       (fn2 "fn2")
+       (fn3 "fn3")
+       (fn4 "fn4_1")
+       (fn4 "fn4_2x" "fn4_2y")
+       (fn5 "fn5")
+       (fn6 "fn6")
+       (fn7 "fn7")
+       (fn1 (fn2 "fn1+2"))])))
+
+(deftest util-macros
+  [(let [[r ps] (profiled {} (run-test-fns))]
+     [(is (= r ["fn1" "fn2" "fn3" "fn4_1" ["fn4_2x" "fn4_2y"] "fn5" "fn6" "fn7" "fn1+2"]))
+      (is (enc/submap? @ps
+            {:stats {::defn_fn1 {:n 2},
+                     ::defn_fn2 {:n 2},
+                     :__fn3     {:n 1},
+                     :__fn4     {:n 2}
+                     :__fn4_1   {:n 1}
+                     :__fn4_2   {:n 1}
+                     ::defn_fn5 {:n 1}
+                     ::fn_fn6   {:n 1}
+                     :__fn7     {:n 1}}}))])])
+
 ;;;;
 
 #?(:cljs (test/run-tests))

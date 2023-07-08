@@ -696,27 +696,38 @@
 
 ;;;; fnp stuff
 
-(defn- fn-sigs [def? ?meta-pid fn-sym sigs]
-  (let [single-arity? (vector? (first sigs))
-        sigs    (if single-arity? (list sigs) sigs)
+(defn- fn-sigs [def? ?meta-pid ?fn-sym sigs]
+  (let [single-arity?    (vector? (first sigs))
+        sigs    (if single-arity? (list  sigs) sigs)
+        fn-sym  (or ?fn-sym (gensym))
+
         base-id
         (if ?meta-pid
           (enc/as-qname ?meta-pid)
           (str *ns* "/" (if def? "defn_" "fn_") (name fn-sym)))
 
-        get-id
+        get-ids
         (if single-arity?
-          (fn [fn-sym _params] (keyword      base-id))
-          (fn [fn-sym  params] (keyword (str base-id "_" (count params)))))
+          (fn [fn-sym _params] [(keyword      base-id)])
+          (fn [fn-sym  params] [(keyword      base-id)
+                                (keyword (str base-id "_" (count params)))]))
 
         new-sigs
         (map
           (fn [[params & others]]
             (let [has-prepost-map?      (and (map? (first others)) (next others))
-                  [?prepost-map & body] (if has-prepost-map? others (cons nil others))]
+                  [?prepost-map & body] (if has-prepost-map? others (cons nil others))
+                  [base-id ?arity-id]   (get-ids fn-sym params)]
+
               (if ?prepost-map
-                `(~params ~?prepost-map (p ~(get-id fn-sym params) ~@body))
-                `(~params               (p ~(get-id fn-sym params) ~@body)))))
+                (if-let [arity-id ?arity-id]
+                  `(~params ~?prepost-map (p ~base-id (p ~arity-id ~@body)))
+                  `(~params ~?prepost-map (p ~base-id              ~@body)))
+
+                (if-let [arity-id ?arity-id]
+                  `(~params               (p ~base-id (p ~arity-id ~@body)))
+                  `(~params               (p ~base-id              ~@body))))))
+
           sigs)]
     new-sigs))
 
@@ -727,7 +738,7 @@
                   [name? ([params*] prepost-map? body)+])}
      [& sigs]
      (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
-           new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) (or ?fn-sym (gensym "")) sigs)]
+           new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) ?fn-sym sigs)]
        (if ?fn-sym
          `(fn ~?fn-sym ~@new-sigs)
          `(fn          ~@new-sigs)))))
