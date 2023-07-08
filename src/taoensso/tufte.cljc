@@ -356,19 +356,19 @@
           (finally (impl/pdata-local-pop))))))
 
 #?(:clj
-   (defmacro capture!
+   (defmacro capture-time!
      "Note: this is a low-level primitive for advanced users!
      Can be useful when tracking time across arbitrary thread boundaries or for
      async jobs / callbacks / etc.
 
      See `new-pdata` for more info on low-level primitives.
-     See also `capture-time!`."
+     See also `capture-time!*`."
      ([pdata id nano-secs-elapsed] `(impl/capture-time! ~pdata ~id ~nano-secs-elapsed ~(enc/get-source &form &env)))
      ([      id nano-secs-elapsed]
       `(when-let [~'pd (or impl/*pdata* (impl/pdata-local-get))]
          (impl/capture-time! ~'pd ~id ~nano-secs-elapsed ~(enc/get-source &form &env))))))
 
-(defn capture-time!
+(defn capture-time!*
   "Like `capture-time!` but: a function, and does not collect callsite location info."
   ([pdata id nano-secs-elapsed] (impl/capture-time! pdata id nano-secs-elapsed nil))
   ([      id nano-secs-elapsed]
