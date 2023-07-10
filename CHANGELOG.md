@@ -1,6 +1,26 @@
-> This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md)
+> This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md).
 
-## v2.4.5 - 2022 Oct 27
+## `2.5.0` (2023-07-13)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.0)
+
+This is intended as a **non-breaking feature release**, but it touches a fair bit of code so **please keep an eye out** for (and let me know about) any unexpected problems - thank you! 🙏
+
+See **referenced commit messages** for details.
+
+### Changes since `2.4.5`
+
+* ebed6d0 [mod] Change `capture-time!` from a fn to a macro
+* 7442835 [mod] Rename format columns: `:n-calls` -> `:n`, `:total` -> `:sum`
+
+### New since `2.4.5`
+
+* 2a38e1a [new] [#66] Track callsite locations of `p` ids
+* 0a2484f [new] `defnp` and `fnp` now track cross-arity stats, add tests
+* GraalVM compatibility is now tested during build
+
+
+## `2.4.5` (2022-10-27)
 
 ```clojure
 [com.taoensso/tufte "2.4.5"]
@@ -9,7 +29,7 @@
 > This is a very minor maintenance release. It should be **non-breaking**.
 > See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
 
-### Changes since `v2.3.0`
+### Changes since `2.3.0`
 
 * Update dependencies
 * Some minor refactoring and performance improvements

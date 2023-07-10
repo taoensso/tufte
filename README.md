@@ -4,7 +4,7 @@
 **[CHANGELOG][]** | [API][] | current [Break Version][]:
 
 ```clojure
-[com.taoensso/tufte "2.4.5"] ; See CHANGELOG for details
+[com.taoensso/tufte "2.5.0"] ; See CHANGELOG for details
 ```
 
 > See [here][backers] if to help support my open-source work, thanks! - [Peter Taoussanis][Taoensso.com]
@@ -61,8 +61,8 @@
 Add the necessary dependency to your project:
 
 ```clojure
-Leiningen: [com.taoensso/tufte "2.4.5"] ; or
-deps.edn:   com.taoensso/tufte {:mvn/version "2.4.5"}
+Leiningen: [com.taoensso/tufte "2.5.0"] ; or
+deps.edn:   com.taoensso/tufte {:mvn/version "2.5.0"}
 ```
 
 And setup your namespace imports:
