@@ -699,7 +699,7 @@
        (stats/summary-stats-format (get clock :total) stats opts)))))
 
 (comment
-  ;; [:n-calls :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :total]
+  ;; [:n :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum]
   (println
     (str "\n"
       (format-pstats
@@ -889,7 +889,7 @@
   (future (profile {:id :foo} (p :p1 (Thread/sleep 900))))
   (future (profile {:id :bar} (p :p1 (Thread/sleep 500))))
   (println (format-grouped-pstats @my-sacc {}
-             #_{:format-pstats-opts {:columns [:n-calls]}})))
+             #_{:format-pstats-opts {:columns [:n]}})))
 
 (defn format-grouped-pstats
   "Alpha, subject to change.

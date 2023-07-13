@@ -562,8 +562,20 @@
   (fmt-calls  12345)
   (fmt-nano   12345.67890))
 
-(def     all-format-columns [:n-calls :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
-(def default-format-columns [:n-calls :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :total])
+(def     all-format-columns [:n :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
+(def default-format-columns [:n :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
+
+(let [migrate        {:n-calls :n, :total :sum} ; For back-compatibility
+      format-column? (set all-format-columns)
+      format-column  (fn [column] (have format-column? (get migrate column column)))]
+
+  (defn- format-columns [columns]
+    (enc/cond
+      (identical? columns default-format-columns) default-format-columns
+      (identical? columns     all-format-columns)     all-format-columns
+      :else (mapv format-column columns))))
+
+(comment (enc/qb 1e6 (format-columns [:min :n-calls :total])))
 
 (def default-format-id-fn (fn [id] (str id)))
 
@@ -593,8 +605,8 @@
            format-id-fn default-format-id-fn}}]
 
   (when id-sstats*
-    (enc/have? [:el all-format-columns] :in columns)
-    (let [clock-total (long clock-total)
+    (let [columns (format-columns columns)
+          clock-total (long clock-total)
           ^long accounted-total
           (reduce-kv
             (fn [^long acc _id ss]
@@ -613,8 +625,8 @@
             (get-max-id-width id-sstats* opts))
 
           column->pattern
-          {:id      {:heading "pId"    :min-width max-id-width :align :left}
-           :n-calls {:heading "nCalls"}
+          {:id      {:heading "pId" :min-width max-id-width :align :left}
+           :n       {:heading "nCalls"}
            :min     {:heading "Min"}
            :p25     {:heading "25% ≤"}
            :p50     {:heading "50% ≤"}
@@ -625,7 +637,7 @@
            :max     {:heading "Max"}
            :mean    {:heading "Mean"}
            :mad     {:heading "MAD"   :min-width 5}
-           :total   {:heading "Total" :min-width 6}
+           :sum     {:heading "Total" :min-width 6}
            :clock   {:heading "Clock"}}
 
           sb (enc/str-builder "")
@@ -651,20 +663,19 @@
 
       ; Write id rows
       (doseq [id sorted-ids]
-        (let [ssm  (enc/force-ref (get id-sstats* id))
-              sum  (get ssm :sum)
-              mean (get ssm :mean)]
+        (let [ssm (enc/force-ref (get id-sstats* id))
+              {:keys [n sum mean mad]} ssm]
 
           (append-col :id (format-id-fn id))
           (doseq [column columns]
             (enc/sb-append sb " ")
             (case column
-              :n-calls (append-col column (fmt-calls (get ssm :n)))
-              :mean    (append-col column (fmt-nano mean))
-              :mad     (append-col column (str "±" (perc (get ssm :mad) mean)))
-              :total   (append-col column (perc sum clock-total))
-              :clock   (append-col column (fmt-nano sum))
-              (do      (append-col column (fmt-nano (get ssm column))))))
+              :n     (append-col column (fmt-calls n))
+              :mean  (append-col column (fmt-nano mean))
+              :mad   (append-col column (str "±" (perc mad mean)))
+              :sum   (append-col column (perc sum clock-total))
+              :clock (append-col column (fmt-nano sum))
+              (do    (append-col column (fmt-nano (get ssm column))))))
 
           (enc/sb-append sb "\n")))
 
@@ -674,7 +685,7 @@
       (doseq [column columns]
         (enc/sb-append sb " ")
         (case column
-          :total (append-col column (perc accounted-total clock-total))
+          :sum   (append-col column (perc accounted-total clock-total))
           :clock (append-col column (fmt-nano accounted-total))
           (do    (append-col column ""))))
 
@@ -684,7 +695,7 @@
       (doseq [column columns]
         (enc/sb-append sb " ")
         (case column
-          :total (append-col column "100%")
+          :sum   (append-col column "100%")
           :clock (append-col column (fmt-nano clock-total))
           (do    (append-col column ""))))
 
@@ -706,4 +717,3 @@
 
 ;; (enc/defalias sstats       summary-stats)
 ;; (enc/defalias sstats-merge summary-stats-merge)
-

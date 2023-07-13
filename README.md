@@ -175,7 +175,7 @@ As one simpler example, we can get **sampled profiling** like this:
 
 ```clojure
 {;; Vector of ordered columns to include in output (all columns by default):
- :columns [:n-calls :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :total]
+ :columns [:n :min :p50 :p90 :p95 :p99 :max :mean :mad :clock :sum]
 
  ;; Function called on each form id (pid), allowing format customization:
  :format-id-fn #_str (tufte/format-id-abbr) ; For abbreviated ids, see docstring for details
@@ -189,7 +189,7 @@ through the `:format-pstats-opts` option:
 
 ```clojure
 (tufte/add-basic-println-handler!
-  {:format-pstats-opts {:columns [:n-calls :p50 :mean :clock :total]
+  {:format-pstats-opts {:columns [:n :p50 :mean :clock :sum]
                         :format-id-fn name}})
 
 (defnp get-x [] (Thread/sleep 500)             "x val")

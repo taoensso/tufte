@@ -473,7 +473,7 @@
                    "Accounted                          15.00ns   100%"
                    "Clock                              15.00ns   100%"]
                  (->>
-                   (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
+                   (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
                    (str/split-lines)
                    (remove empty?))))]))
 
@@ -496,7 +496,7 @@
                   "Accounted                          15.00ns   100%"
                   "Clock                              15.00ns   100%"]
                 (->>
-                  (tufte/format-pstats data {:columns [:n-calls :mean :clock :total]})
+                  (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
                   (str/split-lines)
                   (remove empty?))))))
 
@@ -510,7 +510,7 @@
                   ":foo               1     2.00s "
                   ":bar               1    15.00ns"]
                 (->>
-                  (tufte/format-pstats data {:columns [:n-calls :mean]})
+                  (tufte/format-pstats data {:columns [:n :mean]})
                   (str/split-lines)
                   (remove empty?)
                   (take 3))))))
@@ -525,7 +525,7 @@
                   ":foo               1     2.00s " ; Current behaviour looks a little strange.
                   ":bar               1     1.00s "]
                 (->>
-                  (tufte/format-pstats data {:columns [:n-calls :mean]})
+                  (tufte/format-pstats data {:columns [:n :mean]})
                   (str/split-lines)
                   (remove empty?)
                   (take 3))))))
@@ -537,7 +537,7 @@
               (= ["pId           nCalls       Mean"
                   "foo                1     2.00s "]
                 (->>
-                  (tufte/format-pstats data {:columns [:n-calls :mean]
+                  (tufte/format-pstats data {:columns [:n :mean]
                                              :format-id-fn name})
                   (str/split-lines)
                   (remove empty?)
