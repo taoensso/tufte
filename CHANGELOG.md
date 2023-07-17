@@ -1,4 +1,13 @@
-> This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md).
+This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md).
+
+## `2.5.1` (2023-07-18)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.1)
+
+Identical to `2.5.0`, but synchronizes Encore dependency with my recent library releases (Timbre, Tufte, Sente, Carmine, etc.) to prevent confusion caused by dependency conflicts.
+
+This is a safe update for users of `2.5.0`.
+
 
 ## `2.5.0` (2023-07-13)
 
