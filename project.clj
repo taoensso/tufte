@@ -14,13 +14,13 @@
    *unchecked-math*     false #_:warn-on-boxed}
 
   :dependencies
-  [[com.taoensso/encore "3.62.0"]]
+  [[com.taoensso/encore "3.62.1"]]
 
   :plugins
   [[lein-pprint    "1.3.2"]
    [lein-ancient   "0.7.0"]
    [lein-cljsbuild "1.1.8"]
-   [com.taoensso.forks/lein-codox "0.10.9"]]
+   [com.taoensso.forks/lein-codox "0.10.10"]]
 
   :codox
   {:language #{:clojure :clojurescript}
@@ -38,7 +38,7 @@
    :c1.10    {:dependencies [[org.clojure/clojure       "1.10.1"]]}
    :c1.9     {:dependencies [[org.clojure/clojure       "1.9.0"]]}
    :test     {:dependencies [[org.clojure/test.check    "1.1.1"]
-                             [com.taoensso/timbre       "6.2.1"]]}
+                             [com.taoensso/timbre       "6.2.2"]]}
 
    :graal-tests
    {:dependencies [[org.clojure/clojure "1.11.1"]
