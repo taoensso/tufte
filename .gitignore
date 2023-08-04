@@ -17,3 +17,4 @@ pom.xml*
 cljs-example/main.js
 cljs-example/out/
 cljs-example/.cpcache/
+/wiki/.git
