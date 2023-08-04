@@ -12,7 +12,7 @@ pom.xml*
 /logs/
 .idea/
 *.iml
-cljs-example/main.js
-cljs-example/out/
-cljs-example/.cpcache/
+/examples/cljs/main.js
+/examples/cljs/out/
+/examples/cljs/.cpcache/
 /wiki/.git
