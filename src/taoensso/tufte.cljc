@@ -412,13 +412,13 @@
      Otherwise see `profile`.
 
      `pstats` objects are derefable and mergeable:
-       - @pstats                 => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n min ...]}}}
-       - @(merge-pstats ps1 ps2) => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n min ...]}}}
+       - @pstats                 => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
+       - @(merge-pstats ps1 ps2) => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
 
      Full set of keys in `:stats` maps:
        :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99 :loc
 
-       All values are numerical (usu. doubles), except for `:loc` which
+       All values are numerical (longs or doubles), except for `:loc` which
        is a map of `p` callsite location information, e.g.:
          {:ns \"my-ns\", :file \"/tmp/my-ns.clj\", :line 122, :column 21}
 

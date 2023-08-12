@@ -20,62 +20,6 @@
 #?(:clj (let [c (Class/forName "[J")] (defn longs?   "Returns true iff given long array"   [x] (instance? c x))))
 #?(:clj (let [c (Class/forName "[D")] (defn doubles? "Returns true iff given double array" [x] (instance? c x))))
 
-;;;; Sorted nums
-
-(deftype SortedDoubles [^doubles a last]
-  #?@(:clj
-      [Object               (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
-       clojure.lang.Counted (count    [_]                           (alength a))
-       clojure.lang.Indexed
-       (nth [_ idx] (aget a idx))
-       (nth [_ idx not-found]
-         (let [max-idx (dec (alength a))]
-           (enc/cond
-             (> idx max-idx) not-found
-             (< idx max-idx) not-found
-             :else           (aget a idx))))
-
-       clojure.lang.IReduceInit
-       (reduce [_ f init]
-         #_(areduce a i acc init (f acc (aget a i)))
-         (reduce (fn [acc idx]   (f acc (aget a idx)))
-           init (range (alength a))))]
-
-      :cljs
-      [Object   (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
-       ICounted (-count   [_]                           (alength a))
-       IIndexed
-       (-nth [_ idx] (aget a idx))
-       (-nth [_ idx not-found]
-         (let [max-idx (dec (alength a))]
-           (enc/cond
-             (> idx max-idx) not-found
-             (< idx max-idx) not-found
-             :else           (aget a idx))))
-
-       IReduce
-       (-reduce [_ f init]
-         #_(areduce a i acc init (f acc (aget a i)))
-         (reduce (fn [acc i]     (f acc (aget a i)))
-           init (range (alength a))))]))
-
-(defn sorted-doubles? [x] (instance? SortedDoubles x))
-
-(defn sorted-doubles ^SortedDoubles [nums]
-  (if (sorted-doubles? nums)
-    nums
-    #?(:clj
-       (let [^doubles a (if (doubles? nums) nums #_(aclone ^doubles nums) (double-array nums))
-             last-num   (let [n (dec (alength a))] (when (>= n 0) (aget a n)))]
-         (java.util.Arrays/sort a) ; O(n.log_n) on JDK 7+
-         (SortedDoubles.        a last-num))
-
-       :cljs
-       (let [a        (if (array? nums) (aclone nums) (to-array nums))
-             last-num (let [n (dec (alength a))] (when (>= n 0) (aget a n)))]
-         (goog.array/sort a)
-         (SortedDoubles.  a last-num)))))
-
 ;;;; Tuples
 
 (do
@@ -113,15 +57,160 @@
 
      [(.-x tuple) (.-y tuple) (.-z tuple)])))
 
+;;;; Sorted nums
+
+(deftype SortedLongs [^longs a]
+  #?@(:clj
+      [Object               (toString [_] (str "SortedLongs[len=" (alength a) "]"))
+       clojure.lang.Counted (count    [_]                         (alength a))
+       clojure.lang.Indexed
+       (nth [_ idx] (aget a idx))
+       (nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else (aget a idx))))
+
+       clojure.lang.IReduceInit
+       (reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc idx]   (f acc (aget a idx)))
+           init (range (alength a))))]
+
+      :cljs
+      [Object   (toString [_] (str "SortedLongs[len=" (alength a) "]"))
+       ICounted (-count   [_]                         (alength a))
+       IIndexed
+       (-nth [_ idx] (aget a idx))
+       (-nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else (aget a idx))))
+
+       IReduce
+       (-reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc i]     (f acc (aget a i)))
+           init (range (alength a))))]))
+
+(deftype SortedDoubles [^doubles a]
+  #?@(:clj
+      [Object               (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
+       clojure.lang.Counted (count    [_]                           (alength a))
+       clojure.lang.Indexed
+       (nth [_ idx] (aget a idx))
+       (nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else (aget a idx))))
+
+       clojure.lang.IReduceInit
+       (reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc idx]   (f acc (aget a idx)))
+           init (range (alength a))))]
+
+      :cljs
+      [Object   (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
+       ICounted (-count   [_]                           (alength a))
+       IIndexed
+       (-nth [_ idx] (aget a idx))
+       (-nth [_ idx not-found]
+         (let [max-idx (dec (alength a))]
+           (enc/cond
+             (> idx max-idx) not-found
+             (< idx max-idx) not-found
+             :else (aget a idx))))
+
+       IReduce
+       (-reduce [_ f init]
+         #_(areduce a i acc init (f acc (aget a i)))
+         (reduce (fn [acc i]     (f acc (aget a i)))
+           init (range (alength a))))]))
+
+(defn sorted-longs?   [x] (instance? SortedLongs   x))
+(defn sorted-doubles? [x] (instance? SortedDoubles x))
+(defn sorted-nums?    [x] (or (sorted-longs? x) (sorted-doubles? x)))
+
+(defn sorted-longs
+  "Returns `SortedLongs` given `SortedLongs`, `SortedDoubles`, or num seq."
+  (^SortedLongs [                nums] (sorted-longs false nums))
+  (^SortedLongs [allow-mutation? nums]
+   (enc/cond
+     (sorted-longs?   nums)                                               nums
+     (sorted-doubles? nums) (SortedLongs. (long-array (.-a ^SortedDoubles nums)))
+     :else
+     #?(:clj
+        (let [^longs a (if (longs? nums) (if allow-mutation? nums (aclone ^longs nums)) (long-array nums))]
+          (java.util.Arrays/sort a) ; O(n.log(n)) on JDK 7+
+          (SortedLongs.          a))
+
+        :cljs
+        (let [a (if (array? nums) (if allow-mutation? nums (aclone nums)) (to-array nums))]
+          (goog.array/sort a)
+          (SortedLongs.    a))))))
+
+(defn sorted-doubles
+  "Returns `SortedDoubles` given `SortedDoubles`, `SortedLongs`, or num seq."
+  (^SortedDoubles [                nums] (sorted-doubles false nums))
+  (^SortedDoubles [allow-mutation? nums]
+   (enc/cond
+     (sorted-doubles? nums)                                                 nums
+     (sorted-longs?   nums) (SortedDoubles. (double-array (.-a ^SortedLongs nums)))
+     :else
+     #?(:clj
+        (let [^doubles a (if (doubles? nums) (if allow-mutation? nums (aclone ^doubles nums)) (double-array nums))]
+          (java.util.Arrays/sort a) ; O(n.log_n) on JDK 7+
+          (SortedDoubles.        a))
+
+        :cljs
+        (let [a (if (array? nums) (if allow-mutation? nums (aclone nums)) (to-array nums))]
+          (goog.array/sort a)
+          (SortedDoubles.  a))))))
+
+(comment (into [] (sorted-doubles (sorted-longs [3 1 2]))))
+
+(defn- fast-first [x]
+  #?(:cljs (nth x 0 nil)
+     :clj
+     (if (instance? LinkedList x)
+       (.peekFirst ^LinkedList x)
+       (nth x 0 nil))))
+
+(defn- float-num? [x]
+  #?(:clj  (float? x)
+     :cljs (and (number? x) (not (== (js/parseFloat x) (js/parseInt x 10))))))
+
+(defn sorted-nums
+  "Returns `SortedLongs` or `SortedDoubles`,
+    given `SortedLongs`, `SortedDoubles`, or num seq."
+  ([                nums] (sorted-nums false nums))
+  ([allow-mutation? nums]
+   [nums]
+   (enc/cond
+     (sorted-longs?   nums) nums
+     (sorted-doubles? nums) nums
+     (when-let [n1 (fast-first nums)] (float-num? n1)) (sorted-doubles allow-mutation? nums)
+     :else                                             (sorted-longs   allow-mutation? nums))))
+
+(comment (sorted-nums [1.0 2]))
+
 ;;;; Percentiles
 
 (defn- weighted-nth
-  ^double [nums ^double idx]
-  (let [idx-floor (Math/floor idx)
+  "Returns interpolated nth numerical value."
+  [idx nums]
+  (let [idx       (double     idx)
+        idx-floor (Math/floor idx)
         idx-ceil  (Math/ceil  idx)]
 
     (if (== idx-ceil idx-floor)
-      (double (nth nums (int idx)))
+      (nth nums (int idx))
 
       ;; Generalization of (floor+ceil)/2
       (let [weight-floor (- idx-ceil idx)
@@ -130,23 +219,25 @@
           (* weight-floor (double (nth nums (int idx-floor))))
           (* weight-ceil  (double (nth nums (int idx-ceil)))))))))
 
-(defn percentile
-  "Returns ?double element."
-  [nums p]
-  (let [snums (sorted-doubles nums)
-        max-idx  (dec (count snums))]
-    (when (>= max-idx 0)
-      (nth snums (Math/round (* max-idx (enc/as-pnum! p)))))))
+(comment (weighted-nth 0.5 [1 5]))
 
-(comment (percentile (range 101) 0.8))
+(defn percentile
+  "Returns ?element."
+  [pnum nums]
+  (let [snums   (sorted-nums nums)
+        max-idx (dec (count snums))]
+    (when (>= max-idx 0)
+      (nth snums (Math/round (* max-idx (enc/as-pnum! pnum)))))))
+
+(comment (percentile 0.8 (range 101)))
 
 (defn percentiles
-  "Returns ?[min p25 p50 p75 p90 p95 p99 max] double elements in:
+  "Returns ?[min p25 p50 p75 p90 p95 p99 max] elements in:
     - O(1) for Sorted types (SortedLongs, SortedDoubles),
     - O(n.log_n) otherwise."
   [nums]
-  (let [snums (sorted-doubles nums)
-        max-idx   (dec (count nums))]
+  (let [snums   (sorted-nums nums)
+        max-idx (dec (count snums))]
     (when (>= max-idx 0)
       [(nth snums 0)
        (nth snums (Math/round (* max-idx 0.25)))
@@ -155,7 +246,7 @@
        (nth snums (Math/round (* max-idx 0.90)))
        (nth snums (Math/round (* max-idx 0.95)))
        (nth snums (Math/round (* max-idx 0.99)))
-       (nth snums               max-idx)])))
+       (nth snums                max-idx)])))
 
 (comment
   (percentiles (range 101))
@@ -174,101 +265,106 @@
 
 ;;;; SummaryStats
 
+(declare ^:private deref-sstats)
 (deftype SummaryStats
     ;; - Field names chosen to avoid shadowing.
     ;; - Includes -sum data to support merging.
-    [^boolean xlongs?
+    ;; - Doubles used as general type to avoid boxing.
+    [^boolean xfloats?
      ^long    nx
+     ^double  xsum
      ^double  xmin
      ^double  xmax
-     ^double  xlast
-     ^double  xsum
-     ^double  xmean
-     ^double  xvar-sum
-     ^double  xmad-sum
-              xvar ; May be nil
-     ^double  xmad
      ^double  p25
      ^double  p50
      ^double  p75
      ^double  p90
      ^double  p95
      ^double  p99
-     as-map_]
+     ;;       xmean
+     ;;       xvar
+     ;;       xmad
+     ^double  xvar-sum
+     ^double  xmad-sum]
 
   Object (toString [_] (str "SummaryStats[n=" nx "]"))
-  #?@(:clj  [clojure.lang.IDeref ( deref [this] @as-map_)]
-      :cljs [             IDeref (-deref [this] @as-map_)]))
+  #?@(:clj  [clojure.lang.IDeref ( deref [this] (deref-sstats this))]
+      :cljs [             IDeref (-deref [this] (deref-sstats this))]))
 
-(defn summary-stats?
+(defn- deref-sstats [^SummaryStats ss]
+  (let [fin (if (.-xfloats? ss) double #(Math/round (double %)))
+        nx  (.-nx ss)]
+    (assert (pos? nx))
+    {:n           nx
+     :sum     (fin (.-xsum ss))
+     :min     (fin (.-xmin ss))
+     :max     (fin (.-xmax ss))
+     :p25     (fin (.-p25  ss))
+     :p50     (fin (.-p50  ss))
+     :p75     (fin (.-p75  ss))
+     :p90     (fin (.-p90  ss))
+     :p95     (fin (.-p95  ss))
+     :p99     (fin (.-p99  ss))
+
+     :mean    (/ (.-xsum     ss) nx)
+     :var     (/ (.-xvar-sum ss) nx) ; Currently w/o bessel-correction
+     :mad     (/ (.-xmad-sum ss) nx)
+
+     :var-sum (.-xvar-sum ss)
+     :mad-sum (.-xmad-sum ss)
+     :floats? (.-xfloats? ss)}))
+
+(defn ^:public summary-stats?
   "Returns true iff given a SummaryStats argument."
   [x] (instance? SummaryStats x))
 
 (defn ^:public summary-stats
   "Given a coll of numbers or previously dereffed SummaryStats map,
   returns a new mergeable ?SummaryStats with:
-    (deref ss) => {:keys [n min max p25 ... p99 mean var mad]}
+    (deref ss) => {:keys [n sum min max p25 ... p99 mean var mad]}
 
   See also `summary-stats-merge`."
   {:arglists '([nums-or-ss-map])}
-  [x]
-  (when x
-    (enc/cond
-      (summary-stats? x) x
-      (map?           x)
-      (let [{:keys [n min max last sum mean var-sum mad-sum var mad
-                    p25 p50 p75 p90 p95 p99]} x]
+  ([     x] (summary-stats nil x))
+  ([opts x]
+   (when x
+     (enc/cond
+       (summary-stats? x) x
+       (map?           x)
+       (let [{:keys [n sum min max p25 p50 p75 p90 p95 p99
+                     #_mean #_var #_mad var-sum mad-sum #_floats?]} x
 
-        (SummaryStats. (int? last)
-          n min max last sum mean var-sum mad-sum var mad
-          p25 p50 p75 p90 p95 p99 (delay x)))
+             floats?
+             (enc/cond
+               (contains? x    :floats?) (get x    :floats?)
+               (contains? opts :floats?) (get opts :floats?)
+               (float-num? sum))]
 
-      :else
-      (let [nums x
-            n1             (first nums) ; Before (possibly mutable) sort
-            snums (sorted-doubles nums)
-            nx            (count snums)]
+         (SummaryStats. floats?
+           n sum min max p25 p50 p75 p90 p95 p99 var-sum mad-sum))
 
-        (when-not (zero? nx)
-          (let [xsum (double (reduce rf-sum 0.0 snums))
-                xbar (/ xsum (double nx))
+       :else
+       (let [snums
+             (if (contains? opts :floats?)
+               (if     (get opts :floats?)
+                 (sorted-doubles true x)
+                 (sorted-longs   true x))
+               (sorted-nums      true x))
 
-                [^double xvar-sum ^double xmad-sum]
-                (multi-reduce
-                  (partial rf-sum-variance      xbar) 0.0
-                  (partial rf-sum-abs-deviation xbar) 0.0
-                  snums)
+             nx (count snums)]
 
-                xvar (/ xvar-sum nx) ; nx w/o bessel-correction
-                xmad (/ xmad-sum nx)
+         (when (pos? nx)
+           (let [[xmin p25 p50 p75 p90 p95 p99 xmax] (percentiles snums)
+                 xsum (double (reduce rf-sum 0.0 snums))
+                 xbar (/ xsum nx)
+                 [^double xvar-sum ^double xmad-sum]
+                 (multi-reduce
+                   (partial rf-sum-variance      xbar) 0.0
+                   (partial rf-sum-abs-deviation xbar) 0.0
+                   snums)]
 
-                [xmin p25 p50 p75 p90 p95 p99 xmax]
-                (percentiles snums)
-
-                xlongs? (int? n1)
-                xlast (.-last snums)]
-
-            (SummaryStats. xlongs?
-              nx xmin xmax xlast xsum xbar xvar-sum xmad-sum xvar xmad
-              p25 p50 p75 p90 p95 p99
-              (delay
-                (let [fin (if xlongs? #(Math/round (double %)) identity)]
-                  {:n       nx
-                   :min     (fin xmin)
-                   :max     (fin xmax)
-                   :last    (fin xlast)
-                   :sum     (fin xsum)
-                   :mean    xbar
-                   :var-sum xvar-sum
-                   :mad-sum xmad-sum
-                   :var     xvar
-                   :mad     xmad
-                   :p25     p25
-                   :p50     p50
-                   :p75     p75
-                   :p90     p90
-                   :p95     p95
-                   :p99     p99})))))))))
+             (SummaryStats. (sorted-doubles? snums)
+               nx xsum xmin xmax p25 p50 p75 p90 p95 p99 xvar-sum xmad-sum))))))))
 
 (comment @(summary-stats [1 2 3]))
 
@@ -295,48 +391,46 @@
              _ (assert (pos? nx1))
              _ (assert (pos? nx2))
 
-             xlongs1?  (.-xlongs?  ss1)
+             xfloats1? (.-xfloats? ss1)
+             xsum1     (.-xsum     ss1)
              xmin1     (.-xmin     ss1)
              xmax1     (.-xmax     ss1)
-             ;; xlast1 (.-xlast    ss1)
-             xsum1     (.-xsum     ss1)
-             xvar-sum1 (.-xvar-sum ss1)
-             xmad-sum1 (.-xmad-sum ss1)
              p25-1     (.-p25      ss1)
              p50-1     (.-p50      ss1)
              p75-1     (.-p75      ss1)
              p90-1     (.-p90      ss1)
              p95-1     (.-p95      ss1)
              p99-1     (.-p99      ss1)
+             xvar-sum1 (.-xvar-sum ss1)
+             xmad-sum1 (.-xmad-sum ss1)
 
-             xlongs2?  (.-xlongs?  ss2)
+             xfloats2? (.-xfloats? ss2)
+             xsum2     (.-xsum     ss2)
              xmin2     (.-xmin     ss2)
              xmax2     (.-xmax     ss2)
-             xlast2    (.-xlast    ss2)
-             xsum2     (.-xsum     ss2)
-             xvar-sum2 (.-xvar-sum ss2)
-             xmad-sum2 (.-xmad-sum ss2)
              p25-2     (.-p25      ss2)
              p50-2     (.-p50      ss2)
              p75-2     (.-p75      ss2)
              p90-2     (.-p90      ss2)
              p95-2     (.-p95      ss2)
              p99-2     (.-p99      ss2)
+             xvar-sum2 (.-xvar-sum ss2)
+             xmad-sum2 (.-xmad-sum ss2)
 
-             xlongs3?  (and xlongs1? xlongs2?)
+             xfloats3? (or xfloats1? xfloats2?)
              nx3       (+ nx1 nx2)
              nx1-ratio (/ (double nx1) (double nx3))
              nx2-ratio (/ (double nx2) (double nx3))
 
              xsum3 (+ xsum1 xsum2)
-             xbar3 (/ (double xsum3) (double nx3))
              xmin3 (if (< xmin1 xmin2) xmin1 xmin2)
              xmax3 (if (> xmax1 xmax2) xmax1 xmax2)
+             ;; xbar3 (/ xsum3 nx3)
 
              ;; Batched "online" calculation here is better= the standard
              ;; Knuth/Welford method, Ref. http://goo.gl/QLSfOc,
              ;;                            http://goo.gl/mx5eSK.
-             ;; No apparent advantage in using `xbar3` asap (?).
+             ;; No apparent advantage in using `xbar3` asap.
              xvar-sum3 (+ xvar-sum1 xvar-sum2)
              xmad-sum3 (+ xmad-sum1 xmad-sum2)
 
@@ -347,32 +441,11 @@
              p75-3 (+ (* nx1-ratio p75-1) (* nx2-ratio p75-2))
              p90-3 (+ (* nx1-ratio p90-1) (* nx2-ratio p90-2))
              p95-3 (+ (* nx1-ratio p95-1) (* nx2-ratio p95-2))
-             p99-3 (+ (* nx1-ratio p99-1) (* nx2-ratio p99-2))
+             p99-3 (+ (* nx1-ratio p99-1) (* nx2-ratio p99-2))]
 
-             xvar3 (when (> nx3 2) (/ xvar-sum3 (bessel-correction nx3 -2.0)))
-             xmad3                 (/ xmad-sum3                         nx3)]
-
-         (SummaryStats. xlongs3?
-           nx3 xmin3 xmax3 xlast2 xsum3 xbar3 xvar-sum3 xmad-sum3 xvar3 xmad3
-           p25-3 p50-3 p75-3 p90-3 p95-3 p99-3
-           (delay
-             (let [fin (if xlongs3? #(Math/round (double %)) identity)]
-               {:n       nx3
-                :min     (fin xmin3)
-                :max     (fin xmax3)
-                :last    (fin xlast2)
-                :sum     (fin xsum3)
-                :mean    xbar3
-                :var-sum xvar-sum3
-                :mad-sum xmad-sum3
-                :var     xvar3
-                :mad     xmad3
-                :p25     p25-3
-                :p50     p50-3
-                :p75     p75-3
-                :p90     p90-3
-                :p95     p95-3
-                :p99     p99-3}))))
+         (SummaryStats. xfloats3?
+           nx3 xsum3 xmin3 xmax3 p25-3 p50-3 p75-3 p90-3 p95-3 p99-3
+           xvar-sum3 xmad-sum3))
        ss1)
      ss2)))
 
@@ -466,7 +539,7 @@
     (deref ssb) => Flushes buffer if necessary, and returns a mergeable
                    ?SummaryStats. Deref again to get a map of summary
                    stats for all numbers ever added to ssb:
-                     {:keys [n min max p25 ... p99 mean var mad]}.
+                     {:keys [n sum min max p25 ... p99 mean var mad]}.
 
   Useful for summarizing a (possibly infinite) stream of numbers.
 
@@ -519,7 +592,11 @@
 
 ;;;; Print methods
 
-#?(:clj (enc/deftype-print-methods SortedDoubles SummaryStats SummaryStatsBuffered))
+#?(:clj
+   (enc/deftype-print-methods
+     SortedLongs SortedDoubles
+     SummaryStats
+     SummaryStatsBuffered))
 
 ;;;; Formatting
 
