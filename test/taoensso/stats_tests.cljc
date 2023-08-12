@@ -20,14 +20,14 @@
 (deftest multi-reduce
   [(is (= (stats/multi-reduce + 0 - 0 (range 1e4)) [49995000 -49995000]))])
 
-(deftest double-nth
-  [(is (= (#'stats/double-nth  [1  3] 0.5)  2.0))
-   (is (= (#'stats/double-nth  [1 10] 0.5)  5.5))
-   (is (= (#'stats/double-nth  [1 10] 0.75) 7.75))])
+(deftest weighted-nth
+  [(is (= (#'stats/weighted-nth [1  3] 0.5)  2.0))
+   (is (= (#'stats/weighted-nth [1 10] 0.5)  5.5))
+   (is (= (#'stats/weighted-nth [1 10] 0.75) 7.75))])
 
 (deftest percentiles
-  [(is (= (stats/percentiles                       [1 5 2 4 3])  [1.0 2.0 3.0 4.0 4.6 4.8 4.96 5.0]))
-   (is (= (stats/percentiles (stats/sorted-doubles [1 5 2 4 3])) [1.0 2.0 3.0 4.0 4.6 4.8 4.96 5.0]))])
+  [(is (= (stats/percentiles                       [1 5 2 4 3])  [1.0 2.0 3.0 4.0 5.0 5.0 5.0 5.0]))
+   (is (= (stats/percentiles (stats/sorted-doubles [1 5 2 4 3])) [1.0 2.0 3.0 4.0 5.0 5.0 5.0 5.0]))])
 
 ;;;;
 

@@ -20,13 +20,6 @@
 #?(:clj (let [c (Class/forName "[J")] (defn longs?   "Returns true iff given long array"   [x] (instance? c x))))
 #?(:clj (let [c (Class/forName "[D")] (defn doubles? "Returns true iff given double array" [x] (instance? c x))))
 
-(defn is-p [x]
-  (if (enc/pnum? x)
-    x
-    (throw
-      (ex-info "Expected number between 0 and 1"
-        {:value x :type (type x)}))))
-
 ;;;; Sorted nums
 
 (deftype SortedDoubles [^doubles a last]
@@ -122,7 +115,7 @@
 
 ;;;; Percentiles
 
-(defn- double-nth
+(defn- weighted-nth
   ^double [nums ^double idx]
   (let [idx-floor (Math/floor idx)
         idx-ceil  (Math/ceil  idx)]
@@ -138,34 +131,35 @@
           (* weight-ceil  (double (nth nums (int idx-ceil)))))))))
 
 (defn percentile
-  "Returns ?double"
+  "Returns ?double element."
   [nums p]
   (let [snums (sorted-doubles nums)
         max-idx  (dec (count snums))]
     (when (>= max-idx 0)
-      (let [idx (* max-idx (double (is-p p)))]
-        (double-nth snums idx)))))
+      (nth snums (Math/round (* max-idx (enc/as-pnum! p)))))))
 
 (comment (percentile (range 101) 0.8))
 
 (defn percentiles
-  "Returns ?[min p25 p50 p75 p90 p95 p99 max] doubles in:
+  "Returns ?[min p25 p50 p75 p90 p95 p99 max] double elements in:
     - O(1) for Sorted types (SortedLongs, SortedDoubles),
     - O(n.log_n) otherwise."
   [nums]
   (let [snums (sorted-doubles nums)
         max-idx   (dec (count nums))]
     (when (>= max-idx 0)
-      [(double (nth snums 0))
-       (double-nth  snums (* max-idx 0.25))
-       (double-nth  snums (* max-idx 0.50))
-       (double-nth  snums (* max-idx 0.75))
-       (double-nth  snums (* max-idx 0.90))
-       (double-nth  snums (* max-idx 0.95))
-       (double-nth  snums (* max-idx 0.99))
-       (double (nth snums    max-idx))])))
+      [(nth snums 0)
+       (nth snums (Math/round (* max-idx 0.25)))
+       (nth snums (Math/round (* max-idx 0.50)))
+       (nth snums (Math/round (* max-idx 0.75)))
+       (nth snums (Math/round (* max-idx 0.90)))
+       (nth snums (Math/round (* max-idx 0.95)))
+       (nth snums (Math/round (* max-idx 0.99)))
+       (nth snums               max-idx)])))
 
-(comment (percentiles (range 101)))
+(comment
+  (percentiles (range 101))
+  (percentiles [1 2 3]))
 
 ;;;;
 
