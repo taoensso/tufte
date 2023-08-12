@@ -31,8 +31,8 @@
 
 (deftype SortedDoubles [^doubles a last]
   #?@(:clj
-      [Object               (toString [_] "SortedDoubles[len=" (alength a) "]")
-       clojure.lang.Counted (count    [_]                      (alength a))
+      [Object               (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
+       clojure.lang.Counted (count    [_]                           (alength a))
        clojure.lang.Indexed
        (nth [_ idx] (aget a idx))
        (nth [_ idx not-found]
@@ -49,8 +49,8 @@
            init (range (alength a))))]
 
       :cljs
-      [Object   (toString [_] "SortedDoubles[len=" (alength a) "]")
-       ICounted (-count   [_]                      (alength a))
+      [Object   (toString [_] (str "SortedDoubles[len=" (alength a) "]"))
+       ICounted (-count   [_]                           (alength a))
        IIndexed
        (-nth [_ idx] (aget a idx))
        (-nth [_ idx not-found]
@@ -525,7 +525,7 @@
 
 ;;;; Print methods
 
-#?(:clj (enc/deftype-print-methods SummaryStats SummaryStatsBuffered))
+#?(:clj (enc/deftype-print-methods SortedDoubles SummaryStats SummaryStatsBuffered))
 
 ;;;; Formatting
 
