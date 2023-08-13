@@ -21,13 +21,12 @@
 
 ;; The following will be printed to *out*:
 ;;
-;;       pId  nCalls       Min     50% ≤     90% ≤     95% ≤     99% ≤       Max      Mean  MAD  Total Clock
+;; pId      nCalls      Min    50% ≤    90% ≤    95% ≤    99% ≤      Max     Mean   MAD    Clock  Total
+;; :get-x        5    501ms    503ms    505ms    505ms    505ms    505ms    503ms   ±0%    2.52s    53%
+;; :get-y        5     78ms    396ms    815ms    815ms    815ms    815ms    452ms  ±48%    2.25s    47%
 ;;
-;;    :get-y       5   94.01ms  500.99ms  910.14ms  910.14ms  910.14ms  910.14ms  580.49ms ±45%  2.90s   53%
-;;    :get-x       5  503.05ms  504.68ms  504.86ms  504.86ms  504.86ms  504.86ms  504.37ms  ±0%  2.52s   46%
-;;
-;; Accounted                                                                                     5.42s  100%
-;;     Clock                                                                                     5.43s  100%
+;; Accounted                                                                               4.78s   100%
+;; Clock                                                                                   4.78s   100%
 )
 
 (comment

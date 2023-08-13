@@ -696,7 +696,7 @@
   ([ps opts]
    (when ps
      (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (stats/summary-stats-format (get clock :total) stats opts)))))
+       (stats/format-pstats (get clock :total) stats opts)))))
 
 (comment
   ;; [:n :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum]

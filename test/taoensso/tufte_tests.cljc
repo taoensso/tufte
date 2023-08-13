@@ -440,108 +440,100 @@
             (is (= (get-in @@pd [:stats :bar :n]) 1))
             (is (= (get-in @@pd [:stats :baz :n]) 1))])])]))
 
-#?(:clj
-   (deftest format-stats-test
-     (with-redefs [taoensso.tufte.stats/locale (java.util.Locale. "en" "US")]
+(deftest format-pstats
+  [(testing "Basic format-pstats"
+     (let [data {:clock {:total 15}
+                 :stats {:foo {:n 10000
+                               :min 1
+                               :p50 2
+                               :p90 3
+                               :p95 4
+                               :p99 5
+                               :max 6
+                               :mean 7
+                               :mad 5.062294599999648
+                               :sum 15}}}]
+       [(is
+          (= ["pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
+              ":foo          10,000        1ns        2ns        3ns        4ns        5ns        6ns        7ns  ±72%       15ns   100%"
+              "Accounted                                                                                                     15ns   100%"
+              "Clock                                                                                                         15ns   100%"]
+            (->>
+              (tufte/format-pstats data)
+              (str/split-lines)
+              (remove empty?))))
+        (is
+          (= ["pId           nCalls       Mean      Clock  Total"
+              ":foo          10,000        7ns       15ns   100%"
+              "Accounted                             15ns   100%"
+              "Clock                                 15ns   100%"]
+            (->>
+              (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
+              (str/split-lines)
+              (remove empty?))))]))
 
-       [(testing "Basic format-stats"
-          (let [data {:clock {:total 15}
-                      :stats {:foo {:n 10000
-                                    :min 1
-                                    :p50 2
-                                    :p90 3
-                                    :p95 4
-                                    :p99 5
-                                    :max 6
-                                    :mean 7
-                                    :mad 5.062294599999648
-                                    :sum 15}}}]
+   (testing "format-pstats with namespaced symbols"
+     (let [data {:clock {:total 15}
+                 :stats {:foo/bar {:n 10000
+                                   :min 1
+                                   :p50 2
+                                   :p90 3
+                                   :p95 4
+                                   :p99 5
+                                   :max 6
+                                   :mean 7
+                                   :mad 5.062294599999648
+                                   :sum 15}}}]
+       (is
+         (= ["pId           nCalls       Mean      Clock  Total"
+             ":foo/bar      10,000        7ns       15ns   100%"
+             "Accounted                             15ns   100%"
+             "Clock                                 15ns   100%"]
+           (->>
+             (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
+             (str/split-lines)
+             (remove empty?))))))
 
-            [(is
-               (= ["pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total"
-                   ":foo          10,000     1.00ns     2.00ns     3.00ns     4.00ns     5.00ns     6.00ns     7.00ns  ±72%    15.00ns   100%"
-                   "Accounted                                                                                                  15.00ns   100%"
-                   "Clock                                                                                                      15.00ns   100%"]
-                 (->>
-                   (tufte/format-pstats data)
-                   (str/split-lines)
-                   (remove empty?))))
+   (testing "Format seconds"
+     (let [data {:clock {:total 2e9}
+                 :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
+                         :bar {:n 1 :mean 15  :sum 15}}}]
+       (is
+         (= ["pId           nCalls       Mean"
+             ":foo               1      2.00s"
+             ":bar               1       15ns"]
+           (->>
+             (tufte/format-pstats data {:columns [:n :mean]})
+             (str/split-lines)
+             (remove empty?)
+             (take 3))))))
 
-             (is
-               (= ["pId           nCalls       Mean      Clock  Total"
-                   ":foo          10,000     7.00ns    15.00ns   100%"
-                   "Accounted                          15.00ns   100%"
-                   "Clock                              15.00ns   100%"]
-                 (->>
-                   (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
-                   (str/split-lines)
-                   (remove empty?))))]))
+   (testing "Format seconds only"
+     (let [data {:clock {:total 2e9}
+                 :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
+                         :bar {:n 1 :mean 1e9 :sum 1e9}}}]
+       (is
+         (= ["pId           nCalls       Mean"
+             ":foo               1      2.00s"
+             ":bar               1      1.00s"]
+           (->>
+             (tufte/format-pstats data {:columns [:n :mean]})
+             (str/split-lines)
+             (remove empty?)
+             (take 3))))))
 
-        (testing "format-stats with namespaced symbols"
-          (let [data {:clock {:total 15}
-                      :stats {:foo/bar {:n 10000
-                                        :min 1
-                                        :p50 2
-                                        :p90 3
-                                        :p95 4
-                                        :p99 5
-                                        :max 6
-                                        :mean 7
-                                        :mad 5.062294599999648
-                                        :sum 15}}}]
-
-            (is
-              (= ["pId           nCalls       Mean      Clock  Total"
-                  ":foo/bar      10,000     7.00ns    15.00ns   100%"
-                  "Accounted                          15.00ns   100%"
-                  "Clock                              15.00ns   100%"]
-                (->>
-                  (tufte/format-pstats data {:columns [:n :mean :clock :sum]})
-                  (str/split-lines)
-                  (remove empty?))))))
-
-        (testing "Format seconds"
-          (let [data {:clock {:total 2e9}
-                      :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
-                              :bar {:n 1 :mean 15  :sum 15}}}]
-
-            (is
-              (= ["pId           nCalls       Mean"
-                  ":foo               1     2.00s "
-                  ":bar               1    15.00ns"]
-                (->>
-                  (tufte/format-pstats data {:columns [:n :mean]})
-                  (str/split-lines)
-                  (remove empty?)
-                  (take 3))))))
-
-        (testing "Format seconds only"
-          (let [data {:clock {:total 2e9}
-                      :stats {:foo {:n 1 :mean 2e9 :sum 2e9}
-                              :bar {:n 1 :mean 1e9 :sum 1e9}}}]
-
-            (is
-              (= ["pId           nCalls       Mean" ; TODO: It would be better if seconds aligned to Mean properly
-                  ":foo               1     2.00s " ; Current behaviour looks a little strange.
-                  ":bar               1     1.00s "]
-                (->>
-                  (tufte/format-pstats data {:columns [:n :mean]})
-                  (str/split-lines)
-                  (remove empty?)
-                  (take 3))))))
-
-        (testing "Format id fn"
-          (let [data {:clock {:total 2e9}
-                      :stats {:example.hello/foo {:n 1 :mean 2e9 :sum 2e9}}}]
-            (is
-              (= ["pId           nCalls       Mean"
-                  "foo                1     2.00s "]
-                (->>
-                  (tufte/format-pstats data {:columns [:n :mean]
-                                             :format-id-fn name})
-                  (str/split-lines)
-                  (remove empty?)
-                  (take 2))))))])))
+   (testing "Format id fn"
+     (let [data {:clock {:total 2e9}
+                 :stats {:example.hello/foo {:n 1 :mean 2e9 :sum 2e9}}}]
+       (is
+         (= ["pId           nCalls       Mean"
+             "foo                1      2.00s"]
+           (->>
+             (tufte/format-pstats data {:columns [:n :mean]
+                                        :format-id-fn name})
+             (str/split-lines)
+             (remove empty?)
+             (take 2))))))])
 
 (deftest format-id-abbr-test
   (testing "Format id abbr test"
@@ -554,7 +546,7 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                      fn1  [x] x) ; Line 557
+  (tufte/defnp                      fn1  [x] x) ; Line 549
   (tufte/defnp                      fn2  [x] x)
   (tufte/defnp ^{:tufte/id :__fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "__fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -594,19 +586,19 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo) (p :bar) ; Line 597
+           (p :foo) (p :bar) ; Line 589
            (p :baz
              (p :qux)))]
 
      [(is (enc/submap? @ps
-            {:stats {:foo {:loc {:line 597}}
-                     :bar {:loc {:line 597}}
-                     :baz {:loc {:line 598}}
-                     :qux {:loc {:line 599}}}}))])
+            {:stats {:foo {:loc {:line 589}}
+                     :bar {:loc {:line 589}}
+                     :baz {:loc {:line 590}}
+                     :qux {:loc {:line 591}}}}))])
 
    (let [[r ps]
          (profiled {}
-           (p          :foo) ; Line 609
+           (p          :foo) ; Line 601
            (p          :foo)
            (p          :foo)
            (tufte/pspy :foo))
@@ -614,21 +606,21 @@
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) #{609 610 611 612}))
+      (is (= (into #{} (map :line) loc) #{601 602 603 604}))
       (is (enc/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (enc/submap? @ps
-          {:stats {::defn_fn1 {:loc {:line 557}}
-                   ::defn_fn2 {:loc {:line 558}}
-                   :__fn3     {:loc {:line 559}}
-                   :__fn4     {:loc {:line 560}}
-                   :__fn4_1   {:loc {:line 560}}
-                   :__fn4_2   {:loc {:line 560}}
-                   ::defn_fn5 {:loc {:line 561}}
-                   ::fn_fn6   {:loc {:line 564}}
-                   :__fn7     {:loc {:line 565}}}}))])])
+          {:stats {::defn_fn1 {:loc {:line 549}}
+                   ::defn_fn2 {:loc {:line 550}}
+                   :__fn3     {:loc {:line 551}}
+                   :__fn4     {:loc {:line 552}}
+                   :__fn4_1   {:loc {:line 552}}
+                   :__fn4_2   {:loc {:line 552}}
+                   ::defn_fn5 {:loc {:line 553}}
+                   ::fn_fn6   {:loc {:line 556}}
+                   :__fn7     {:loc {:line 557}}}}))])])
 
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 

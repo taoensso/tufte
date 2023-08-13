@@ -603,35 +603,46 @@
 (defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
 (comment [(perc 1 1) (perc 1 100) (perc 12 44)])
 
-#?(:clj (def ^:private locale (java.util.Locale/getDefault)))
-#?(:clj (defn- fmt [pattern & args] (String/format locale pattern (to-array args))))
-
-(defn- fmt-2f    [n] #?(:clj (fmt "%.2f" n) :cljs (str (enc/round2 n))))
-(defn- fmt-calls [n] #?(:clj (fmt "%,d"  n) :cljs
-                        (str ; Thousands separator
-                          (when (neg? n) "-")
-                          (->>
-                            (str (Math/abs n))
-                            (reverse)
-                            (partition 3 3 "")
-                            (map str/join)
-                            (str/join ",")
-                            (str/reverse)))))
-
-(defn- fmt-nano [nanosecs]
-  (let [ns (double nanosecs)]
-    (cond
-      (>= ns 6e10) (str (fmt-2f (/ ns 6e10)) "m ")
-      (>= ns 1e9)  (str (fmt-2f (/ ns 1e9))  "s ")
-      (>= ns 1e6)  (str (fmt-2f (/ ns 1e6))  "ms")
-      (>= ns 1e3)  (str (fmt-2f (/ ns 1e3))  "μs")
-      :else        (str (fmt-2f    ns)       "ns"))))
+(def ^:dynamic *fmt-opts* {:decimal-separator ".", :thousands-separator ","})
+(defn- fmt-num [precision n]
+  ;; Impln is inefficient but sufficient, and consistent between clj/s
+  (let [n (enc/roundn precision n)
+        neg?       (neg?     n)
+        n-abs      (Math/abs n)
+        n-int-part (long n-abs)
+        fmt-opts   *fmt-opts*]
+    (str
+      (when neg? "-")
+      (->>
+        (str n-int-part)
+        (reverse)
+        (partition 3 3 "")
+        (mapv str/join)
+        (str/join (get fmt-opts :thousands-separator))
+        (str/reverse))
+      
+      (when-let [n-dec-part (and (pos? (long precision)) (- n-abs n-int-part))]
+        (str (get fmt-opts :decimal-separator)
+          (enc/get-substr-by-len (str n-dec-part "000000")
+            2 precision))))))
 
 (comment
-  (fmt "%.2f" 12345.67890)
-  (fmt-2f     12345.67890)
-  (fmt-calls  12345)
-  (fmt-nano   12345.67890))
+  (fmt-num 0 123123123.5555) ; "123,123,124"
+  (fmt-num 2 123123123.5555) ; "123,123,123.56"
+  (fmt-num 2 123123123)      ; "123,123,123.00"
+  (fmt-num 3 123)            ; "123"
+  )
+
+(defn- fmt-nsecs [nanosecs]
+  (let [ns (double nanosecs)]
+    (cond
+      (>= ns 6e10) (str (fmt-num 2 (/ ns 6e10)) "m")
+      (>= ns 1e9)  (str (fmt-num 2 (/ ns 1e9))  "s")
+      (>= ns 1e6)  (str (fmt-num 0 (/ ns 1e6))  "ms")
+      (>= ns 1e3)  (str (fmt-num 0 (/ ns 1e3))  "μs")
+      :else        (str (fmt-num 0    ns)       "ns"))))
+
+(comment (fmt-nsecs 1e3))
 
 (def     all-format-columns [:n :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
 (def default-format-columns [:n :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
@@ -665,9 +676,9 @@
       9 ; (count "Accounted")
       id-sstats*)))
 
-(defn summary-stats-format
-  "Given {<id> <sstats>} or {<id> <sstats-map>}, returns a formatted table
-  string. Assumes nanosecond clock, and stats based on profiling id'd
+(defn format-pstats
+  "Given {<id> <sstats>} or {<id> <sstats-map>} pstats, returns a formatted
+  table string. Assumes nanosecond clock, and stats based on profiling id'd
   nanosecond times."
   [clock-total id-sstats*
    {:keys [columns sort-fn format-id-fn max-id-width] :as opts
@@ -741,12 +752,12 @@
           (doseq [column columns]
             (enc/sb-append sb " ")
             (case column
-              :n     (append-col column (fmt-calls n))
-              :mean  (append-col column (fmt-nano mean))
+              :n     (append-col column (fmt-num 0 n))
+              :mean  (append-col column (fmt-nsecs mean))
               :mad   (append-col column (str "±" (perc mad mean)))
               :sum   (append-col column (perc sum clock-total))
-              :clock (append-col column (fmt-nano sum))
-              (do    (append-col column (fmt-nano (get ssm column))))))
+              :clock (append-col column (fmt-nsecs sum))
+              (do    (append-col column (fmt-nsecs (get ssm column))))))
 
           (enc/sb-append sb "\n")))
 
@@ -757,7 +768,7 @@
         (enc/sb-append sb " ")
         (case column
           :sum   (append-col column (perc accounted-total clock-total))
-          :clock (append-col column (fmt-nano accounted-total))
+          :clock (append-col column (fmt-nsecs accounted-total))
           (do    (append-col column ""))))
 
       ; Write clock row
@@ -767,7 +778,7 @@
         (enc/sb-append sb " ")
         (case column
           :sum   (append-col column "100%")
-          :clock (append-col column (fmt-nano clock-total))
+          :clock (append-col column (fmt-nsecs clock-total))
           (do    (append-col column ""))))
 
       (enc/sb-append sb "\n")
@@ -778,7 +789,7 @@
     (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
 
   (println
-    (summary-stats-format (* 1e6 30)
+    (format-pstats (* 1e6 30)
       {:foo (summary-stats (rand-vs 1e4 20))
        :bar (summary-stats (rand-vs 1e2 50))
        :baz (summary-stats (rand-vs 1e5 30))}
@@ -788,3 +799,6 @@
 
 ;; (enc/defalias sstats       summary-stats)
 ;; (enc/defalias sstats-merge summary-stats-merge)
+
+(enc/deprecated
+  (enc/defalias ^:deprecated summary-stats-format format-pstats))
