@@ -142,13 +142,12 @@ through the `:format-pstats-opts` option:
     (get-x)
     (get-y)))
 
-; How does this output look?
-
-;; pId            nCalls      50% ≤       Mean      Clock  Total
+;; The following will be printed to *out*:
 ;;
-;; defn_get-y          5   572.09ms   567.82ms     2.84s     53%
-;; defn_get-x          5   500.08ms   500.13ms     2.50s     47%
+;; pId         nCalls      50% ≤       Mean      Clock  Total
+;; defn_get-y       5      572ms      567ms      2.84s    53%
+;; defn_get-x       5      500ms      500ms      2.50s    47%
 ;;
-;; Accounted                                       5.34s    100%
-;; Clock                                           5.34s    100%
+;; Accounted                                     5.34s   100%
+;; Clock                                         5.34s   100%
 ```
