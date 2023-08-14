@@ -1,35 +1,56 @@
-This project uses Break Versioning (https://www.taoensso.com/break-versioning)
+This project uses [**Break Versioning**](https://www.taoensso.com/break-versioning).
 
-## `2.5.1` (2023-07-18)
+---
 
-> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.1)
+# `v2.6.0` (2023-10-14)
 
-Identical to `2.5.0`, but synchronizes Encore dependency with my recent library releases (Timbre, Tufte, Sente, Carmine, etc.) to prevent confusion caused by dependency conflicts.
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.0), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
 
-This is a safe update for users of `2.5.0`.
+This is a non-breaking **maintenance** release, but includes changes (improvements) to the formatted string output by [`format-pstats`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-format-pstats). This shouldn't affect most users, but may affect you if you do any manual parsing of formatted pstats strings.
 
+## Changes since `v2.5.1`
 
-## `2.5.0` (2023-07-13)
+* a4aee9f [mod] [Stats ns] Refactor pstats formatting code
 
-> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.0)
+## Fixes since `v2.5.1`
+
+* 4f6e05f [fix] [Stats ns] [#67] Don't interpolate percentiles
+* dce5e40 [fix] [Stats ns] Broken `SortedDoubles` printing
+
+---
+
+# `v2.5.1` (2023-07-18)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.1), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
+
+Identical to `v2.5.0`, but synchronizes Encore dependency with my recent library releases (Timbre, Tufte, Sente, Carmine, etc.) to prevent confusion caused by dependency conflicts.
+
+This is a safe update for users of `v2.5.0`.
+
+---
+
+# `v2.5.0` (2023-07-13)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.5.0), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
 
 This is intended as a **non-breaking feature release**, but it touches a fair bit of code so **please keep an eye out** for (and let me know about) any unexpected problems - thank you! 🙏
 
 See **referenced commit messages** for details.
 
-### Changes since `2.4.5`
+## Changes since `v2.4.5`
 
 * ebed6d0 [mod] Change `capture-time!` from a fn to a macro
 * 7442835 [mod] Rename format columns: `:n-calls` -> `:n`, `:total` -> `:sum`
 
-### New since `2.4.5`
+## New since `v2.4.5`
 
 * 2a38e1a [new] [#66] Track callsite locations of `p` ids
 * 0a2484f [new] `defnp` and `fnp` now track cross-arity stats, add tests
 * GraalVM compatibility is now tested during build
 
+---
 
-## `2.4.5` (2022-10-27)
+# `v2.4.5` (2022-10-27)
 
 ```clojure
 [com.taoensso/tufte "2.4.5"]
@@ -38,15 +59,16 @@ See **referenced commit messages** for details.
 > This is a very minor maintenance release. It should be **non-breaking**.
 > See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
 
-### Changes since `2.3.0`
+## Changes since `v2.3.0`
 
 * Update dependencies
 * Some minor refactoring and performance improvements
 
+---
 
-## v2.3.0 - 2022 Sep 5
+# `v2.3.0` (2022-09-05)
 
-> Identical to `v2.3.0-RC1` (2022 Jul 18)
+> Identical to `v2.3.0-RC1` (2022-07-18)
 
 ```clojure
 [com.taoensso/tufte "2.3.0"]
@@ -55,11 +77,11 @@ See **referenced commit messages** for details.
 > This is a major feature and fix release. Should be **non-breaking** for vast majority of folks.  
 > See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
 
-### Behavioural changes since `v2.2.0`
+## Behavioural changes since `v2.2.0`
 
 * Stats format: refactor, use default JVM locale thousands separator for call counts (Clj only)
 
-### Fixes since `v2.2.0`
+## Fixes since `v2.2.0`
 
 * `add-accumulating-handler!`: fix broken default val and examples
 * [#64] Broken concurrent `(local (local ...))` nested profiling (Clj only) (@awkay)
@@ -67,297 +89,19 @@ See **referenced commit messages** for details.
 * Broken nested profiling tests
 * Correctly document which `profile/d` options are compile-time and runtime
 
-### New since `v2.2.0`
+## New since `v2.2.0`
 
 * Throw on invalid compile-time `profile/d` options
 * [#61] Improve docstrings re: async code
 
-### Other changes since `v2.2.0`
+## Other changes since `v2.2.0`
 
 * Refactor: rename `pdata-proxy` -> `pdata-local`
 * Refactor `pdata-local`
 * Update dependencies
 
+---
 
-## v2.3.0-RC1 - 2022 Jul 18
+# Earlier releases
 
-```clojure
-[com.taoensso/tufte "2.3.0-RC1"]
-```
-
-> This is a major feature and fix release. Should be **non-breaking** for vast majority of folks.  
-> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
-
-### Behavioural changes since `v2.2.0`
-
-* Stats format: refactor, use default JVM locale thousands separator for call counts (Clj only)
-
-### Fixes since `v2.2.0`
-
-* `add-accumulating-handler!`: fix broken default val and examples
-* [#64] Broken concurrent `(local (local ...))` nested profiling (Clj only) (@awkay)
-* Broken `(dynamic (local ...))` nested profiling
-* Broken nested profiling tests
-* Correctly document which `profile/d` options are compile-time and runtime
-
-### New since `v2.2.0`
-
-* Throw on invalid compile-time `profile/d` options
-* [#61] Improve docstrings re: async code
-
-### Other changes since `v2.2.0`
-
-* Refactor: rename `pdata-proxy` -> `pdata-local`
-* Refactor `pdata-local`
-* Update dependencies
-
-
-## v2.2.0 - 2020 Sep 14
-
-```clojure
-[com.taoensso/tufte "2.2.0"]
-```
-
-> This is a major feature release. Should be **non-breaking**.  
-> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
-
-**Changes** since `v2.1.0`:
-
-* [DEPRECATED] `set-min-level!`, `set-ns-pattern!`, `with-min-level`, `with-ns-pattern`: prefer just using the relevant dynamic vars directly.
-
-**New** since `v2.1.0`:
-
-* `*min-level*` can now be an int, or a `[[<ns-pattern> <int>] ...]` for ns-specific levels.
-* `*min-level*` init val can now be set via `taoensso.tufte.min-level.edn` JVM property, or `TAOENSSO_TUFTE_MIN_LEVEL_EDN` env var.
-* `*ns-filter*` can now be a pred fn, or an ns-pattern (which will be auto compiled to a pred fn).
-* `*ns-filter*` init val can now be set via `taoensso.tufte.ns-pattern.edn` JVM property, or `TAOENSSO_TUFTE_NS_PATTERN_EDN` env var.
-* Docstring improvements.
-
-
-## v2.2.0-RC1 - 2020 Aug 29
-
-```clojure
-[com.taoensso/tufte "2.2.0-RC1"]
-```
-
-> This is a major feature release. Should be non-breaking.
-> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for a tip re: general recommended steps when updating any Clojure/Script dependencies.
-
-**New** since `v2.1.0`:
-
-* `*min-level*` can now be an int, or a `[[<ns-pattern> <int>] ...]` for ns-specific levels.
-* `*min-level*` init val can now be set via `taoensso.tufte.min-level` JVM property, or `TAOENSSO_TUFTE_MIN_LEVEL` env var.
-* `*ns-filter*` can now be a pred fn, or an ns-pattern (which will be auto compiled to a pred fn).
-* `*ns-filter*` init val can now be set via `taoensso.tufte.ns-pattern` JVM property, or `TAOENSSO_TUFTE_NS_PATTERN` env var.
-
-**Changes** since `v2.1.0`:
-
-* [DEPRECATED] `set-min-level!`, `set-ns-pattern!`, `with-min-level`, `with-ns-pattern`: prefer just using the relevant dynamic vars directly.
-* Some docstring improvements.
-
-## v2.1.0 - 2019 Sep 7
-
-```clojure
-[com.taoensso/tufte "2.1.0"]
-```
-
-> Identical to "2.1.0-RC5" (besides some docstring tweaks).
->
-> This is an API-non-breaking feature release (though `format-pstats` output has changed). Big thanks to **@ivarref** for much of the work+input on this release!
->
-> Feedback and bug reports welcome, especially for the Cljs implementation which I'm not currently using myself.
->
-> Thank you!
-
-* [#54] **New**: `merge-pstats` clock total should now mostly be lossless (@ivarref)
-* [#37] **New**: Improve+expand accumulator utils to make one common pattern of app-wide profiling trivial
-* [#32 #31 #30] **New**: `format-pstats`: add configurable columns filter, sort, id format (@ivarref)
-* [#41] **New**: Add abbreviated `format-id-fn` (@ivarref)
-* [#19] **New**: Add `defnp-` macro
-* **New**: `defnp`: add support for explicit `^{:tufte/id _}` to override automatic ids
-* **New**: New optional stats columns: `:p25`, `:p75`
-* [#33] **Fix**: cljs implementation was broken
-* [#54] **Fix**: `merge-pstats` compaction wasn't always working, could lead to OOMs (@ivarref)
-* [#40] **Change**: Left-align pid in `format-pstats` output (@meeseekz)
-
-## v2.0.1 - 2018 Apr 27
-
-```clojure
-[com.taoensso/tufte "2.0.1"]
-```
-
-> This is a trivial, non-breaking hotfix release
-
-* [#27] Hotfix: fix broken Cljs build (@atroche)
-
-## v2.0.0 - 2018 Apr 22
-
-```clojure
-[com.taoensso/tufte "2.0.0"]
-```
-
-> This is a major, **breaking** feature release. Please report any issues, thank you!
-
-Tufte v2 introduces API flexibility improvements to expand on Tufte's strengths as an **ongoing application performance monitoring tool**.
-
-Main objectives of the v2 API:
-
-  - **Defer more profiling costs** off-thread, and on demand.
-  - **Lossless merging** of profiling stats from different runs/threads/over-time.
-  - Inclusion of **percentiles** in profiling stats.
-
-These objectives are related: percentiles are expensive to calculate, so infeasible to do on the same thread as profiling capture. Also, stats like percentiles are inherently inaccurate to merge.
-
-By deferring the conversion of captured times to stats, the Tufte v2 API makes it easy to support both lossless merging (by merging times, not stats) - and the inclusion of more expensive stats like percentiles (since the cost of stats computation can be incurred on demand, and off the capturing thread).
-
-The net result: the v2 API is more flexible since it **decouples time capture and stats computation**.
-
-The decoupling is particularly handy for the **ongoing performance monitoring** of production applications: the application thread/s can inexpensively capture timing info for deferred/async digestion by a background analytics/monitoring task.
-
-**tl;dr** The v2 API returns `PStats` objects that can be **~losslessly merged**, or **derefed to actually compute statistics**.
-
-
-### Detailed changes
-
-* **BREAKING (1)**: `profiled` return value has changed: `[<result> <?stats-map>]` -> `[<result> <?pstats-obj>]`.
-
-* **BREAKING (2)**: `profile` handler keys have changed: `:stats`, `:stats-str_` -> `:pstats`, `:pstats-str_`.
-
-* **BREAKING (3)**: Utils were renamed: `merge-stats` -> `merge-pstats`, `format-stats` -> `format-pstats`.
-
-* **BREAKING (4)**: Stats maps keys have changed: `#{:count :min :max :mean :mad :time}` -> `#{:n :min :max :mean :mad :sum :p50 :p90 :p95 :p99}`.
-
-* **New**: Various readability tweaks+improvements to the output of `format-pstats`.
-
-* **New**: `profiled` and `profile` calls now accept an `:nmax` option to control size of captured time buffers (used to prevent OOMs).
-
-* **New**: Stats will now automatically include `:tufte/compaction` info when buffer sizes were exceeded.
-
-* **New**: added several new fully-documented low-level primitives for advanced users: `new-pdata`, `with-profiling`, `capture-time!`.
-
-* **Impl**: Significant performance improvements to both dynamic and thread-local profiling.
-
-
-### Migration guide
-
-- If you use only `profile` with an out-the-box (println or timbre) handler, there are **no breaking changes for you**.
-
-- If you use `profile` with any custom handlers, you'll need to update your handler fns:
-
-  - Stats map keys (as returned by @pstats) have changed (see **BREAKING (1)** above).
-  - Map keys given to handler fns have changed (see **BREAKING (2)** above).
-
-- If you use `profiled`, see **BREAKING (1, 3, 4)** above.
-
-
-## v1.4.0 - 2018 Mar 21
-
-```clojure
-[com.taoensso/tufte "1.4.0"]
-```
-
-> This is a minor, non-breaking feature release
-
-* **Impl**: tweak `format-stats` output spacing (@kassapo)
-
-## v1.3.0 - 2018 Mar 11
-
-```clojure
-[com.taoensso/tufte "1.3.0"]
-```
-
-> This is a minor, non-breaking feature release
-
-* [#21] **New**: support minutes in `format-stats` table (@austinhaas)
-
-## v1.2.0 - 2018 Mar 8
-
-```clojure
-[com.taoensso/tufte "1.2.0"]
-```
-
-> This is a minor, non-breaking feature release
-
-* **New**: Add low-level `capture-time!` util fn
-* **Impl**: Bump dependencies, incl. ClojureScript
-
-## v1.1.3 - 2018 Feb 2
-
-```clojure
-[com.taoensso/tufte "1.1.3"]
-```
-
-> This is a non-breaking hotfix release.
-
-**Hotfix**: Fix broken micro-optimization for conditional profiling (@balajirrao, @kassapo)
-
-## v1.1.2 - 2017 Sep 21
-
-```clojure
-[com.taoensso/tufte "1.1.2"]
-```
-
-> This is a non-breaking hotfix release.
-
-**Hotfix**: Fix broken handler namespace filters (@knotschi)
-
-## v1.1.1 - 2016 Dec 17
-
-```clojure
-[com.taoensso/tufte "1.1.1"]
-```
-
-> This is a non-breaking hotfix release.
-
-**Hotfix**: [#16] Fix `merge-stats` typo (@atdixon)
-**Impl**: [#14] Add short mention of laziness to relevant doc-strings
-
-## v1.1.0 - 2016 Oct 18
-
-```clojure
-[com.taoensso/tufte "1.1.0"]
-```
-
-> **NB** This release now **requires Clojure >= 1.7**. Please continue to use `v1.0.x` if you're stuck on Clojure < 1.7.
-
-**Impl**: Bump minimum Clojure dependency, migrate from .cljx to .cljc
-
-## v1.0.2 - 2016 Aug 2
-
-```clojure
-[com.taoensso/tufte "1.0.2"]
-```
-
-**Hotfix**: [#6] Fix non-dynamic p-nesting support
-
-## v1.0.1 - 2016 Jul 27
-
-```clojure
-[com.taoensso/tufte "1.0.1"]
-```
-
-**Hotfix**: [#4] Fix broken reference (@federkasten)
-
-## v1.0.0 - 2016 Jul 24
-
-```clojure
-[com.taoensso/tufte "1.0.0"]
-```
-
-> No changes from `1.0.0-RC2`
-
-## v1.0.0-RC2 - 2016 Jul 14
-
-```clojure
-[com.taoensso/tufte "1.0.0-RC2"]
-```
-
-**Hotfix**: [#2] Timbre handler: fix broken timbre level support (@gtrak)
-
-## v1.0.0-RC1 - 2016 Jul 11
-
-```clojure
-[com.taoensso/tufte "1.0.0-RC1"]
-```
-
-> Initial release
+See [here](https://github.com/taoensso/tufte/releases) for earlier releases.
