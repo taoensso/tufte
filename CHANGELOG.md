@@ -2,7 +2,7 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
-# `v2.6.0` (2023-10-14)
+# `v2.6.0` (2023-08-14)
 
 > 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.0), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
 
