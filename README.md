@@ -9,7 +9,7 @@
 
 It provides **sensible application-level metrics**, and gives them to you as **Clojure data** that can be easily analyzed programatically. 
 
-<img width="600" src="../../blob/master/hero.png" alt="Carte Figurative"/>
+<img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
 > [Carte Figurative](https://en.wikipedia.org/wiki/Charles_Joseph_Minard#The_map_of_Napoleon's_Russian_campaign), one of [Edward Tufte](https://en.wikipedia.org/wiki/Edward_Tufte)'s favourite data visualizations.
 
