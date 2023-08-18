@@ -10,7 +10,7 @@ This is a non-breaking **hotfix** release. Please upgrade if you're using `v2.6.
 
 ## Fixes since `v2.6.0`
 
-* 386699b [fix] Hotfix: don't add non-numerical val to derefenced sstats
+* c64ba59 [fix] Hotfix: don't add non-numerical val to dereferenced sstats
 * 27d0090 [fix] Hotfix: bump Encore version
 
 ---
