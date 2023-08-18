@@ -2,6 +2,19 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v2.6.1` (2023-08-18)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.1), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
+
+This is a non-breaking **hotfix** release. Please upgrade if you're using `v2.6.0`.
+
+## Fixes since `v2.6.0`
+
+* 386699b [fix] Hotfix: don't add non-numerical val to derefenced sstats
+* 27d0090 [fix] Hotfix: bump Encore version
+
+---
+
 # `v2.6.0` (2023-08-14)
 
 > 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.0), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
