@@ -295,24 +295,26 @@
   (let [fin (if (.-xfloats? ss) double #(Math/round (double %)))
         nx  (.-nx ss)]
     (assert (pos? nx))
-    {:n           nx
-     :sum     (fin (.-xsum ss))
-     :min     (fin (.-xmin ss))
-     :max     (fin (.-xmax ss))
-     :p25     (fin (.-p25  ss))
-     :p50     (fin (.-p50  ss))
-     :p75     (fin (.-p75  ss))
-     :p90     (fin (.-p90  ss))
-     :p95     (fin (.-p95  ss))
-     :p99     (fin (.-p99  ss))
+    (with-meta
+      {:n           nx
+       :sum     (fin (.-xsum ss))
+       :min     (fin (.-xmin ss))
+       :max     (fin (.-xmax ss))
+       :p25     (fin (.-p25  ss))
+       :p50     (fin (.-p50  ss))
+       :p75     (fin (.-p75  ss))
+       :p90     (fin (.-p90  ss))
+       :p95     (fin (.-p95  ss))
+       :p99     (fin (.-p99  ss))
 
-     :mean    (/ (.-xsum     ss) nx)
-     :var     (/ (.-xvar-sum ss) nx) ; Currently w/o bessel-correction
-     :mad     (/ (.-xmad-sum ss) nx)
+       :mean    (/ (.-xsum     ss) nx)
+       :var     (/ (.-xvar-sum ss) nx) ; Currently w/o bessel-correction
+       :mad     (/ (.-xmad-sum ss) nx)
 
-     :var-sum (.-xvar-sum ss)
-     :mad-sum (.-xmad-sum ss)
-     :floats? (.-xfloats? ss)}))
+       :var-sum (.-xvar-sum ss)
+       :mad-sum (.-xmad-sum ss)}
+
+      {:floats? (.-xfloats? ss)})))
 
 (defn ^:public summary-stats?
   "Returns true iff given a SummaryStats argument."
@@ -332,21 +334,21 @@
        (summary-stats? x) x
        (map?           x)
        (let [{:keys [n sum min max p25 p50 p75 p90 p95 p99
-                     #_mean #_var #_mad var-sum mad-sum #_floats?]} x
+                     #_mean #_var #_mad var-sum mad-sum]} x
 
              floats?
              (enc/cond
-               (contains? x    :floats?) (get x    :floats?)
-               (contains? opts :floats?) (get opts :floats?)
-               (float-num? sum))]
+               :if-let [e (find opts     :floats?)] (val e)
+               :if-let [e (find (meta x) :floats?)] (val e)
+               :else (float-num? sum))]
 
          (SummaryStats. floats?
            n sum min max p25 p50 p75 p90 p95 p99 var-sum mad-sum))
 
        :else
        (let [snums
-             (if (contains? opts :floats?)
-               (if     (get opts :floats?)
+             (if-let [e (find opts :floats?)]
+               (if (val e)
                  (sorted-doubles true x)
                  (sorted-longs   true x))
                (sorted-nums      true x))
