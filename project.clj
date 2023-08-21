@@ -8,11 +8,11 @@
    :url  "https://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies
-  [[com.taoensso/encore "3.64.1"]]
+  [[com.taoensso/encore "3.68.0"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
-   :provided {:dependencies [[org.clojure/clojurescript "1.11.60"]
+   :provided {:dependencies [[org.clojure/clojurescript "1.11.121"]
                              [org.clojure/clojure       "1.11.1"]]}
    :c1.11    {:dependencies [[org.clojure/clojure       "1.11.1"]]}
    :c1.10    {:dependencies [[org.clojure/clojure       "1.10.1"]]}
@@ -26,7 +26,7 @@
 
     :dependencies
     [[org.clojure/test.check "1.1.1"]
-     [com.taoensso/timbre    "6.2.2"]]}
+     [com.taoensso/timbre    "6.3.0"]]}
 
    :graal-tests
    {:dependencies [[org.clojure/clojure "1.11.1"]
