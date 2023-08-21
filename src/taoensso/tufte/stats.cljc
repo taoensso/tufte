@@ -20,43 +20,6 @@
 #?(:clj (let [c (Class/forName "[J")] (defn longs?   "Returns true iff given long array"   [x] (instance? c x))))
 #?(:clj (let [c (Class/forName "[D")] (defn doubles? "Returns true iff given double array" [x] (instance? c x))))
 
-;;;; Tuples
-
-(do
-  (deftype Tup2 [x y  ])
-  (deftype Tup3 [x y z]))
-
-(defn multi-reduce
-  "Like `reduce` but supports separate simultaneous accumulators
-  as a micro-optimisation when reducing a large collection multiple
-  times."
-  ;; Faster than using volatiles
-  ([f  init           coll] (reduce f init coll))
-  ([f1 init1 f2 init2 coll]
-   (let [^Tup2 tuple
-         (reduce
-           (fn [^Tup2 tuple in]
-             (Tup2.
-               (f1 (.-x tuple) in)
-               (f2 (.-y tuple) in)))
-           (Tup2. init1 init2)
-           coll)]
-
-     [(.-x tuple) (.-y tuple)]))
-
-  ([f1 init1 f2 init2 f3 init3 coll]
-   (let [^Tup3 tuple
-         (reduce
-           (fn [^Tup3 tuple in]
-             (Tup3.
-               (f1 (.-x tuple) in)
-               (f2 (.-y tuple) in)
-               (f2 (.-z tuple) in)))
-           (Tup3. init1 init2 init3)
-           coll)]
-
-     [(.-x tuple) (.-y tuple) (.-z tuple)])))
-
 ;;;; Sorted nums
 
 (deftype SortedLongs [^longs a]
@@ -360,7 +323,7 @@
                  xsum (double (reduce rf-sum 0.0 snums))
                  xbar (/ xsum nx)
                  [^double xvar-sum ^double xmad-sum]
-                 (multi-reduce
+                 (enc/reduce-multi
                    (partial rf-sum-variance      xbar) 0.0
                    (partial rf-sum-abs-deviation xbar) 0.0
                    snums)]

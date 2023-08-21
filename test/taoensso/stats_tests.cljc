@@ -31,9 +31,6 @@
       (is (= (vec (stats/sorted-nums [1.0 3   2]))   [1.0 2.0 3.0]))
       (is (= (vec (stats/sorted-nums [1   3.0 2.0])) [1   2   3]))])])
 
-(deftest multi-reduce
-  [(is (= (stats/multi-reduce + 0 - 0 (range 1e4)) [49995000 -49995000]))])
-
 (deftest weighted-nth
   [(is (= (#'stats/weighted-nth 0.5  [1  3])  2.0))
    (is (= (#'stats/weighted-nth 0.5  [1 10])  5.5))
