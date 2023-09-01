@@ -238,6 +238,7 @@
      ^double  xsum
      ^double  xmin
      ^double  xmax
+     ^double  xlast
      ^double  p25
      ^double  p50
      ^double  p75
@@ -260,15 +261,16 @@
     (assert (pos? nx))
     (with-meta
       {:n           nx
-       :sum     (fin (.-xsum ss))
-       :min     (fin (.-xmin ss))
-       :max     (fin (.-xmax ss))
-       :p25     (fin (.-p25  ss))
-       :p50     (fin (.-p50  ss))
-       :p75     (fin (.-p75  ss))
-       :p90     (fin (.-p90  ss))
-       :p95     (fin (.-p95  ss))
-       :p99     (fin (.-p99  ss))
+       :sum     (fin (.-xsum  ss))
+       :min     (fin (.-xmin  ss))
+       :max     (fin (.-xmax  ss))
+       :last    (fin (.-xlast ss))
+       :p25     (fin (.-p25   ss))
+       :p50     (fin (.-p50   ss))
+       :p75     (fin (.-p75   ss))
+       :p90     (fin (.-p90   ss))
+       :p95     (fin (.-p95   ss))
+       :p99     (fin (.-p99   ss))
 
        :mean    (/ (.-xsum     ss) nx)
        :var     (/ (.-xvar-sum ss) nx) ; Currently w/o bessel-correction
@@ -296,7 +298,7 @@
      (enc/cond
        (summary-stats? x) x
        (map?           x)
-       (let [{:keys [n sum min max p25 p50 p75 p90 p95 p99
+       (let [{:keys [n sum min max last p25 p50 p75 p90 p95 p99
                      #_mean #_var #_mad var-sum mad-sum]} x
 
              floats?
@@ -306,7 +308,7 @@
                :else (float-num? sum))]
 
          (SummaryStats. floats?
-           n sum min max p25 p50 p75 p90 p95 p99 var-sum mad-sum))
+           n sum min max last p25 p50 p75 p90 p95 p99 var-sum mad-sum))
 
        :else
        (let [snums
@@ -320,8 +322,9 @@
 
          (when (pos? nx)
            (let [[xmin p25 p50 p75 p90 p95 p99 xmax] (percentiles snums)
-                 xsum (double (reduce rf-sum 0.0 snums))
-                 xbar (/ xsum nx)
+                 xsum  (double (reduce rf-sum 0.0 snums))
+                 xbar  (/ xsum nx)
+                 xlast (nth snums (dec nx))
                  [^double xvar-sum ^double xmad-sum]
                  (enc/reduce-multi
                    (partial rf-sum-variance      xbar) 0.0
@@ -329,7 +332,8 @@
                    snums)]
 
              (SummaryStats. (sorted-doubles? snums)
-               nx xsum xmin xmax p25 p50 p75 p90 p95 p99 xvar-sum xmad-sum))))))))
+               nx xsum xmin xmax xlast p25 p50 p75 p90 p95 p99
+               xvar-sum xmad-sum))))))))
 
 (comment @(summary-stats [1 2 3]))
 
@@ -373,6 +377,7 @@
              xsum2     (.-xsum     ss2)
              xmin2     (.-xmin     ss2)
              xmax2     (.-xmax     ss2)
+             xlast2    (.-xlast    ss2)
              p25-2     (.-p25      ss2)
              p50-2     (.-p50      ss2)
              p75-2     (.-p75      ss2)
@@ -409,7 +414,7 @@
              p99-3 (+ (* nx1-ratio p99-1) (* nx2-ratio p99-2))]
 
          (SummaryStats. xfloats3?
-           nx3 xsum3 xmin3 xmax3 p25-3 p50-3 p75-3 p90-3 p95-3 p99-3
+           nx3 xsum3 xmin3 xmax3 xlast2 p25-3 p50-3 p75-3 p90-3 p95-3 p99-3
            xvar-sum3 xmad-sum3))
        ss1)
      ss2)))

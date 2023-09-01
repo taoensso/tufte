@@ -80,7 +80,7 @@
 (let [key-idx
       (into {}
         (map-indexed (fn [n k] [k n])
-          [:n :sum :min :max :p25 :p50 :p75 :p90 :p95 :p99
+          [:n :sum :min :max :last :p25 :p50 :p75 :p90 :p95 :p99
            :mean :var :mad :var-sum :mad-sum :meta]))
 
       comparator (fn [k1 k2] (< (long (get key-idx k1 -1)) (long (get key-idx k2 -1))))]
@@ -105,12 +105,12 @@
 
    (is
      (= (sorted-sstats @(stats/summary-stats (range 1 1001)))
-       {:n 1000, :sum 500500, :min 1, :max 1000, :p25 251, :p50 501, :p75 750, :p90 900, :p95 950, :p99 990,
+       {:n 1000, :sum 500500, :min 1, :max 1000, :last 1000, :p25 251, :p50 501, :p75 750, :p90 900, :p95 950, :p99 990,
         :mean 500.5, :var 83333.25, :mad 250.0, :var-sum 8.333325E7, :mad-sum 250000.0, :meta {:floats? false}}))
 
    (is
      (= (sorted-sstats @(stats/summary-stats (range 0.5 1000)))
-       {:n 1000, :sum 500000.0, :min 0.5, :max 999.5, :p25 250.5, :p50 500.5, :p75 749.5, :p90 899.5, :p95 949.5, :p99 989.5,
+       {:n 1000, :sum 500000.0, :min 0.5, :max 999.5, :last 999.5, :p25 250.5, :p50 500.5, :p75 749.5, :p90 899.5, :p95 949.5, :p99 989.5,
         :mean 500.0, :var 83333.25, :mad 250.0, :var-sum 8.333325E7, :mad-sum 250000.0, :meta {:floats? true}}))
 
    (is
@@ -119,7 +119,7 @@
              (stats/summary-stats (range 0   900))
              (stats/summary-stats (range 200 500))))
 
-       {:n 1200, :sum 509400, :min 0, :max 899, :p25 238, :p50 425, :p75 612, :p90 724, :p95 762, :p99 792,
+       {:n 1200, :sum 509400, :min 0, :max 899, :last 499, :p25 238, :p50 425, :p75 612, :p90 724, :p95 762, :p99 792,
         :mean 424.5, :var 52499.916666666664, :mad 187.5, :var-sum 6.29999E7, :mad-sum 225000.0, :meta {:floats? false}}))
 
    (is
@@ -128,7 +128,7 @@
              (stats/summary-stats (range 0.5   900))
              (stats/summary-stats (range 200.5 500))))
 
-       {:n 1200, :sum 510000.0, :min 0.5, :max 899.5, :p25 238.0, :p50 425.5, :p75 612.0, :p90 724.5, :p95 762.0, :p99 792.0,
+       {:n 1200, :sum 510000.0, :min 0.5, :max 899.5, :last 499.5, :p25 238.0, :p50 425.5, :p75 612.0, :p90 724.5, :p95 762.0, :p99 792.0,
         :mean 425.0, :var 52499.916666666664, :mad 187.5, :var-sum 6.29999E7, :mad-sum 225000.0, :meta {:floats? true}}))
 
    (is
@@ -138,7 +138,7 @@
              (stats/summary-stats (range 0     900))
              (stats/summary-stats (range 200.5 500))))
 
-       {:n 1200, :sum 509550.0, :min 0.0, :max 899.0, :p25 237.625, :p50 425.125, :p75 611.625, :p90 724.125, :p95 761.625, :p99 791.625,
+       {:n 1200, :sum 509550.0, :min 0.0, :max 899.0, :last 499.5, :p25 237.625, :p50 425.125, :p75 611.625, :p90 724.125, :p95 761.625, :p99 791.625,
         :mean 424.625, :var 52499.916666666664, :mad 187.5, :var-sum 6.29999E7, :mad-sum 225000.0, :meta {:floats? true}}))
 
    (is (nil? (ss-merging-error 10 100 10)))
