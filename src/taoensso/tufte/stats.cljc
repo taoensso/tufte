@@ -711,7 +711,7 @@
           (enc/sb-append sb " "))
         (append-col column (get-in column->pattern [column :heading])))
 
-      (enc/sb-append sb "\n\n")
+      (enc/sb-append sb enc/newlines)
 
       ; Write id rows
       (doseq [id sorted-ids]
@@ -729,10 +729,10 @@
               :clock (append-col column (fmt-nsecs sum))
               (do    (append-col column (fmt-nsecs (get ssm column))))))
 
-          (enc/sb-append sb "\n")))
+          (enc/sb-append sb enc/newline)))
 
       ; Write accounted row
-      (enc/sb-append sb "\n")
+      (enc/sb-append sb enc/newline)
       (append-col :id "Accounted")
       (doseq [column columns]
         (enc/sb-append sb " ")
@@ -742,7 +742,7 @@
           (do    (append-col column ""))))
 
       ; Write clock row
-      (enc/sb-append sb "\n")
+      (enc/sb-append sb enc/newline)
       (append-col :id "Clock")
       (doseq [column columns]
         (enc/sb-append sb " ")
@@ -751,7 +751,7 @@
           :clock (append-col column (fmt-nsecs clock-total))
           (do    (append-col column ""))))
 
-      (enc/sb-append sb "\n")
+      (enc/sb-append sb enc/newline)
       (str sb))))
 
 (comment

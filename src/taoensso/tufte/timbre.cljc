@@ -1,33 +1,42 @@
 (ns taoensso.tufte.timbre
   "Simple logging handler for integration with Timbre."
   (:require
-            [taoensso.encore :as enc]
-            [taoensso.tufte  :as tufte]
-   #?(:clj  [taoensso.timbre :as timbre :refer        [log!]]
-      :cljs [taoensso.timbre :as timbre :refer-macros [log!]])))
+   [taoensso.encore :as enc]
+   [taoensso.timbre :as timbre]
+   [taoensso.tufte  :as tufte]
+   [taoensso.tufte.impl :as impl
+    #?@(:cljs [:refer [PStats ProfilingSignal]])])
+  #?(:clj (:import [taoensso.tufte.impl PStats ProfilingSignal])))
 
-(defn add-timbre-logging-handler!
-  "Adds a simple handler that logs `profile` stats output with Timbre.
+(defn timbre-handler
+  "Returns a simple handler fn for use with `add-handler!` that:
+    1. Formats `profile` pstats with `format-pstats`, and
+    2. Logs the resulting string table with Timbre.
 
-  `timbre-level` may be a fixed Timbre level (e.g. :info), or a
-  (fn [tufte-level]) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
-  [{:keys [timbre-level ns-pattern handler-id]
-    :or   {timbre-level :info
-           ns-pattern "*"
-           handler-id :timbre}}]
+  Options:
+    `:format-pstats-opts` - Opts map provided to `format-pstats`
+    `:timbre-level`       - Timbre level, or ifn to map profiling->Timbre level"
 
-  (tufte/add-handler! handler-id ns-pattern
-    (fn [m]
-      (let [{:keys [ns-str level ?id ?data pstats pstats-str_ ?file ?line]} m
-            profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
-            timbre-level
-            (cond
-              (keyword? timbre-level) timbre-level
-              (ifn? timbre-level) (timbre-level level)
-              :else timbre-level)]
+  {:added "vX.Y.Z (YYYY-MM-DD)"}
+  ([] (timbre-handler nil))
+  ([{:keys [timbre-level format-pstats-opts]
+     :or   {timbre-level :info}}]
 
-        (log! timbre-level :p
-          [(str "Tufte `profile` output " profile-opts ":\n\n" @pstats-str_ "\n")]
-          {:?ns-str ns-str :?file ?file :?line ?line})))))
+   (fn timbre-handler [^ProfilingSignal ps]
+     (timbre/log!
+       {:loc   (.-loc ps)
+        :id    (.-id  ps)
+        :data         ps
+        :level  (impl/signal-level ps timbre-level)
+        :vargs [(impl/signal-msg   ps format-pstats-opts)]}))))
 
-(comment (add-timbre-logging-handler! {}))
+(enc/deprecated
+  (defn ^:no-doc add-timbre-logging-handler!
+    "Prefer (add-handler! <handler-id> (timbre-handler) <dispatch-opts>)."
+    {:deprecated "vX.Y.Z (YYYY-MM-DD)"}
+    [{:keys [timbre-level ns-pattern handler-id]
+      :or   {ns-pattern "*"
+             handler-id :timbre}}]
+
+    (let [handler-fn (timbre-handler {:timbre-level timbre-level})]
+      (tufte/add-legacy-handler! handler-id ns-pattern handler-fn))))

@@ -1,11 +1,12 @@
 (ns readme-examples
   "Basic examples that appear in the Truss README."
-  (:require [taoensso.tufte]))
+  (:require [taoensso.tufte :as tufte]))
 
 (comment
 
-(taoensso.tufte/refer-tufte) ; Setup Tufte's ns imports (works with clj only)
-(taoensso.tufte/add-basic-println-handler! {}) ; Send `profile` stats to `println`
+(tufte/refer-tufte) ; Setup Tufte's ns imports
+(tufte/add-handler! :my-print-handler
+  (tufte/print-handler)) ; Send `profile` stats to `print`
 
 ;;; Let's define a couple dummy fns to simulate doing some expensive work
 (defn get-x [] (Thread/sleep 500)             "x val")
@@ -31,11 +32,8 @@
 
 (comment
 
-(ns my-clj-ns ; Clojure namespace
-  (:require [taoensso.tufte :as tufte :refer (defnp p profiled profile)]))
-
-(ns my-cljs-ns ; ClojureScript namespace
-  (:require [taoensso.tufte :as tufte :refer-macros (defnp p profiled profile)]))
+(ns my-ns
+  (:require [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 )
 
