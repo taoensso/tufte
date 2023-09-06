@@ -1,33 +1,53 @@
 (ns taoensso.tufte.timbre
-  "Simple logging handler for integration with Timbre."
+  "Handler for Timbre,
+    Ref. <https://www.taoensso.com/timbre>."
   (:require
-            [taoensso.encore :as enc]
-            [taoensso.tufte  :as tufte]
-   #?(:clj  [taoensso.timbre :as timbre :refer        [log!]]
-      :cljs [taoensso.timbre :as timbre :refer-macros [log!]])))
+   [taoensso.encore         :as enc]
+   [taoensso.encore.signals :as sigs]
+   [taoensso.tufte          :as tufte]
+   [taoensso.tufte.impl     :as impl]
+   [taoensso.timbre         :as timbre]))
 
-(defn add-timbre-logging-handler!
-  "Adds a simple handler that logs `profile` stats output with Timbre.
+(defn handler:timbre
+  "Returns a handler fn for use with `add-handler!` that:
+    1. Formats `profile` pstats with `format-pstats`, and
+    2. Logs the resulting string table with Timbre.
 
-  `timbre-level` may be a fixed Timbre level (e.g. :info), or a
-  (fn [tufte-level]) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
-  [{:keys [timbre-level ns-pattern handler-id]
-    :or   {timbre-level :info
-           ns-pattern "*"
-           handler-id :timbre}}]
+  Options:
+    `:format-pstats-opts` - Opts map provided to `format-pstats` (default nil)
+    `:timbre-level`       - Timbre level or fn of profiling level
+                            (defaults to `profile` level)"
 
-  (tufte/add-handler! handler-id ns-pattern
-    (fn [m]
-      (let [{:keys [ns-str level ?id ?data pstats pstats-str_ ?file ?line]} m
-            profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
-            timbre-level
-            (cond
-              (keyword? timbre-level) timbre-level
-              (ifn? timbre-level) (timbre-level level)
-              :else timbre-level)]
+  {:added "vX.Y.Z (YYYY-MM-DD)"}
+  ([] (handler:timbre nil))
+  ([{:keys [timbre-level format-pstats-opts]
+     :or   {timbre-level :info}}]
 
-        (log! timbre-level :p
-          [(str "Tufte `profile` output " profile-opts ":\n\n" @pstats-str_ "\n")]
-          {:?ns-str ns-str :?file ?file :?line ?line})))))
+   (let [level-fn (impl/psig-level-fn timbre-level)]
+     (fn a-handler:timbre [psig]
+       (let [{:keys [inst location id level data ctx pstats format-pstats-fn]} psig]
+         (timbre/log!
+           {:loc      #_location {:ns (get location :ns), :line (get location :line)} ; TODO Needs Timbre >= v6.6.1
+            :level    (level-fn level)
+            :instant  #?(:clj (enc/as-dt inst), :cljs inst)
+            :msg-type :p
+            :vargs
+            [(str
+               "Tufte pstats "
+               (when id (str (sigs/format-id (get location :ns) id) " ")) "-"
+               (str "\n<<< table <<<\n" (let [ff (or format-pstats-fn impl/format-pstats)] (ff pstats format-pstats-opts)) "\n>>> table >>>")
+               (when-let [data (enc/not-empty-coll data)] (str "\n data: " (enc/pr-edn* data)))
+               (when-let [ctx  (enc/not-empty-coll ctx)]  (str "\n  ctx: " (enc/pr-edn* ctx))))]}))))))
 
-(comment (add-timbre-logging-handler! {}))
+(comment ((handler:timbre) (#'tufte/dummy-psig)))
+
+(enc/deprecated
+  (defn ^:no-doc add-timbre-logging-handler!
+    "Prefer (add-handler! <handler-id> (handler:timbre) <dispatch-opts>)."
+    {:deprecated "vX.Y.Z (YYYY-MM-DD)"}
+    [{:keys [timbre-level ns-pattern handler-id]
+      :or   {ns-pattern "*"
+             handler-id :timbre}}]
+
+    (let [handler-fn (handler:timbre {:timbre-level timbre-level})]
+      ^:deprecation-nowarn (tufte/add-legacy-handler! handler-id ns-pattern handler-fn))))

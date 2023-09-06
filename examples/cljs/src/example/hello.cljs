@@ -1,8 +1,9 @@
 (ns example.hello
   (:require [taoensso.tufte :as tufte
-             :refer-macros (defnp p profiled profile)]))
+             :refer [defnp p profiled profile]]))
 
-(tufte/add-basic-println-handler! {})
+(tufte/add-handler! :my-print-handler
+  (tufte/print-handler))
 
 (defn get-x [] (+ 1 1))
 (defn get-y [] (+ 2 2))

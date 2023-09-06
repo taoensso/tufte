@@ -6,10 +6,9 @@
    [taoensso.tufte  :as tufte :refer [profiled profile p]]
 
    #?(:clj  [taoensso.tufte.impl  :as impl]
-      :cljs [taoensso.tufte.impl  :as impl :refer
-             [PState PData PStats TimeSpan]]))
+      :cljs [taoensso.tufte.impl  :as impl :refer [PStats PData TimeSpan]]))
 
-  #?(:clj  (:import [taoensso.tufte.impl PState PData PStats TimeSpan]))
+  #?(:clj  (:import [taoensso.tufte.impl PStats PData TimeSpan]))
   #?(:cljs (:require-macros
             [taoensso.tufte-tests
              :refer [looped nested-profiled]])))
@@ -68,8 +67,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 110))
-        (is (= (get-in @ps [:stats :bar :n]) 50))])
+        (is (enc/submap? @ps {:stats {:foo {:n 110} :bar {:n 50}}}))])
 
      (let [[r ps]
            (profiled {:dynamic? true}
@@ -79,8 +77,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 110))
-        (is (= (get-in @ps [:stats :bar :n]) 50))])
+        (is (enc/submap? @ps {:stats {:foo {:n 110} :bar {:n 50}}}))])
 
      (let [[r ps] (profiled {} (p :foo) (p ::foo) (p 'foo) (p `foo))]
        [(is (enc/submap? @ps {:stats {:foo {} ::foo {} 'foo {} `foo {}}})
@@ -100,8 +97,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 110))
-        (is (= (get-in @ps [:stats :bar :n]) 125))])
+        (is (enc/submap? @ps {:stats {:foo {:n 110} :bar {:n 125}}}))])
 
      (let [[r ps]
            (profiled {:dynamic? true}
@@ -111,8 +107,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 110))
-        (is (= (get-in @ps [:stats :bar :n]) 125))])]))
+        (is (enc/submap? @ps {:stats {:foo {:n 110} :bar {:n 125}}}))])]))
 
 #?(:clj
    (deftest capture-threaded
@@ -127,8 +122,7 @@
 
           [(is (= r "foo"))
            (is (ps? ps))
-           (is (= (get-in @ps [:stats :foo :n]) 1))
-           (is (= (get-in @ps [:stats :bar :n]) nil))])
+           (is (enc/submap? @ps {:stats {:foo {:n 1} :bar :submap/nx}}))])
 
         (let [[r ps]
               (profiled {:dynamic? true}
@@ -139,8 +133,7 @@
 
           [(is (= r "foo"))
            (is (ps? ps))
-           (is (= (get-in @ps [:stats :foo :n]) 2))
-           (is (= (get-in @ps [:stats :bar :n]) 1))])])))
+           (is (enc/submap? @ps {:stats {:foo {:n 2} :bar {:n 1}}}))])])))
 
 (deftest merging-basics
   [(testing "Merging/basics"
@@ -151,9 +144,7 @@
             [_ ps2] (profiled {:dynamic? true} (looped  30 (p :baz)))
             ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
         [(is (ps? ps3))
-         (is (= (get-in @ps3 [:stats :foo :n]) 120))
-         (is (= (get-in @ps3 [:stats :bar :n]) 100))
-         (is (= (get-in @ps3 [:stats :baz :n])  30))])
+         (is (enc/submap? @ps3 {:stats {:foo {:n 120} :bar {:n 100} :baz {:n 30}}}))])
 
       ;; Invert dynamic/non-dynamic
       (let [[_ ps0] (profiled {}               (looped 100 (p :foo) (p :bar)))
@@ -161,9 +152,7 @@
             [_ ps2] (profiled {}               (looped  30 (p :baz)))
             ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
         [(is (ps? ps3))
-         (is (= (get-in @ps3 [:stats :foo :n]) 120))
-         (is (= (get-in @ps3 [:stats :bar :n]) 100))
-         (is (= (get-in @ps3 [:stats :baz :n])  30))])])
+         (is (enc/submap? @ps3 {:stats {:foo {:n 120} :bar {:n 100} :baz {:n 30}}}))])])
 
    #?(:clj
       (testing "ps1 starting before ps0 should sum clock total correctly, Ref. #48"
@@ -183,11 +172,14 @@
 
        [(is (= r "qux"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 150))
-        (is (= (get-in @ps [:stats :bar :n])  50))
-        (is (= (get-in @ps [:stats :baz :n])  50))
-        (is (= (get-in @ps [:stats :tufte/compaction :n]) (/ 250 10)))
-        (is (= (count (.-acc ^PState @(.-pstate_ ^PData (.-pd ^PStats ps)))) 2))])
+        (is (enc/submap? @ps
+              {:stats
+               {:foo              {:n 150}
+                :bar              {:n  50}
+                :baz              {:n  50}
+                :tufte/compaction {:n (/ 250 10)}}}))
+
+        (is (= (count (.-acc ^PStats ps)) 2))])
 
      (let [[r ps]
            (profiled {:nmax 10 :dynamic? true}
@@ -197,11 +189,15 @@
 
        [(is (= r "qux"))
         (is (ps? ps))
-        (is (= (get-in @ps [:stats :foo :n]) 150))
-        (is (= (get-in @ps [:stats :bar :n])  50))
-        (is (= (get-in @ps [:stats :baz :n])  50))
-        (is (= (get-in @ps [:stats :tufte/compaction :n]) (/ 250 10)))
-        (is (= (count @(.-acc ^PState @(.-pstate_ ^PData (.-pd ^PStats ps)))) 2))])]))
+
+        (is (enc/submap? @ps
+              {:stats
+               {:foo              {:n 150}
+                :bar              {:n  50}
+                :baz              {:n  50}
+                :tufte/compaction {:n (/ 250 10)}}}))
+
+        (is (= (count @(.-acc ^PStats ps)) 2))])]))
 
 (deftest compaction-merge
   (testing "Compaction/merge"
@@ -216,10 +212,12 @@
         (is (= (get-in @ps1 [:stats :tufte/compaction :n]) nil))
         (is (= (get-in @ps2 [:stats :tufte/compaction :n]) 1))
 
-        (is (= (get-in @ps3 [:stats :foo :n]) 170))
-        (is (= (get-in @ps3 [:stats :bar :n])  60))
-        (is (= (get-in @ps3 [:stats :tufte/compaction :n]) 20)) ; Merging does uncounted compaction
-        ])
+        (is (= (enc/submap? @ps3
+                 {:stats
+                  {:foo              {:n 170}
+                   :bar              {:n  60}
+                   :tufte/compaction {:n  20}}}))
+          "Merging does uncounted compaction")])
 
      ;; Invert dynamic/non-dynamic
      (let [[_ ps0] (profiled {:nmax 10}       (looped 100 (p :foo)) (looped 50 (p :foo (p :bar))))
@@ -231,22 +229,25 @@
         (is (= (get-in @ps1 [:stats :tufte/compaction :n]) nil))
         (is (= (get-in @ps2 [:stats :tufte/compaction :n]) 1))
 
-        (is (= (get-in @ps3 [:stats :foo :n]) 170))
-        (is (= (get-in @ps3 [:stats :bar :n])  60))
-        (is (= (get-in @ps3 [:stats :tufte/compaction :n]) 20)) ; Merging does uncounted compaction
-        ])
+        (is (enc/submap? @ps3
+              {:stats
+               {:foo              {:n 170}
+                :bar              {:n  60}
+                :tufte/compaction {:n  20}}})
+          "Merging does uncounted compaction")])
 
      ;; [#54] merging PStats with times still (only) in accumulator
-     (let [[_ ps0] (profiled {:nmax 10} (p :foo))
+     (let [[_ ^PStats ps0] (profiled {:nmax 10} (p :foo))
            ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 1000)]
 
-       [(is (<= (count (:foo (.-id-times  ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))
-        (is (<= (count (:foo (.-id-sstats ^PState (.-pstate_ ^PData (.-pd ^PStats ps))))) 10))])]))
+       [(is (<= (count (:foo (.-id-times  ps0))) 10))
+        (is (<= (count (:foo (.-id-sstats ps0))) 10))])]))
 
 (defn- pstats-tspan [t0 t1]
-  (let [pd (PData. 8e5 t0 (PState. nil nil nil))
-        time-span [(TimeSpan. t0 t1)]]
-    (PStats. pd t1 time-span (delay (#'impl/deref-pstats pd t1 time-span)))))
+  (let [pd (PData. false 8e5 t0 nil nil nil false)
+        tspans [(TimeSpan. t0 t1)]]
+    (PStats. 8e5 t0 t1 nil nil nil tspans
+      (delay (#'impl/deref-pstats 8e5 t0 t1 nil nil nil tspans)))))
 
 (deftest merge-time-spans
   [(testing "Merge discrete time-spans"
@@ -281,12 +282,12 @@
 (defn add-test-handler! []
   #?(:clj
      (let [p_ (promise)]
-       (tufte/add-handler! :testing (fn [x] (p_ x)))
+       (tufte/add-handler! :testing (fn [x] (p_ x)) {})
        (fn [] (deref p_ 1000 nil)))
 
      :cljs
      (let [a_ (atom ::nil)]
-       (tufte/add-handler! :testing (fn [x] (compare-and-set! a_ ::nil x)))
+       (tufte/add-handler! :testing (fn [x] (compare-and-set! a_ ::nil x)) {})
        (fn [] (deref a_)))))
 
 (deftest profile-basics
@@ -299,8 +300,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (:clock @ps))
-        (is (nil? (:stats @ps)))])
+        (is (enc/submap? @ps {:clock :submap/ex :stats nil}))])
 
      (let [th (add-test-handler!)
            r  (profile {:dynamic? true} "foo")
@@ -309,8 +309,7 @@
 
        [(is (= r "foo"))
         (is (ps? ps))
-        (is (:clock @ps))
-        (is (nil? (:stats @ps)))])
+        (is (enc/submap? @ps {:clock :submap/ex :stats nil}))])
 
      #?(:clj
         (let [th (add-test-handler!)
@@ -320,9 +319,10 @@
 
           [(is (= r "bar"))
            (is (ps? ps))
-           (is (:clock @ps))
-           (is (= (get-in @ps [:stats :foo :n]) nil))
-           (is (= (get-in @ps [:stats :bar :n]) 1))
+           (is (enc/submap? @ps
+                 {:clock       :submap/ex
+                  :stats {:foo :submap/nx
+                          :bar {:n 1}}}))
            (is (string? @(:pstats-str_ m)))]))
 
      #?(:clj
@@ -333,9 +333,10 @@
 
           [(is (= r "bar"))
            (is (ps? ps))
-           (is (:clock @ps))
-           (is (= (get-in @ps [:stats :foo :n]) 1))
-           (is (= (get-in @ps [:stats :bar :n]) 1))
+           (is (enc/submap? @ps
+                 {:clock :submap/ex
+                  :stats {:foo {:n 1}
+                          :bar {:n 1}}}))
            (is (string? @(:pstats-str_ m)))]))
 
      (tufte/remove-handler! :testing)]))
@@ -385,24 +386,26 @@
 
     [;; Capture in `profiled`
      (let [[_ ps] (profiled {} (tufte/capture-time! :foo 100))]
-       (is (= (get-in @ps [:stats :foo :n]) 1)))
+       (is (enc/submap? @ps {:stats {:foo {:n 1}}})))
 
      ;; Capture to local pdata
      (let [n  (long 2e6)
            pd (tufte/new-pdata)
            _  (looped n (tufte/capture-time! pd :foo 100))]
-       (is (= (get-in @@pd [:stats :foo :n]) n)))
+       (is (enc/submap? @@pd {:stats {:foo {:n n}}})))
 
      #?(:clj
-        [;; Capture to dynamic pdata from separate threads
-         (let [n  (long 100)
-               pd (tufte/new-pdata {:dynamic? true :nmax 88})
+        [;; Capture to dynamic pdata from separate threads using a super low
+         ;; nmax to aggrevate possible contention. This test will show if any
+         ;; times were lost during compaction.
+         (let [n  (long 500)
+               pd (tufte/new-pdata {:dynamic? true :nmax 10}) ; Low nmax
                f1 (future (looped n (tufte/capture-time! pd :foo 100)))
                f2 (future (looped n (tufte/capture-time! pd :foo 100)))
                f3 (future (looped n (tufte/capture-time! pd :foo 100)))
                f4 (future (looped n (tufte/capture-time! pd :foo 100)))]
 
-           (do @f1 @f2 @f3 @f4)
+           [@f1 @f2 @f3 @f4] ; Block for futures to complete
            (is (= (get-in @@pd [:stats :foo :n]) (* 4 n))))
 
          ;; local `p`s against local pdata
@@ -412,9 +415,11 @@
                     (p :bar (Thread/sleep 200))
                     (tufte/capture-time! :baz 100))]
 
-           [(is (= (get-in @@pd [:stats :foo :n]) 1))
-            (is (= (get-in @@pd [:stats :bar :n]) 1))
-            (is (= (get-in @@pd [:stats :baz :n]) 1))])
+           [(is (enc/submap? @@pd
+                  {:stats
+                   {:foo {:n 1}
+                    :bar {:n 1}
+                    :baz {:n 1}}}))])
 
          ;; local `p`s against dynamic pdata
          (let [pd (tufte/new-pdata         {:dynamic? true})
@@ -423,9 +428,11 @@
                     (p :bar (Thread/sleep 200))
                     (tufte/capture-time! :baz 100))]
 
-           [(is (= (get-in @@pd [:stats :foo :n]) 1))
-            (is (= (get-in @@pd [:stats :bar :n]) 1))
-            (is (= (get-in @@pd [:stats :baz :n]) 1))])
+           [(is (enc/submap? @@pd
+                  {:stats
+                   {:foo {:n 1}
+                    :bar {:n 1}
+                    :baz {:n 1}}}))])
 
          ;; dynamic `p`s against dynamic pdata
          (let [pd (tufte/new-pdata         {:dynamic? true})
@@ -435,10 +442,11 @@
                     (tufte/capture-time! :baz 100))]
 
            (Thread/sleep 100)
-
-           [(is (= (get-in @@pd [:stats :foo :n]) 1))
-            (is (= (get-in @@pd [:stats :bar :n]) 1))
-            (is (= (get-in @@pd [:stats :baz :n]) 1))])])]))
+           [(is (enc/submap? @@pd
+                  {:stats
+                   {:foo {:n 1}
+                    :bar {:n 1}
+                    :baz {:n 1}}}))])])]))
 
 (deftest format-pstats
   [(testing "Basic format-pstats"
@@ -535,14 +543,6 @@
              (remove empty?)
              (take 2))))))])
 
-(deftest format-id-abbr-test
-  (testing "Format id abbr test"
-    [(is (= "foo"               ((tufte/format-id-abbr)   :foo)))
-     (is (= "e.hello/foo"       ((tufte/format-id-abbr)   :example.hello/defn_foo)))
-     (is (= "e.hello/foo"       ((tufte/format-id-abbr 1) :example.hello/defn_foo)))
-     (is (= "e.h.world/foo"     ((tufte/format-id-abbr 1) :example.hello.world/defn_foo)))
-     (is (= "e.hello.world/foo" ((tufte/format-id-abbr 2) :example.hello.world/defn_foo)))]))
-
 ;;;; Util macros
 
 (do
@@ -591,36 +591,38 @@
              (p :qux)))]
 
      [(is (enc/submap? @ps
-            {:stats {:foo {:loc {:line 589}}
-                     :bar {:loc {:line 589}}
-                     :baz {:loc {:line 590}}
-                     :qux {:loc {:line 591}}}}))])
+            (let [nref 589]
+              {:stats {:foo {:loc {:line nref}}
+                       :bar {:loc {:line nref}}
+                       :baz {:loc {:line (+ nref 1)}}
+                       :qux {:loc {:line (+ nref 2)}}}})))])
 
    (let [[r ps]
          (profiled {}
-           (p          :foo) ; Line 601
-           (p          :foo)
-           (p          :foo)
-           (tufte/pspy :foo))
+           (p :foo) ; Line 602
+           (p :foo)
+           (p :foo)
+           (p :foo))
 
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) #{601 602 603 604}))
+      (is (= (into #{} (map :line) loc) (let [nref 602] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
       (is (enc/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (enc/submap? @ps
-          {:stats {::defn_fn1 {:loc {:line 549}}
-                   ::defn_fn2 {:loc {:line 550}}
-                   :__fn3     {:loc {:line 551}}
-                   :__fn4     {:loc {:line 552}}
-                   :__fn4_1   {:loc {:line 552}}
-                   :__fn4_2   {:loc {:line 552}}
-                   ::defn_fn5 {:loc {:line 553}}
-                   ::fn_fn6   {:loc {:line 556}}
-                   :__fn7     {:loc {:line 557}}}}))])])
+          (let [nref 549]
+           {:stats {::defn_fn1 {:loc {:line    nref}}
+                    ::defn_fn2 {:loc {:line (+ nref 1)}}
+                    :__fn3     {:loc {:line (+ nref 2)}}
+                    :__fn4     {:loc {:line (+ nref 3)}}
+                    :__fn4_1   {:loc {:line (+ nref 3)}}
+                    :__fn4_2   {:loc {:line (+ nref 3)}}
+                    ::defn_fn5 {:loc {:line (+ nref 4)}}
+                    ::fn_fn6   {:loc {:line (+ nref 7)}}
+                    :__fn7     {:loc {:line (+ nref 8)}}}})))])])
 
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 
