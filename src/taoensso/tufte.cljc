@@ -926,13 +926,13 @@
 ;;;; Deprecated
 
 (enc/deprecated
-  #?(:clj (defmacro with-min-level  "Deprecated, just use `binding`" [level & body] `(binding [*min-level* ~level] ~@body)))
-  (defn              set-min-level! "Deprecated, just use `alter-var-root`" [level]
+  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level "Prefer `binding`." [level & body] `(binding [*min-level* ~level] ~@body)))
+  (defn             ^:no-doc ^:deprecated set-min-level! "Prefer `alter-var-root`." [level]
     #?(:cljs (set!             *min-level*         level)
        :clj  (alter-var-root #'*min-level* (fn [_] level))))
 
-  #?(:clj (defmacro with-ns-pattern  "Deprecated, just use `binding`" [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body)))
-  (defn              set-ns-pattern! "Deprecated, just use `alter-var-root`" [ns-pattern]
+  #?(:clj (defmacro ^:no-doc ^:deprecated with-ns-pattern  "Prefer `binding`." [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body)))
+  (defn             ^:no-doc ^:deprecated  set-ns-pattern! "Prefer `alter-var-root`." [ns-pattern]
     #?(:cljs (set!             *ns-filter*         ns-pattern)
        :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern)))))
 
