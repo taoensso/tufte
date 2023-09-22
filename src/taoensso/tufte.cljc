@@ -538,7 +538,10 @@
         base-id
         (if ?meta-id
           (enc/as-qname ?meta-id)
-          (str *ns* "/" (if def? "defn_" "fn_") (name fn-sym)))
+          (str *ns* "/"
+            (if     ?fn-sym
+              (name ?fn-sym)
+              (str (if def? "defn_" "fn_") (name fn-sym)))))
 
         get-ids
         (if single-arity?

@@ -546,15 +546,15 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                      fn1  [x] x) ; Line 549
-  (tufte/defnp                      fn2  [x] x)
-  (tufte/defnp ^{:tufte/id :__fn3}  fn3  [x] x)
-  (tufte/defnp ^{:tufte/id "__fn4"} fn4 ([x] x) ([x y] [x y]))
-  (tufte/defnp-                     fn5  [x] x)
+  (tufte/defnp                       fn1  [x] x) ; Line 549
+  (tufte/defnp                       fn2  [x] x)
+  (tufte/defnp ^{:tufte/id :my-fn3}  fn3  [x] x)
+  (tufte/defnp ^{:tufte/id "my-fn4"} fn4 ([x] x) ([x y] [x y]))
+  (tufte/defnp-                      fn5  [x] x)
 
   (defn run-test-fns []
-    (let [fn6 (tufte/fnp                     fn6 [x] x)
-          fn7 (tufte/fnp ^{:tufte/id :__fn7} fn7 [x] x)]
+    (let [fn6 (tufte/fnp                      fn6 [x] x)
+          fn7 (tufte/fnp ^{:tufte/id :my-fn7} fn7 [x] x)]
       [(fn1 "fn1")
        (fn2 "fn2")
        (fn3 "fn3")
@@ -569,15 +569,15 @@
   [(let [[r ps] (profiled {} (run-test-fns))]
      [(is (= r ["fn1" "fn2" "fn3" "fn4_1" ["fn4_2x" "fn4_2y"] "fn5" "fn6" "fn7" "fn1+2"]))
       (is (enc/submap? @ps
-            {:stats {::defn_fn1 {:n 2},
-                     ::defn_fn2 {:n 2},
-                     :__fn3     {:n 1},
-                     :__fn4     {:n 2}
-                     :__fn4_1   {:n 1}
-                     :__fn4_2   {:n 1}
-                     ::defn_fn5 {:n 1}
-                     ::fn_fn6   {:n 1}
-                     :__fn7     {:n 1}}}))])])
+            {:stats {::fn1     {:n 2},
+                     ::fn2     {:n 2},
+                     :my-fn3   {:n 1},
+                     :my-fn4   {:n 2}
+                     :my-fn4_1 {:n 1}
+                     :my-fn4_2 {:n 1}
+                     ::fn5     {:n 1}
+                     ::fn6     {:n 1}
+                     :my-fn7   {:n 1}}}))])])
 
 ;;;; Location info
 
@@ -614,15 +614,15 @@
      [(is
         (enc/submap? @ps
           (let [nref 549]
-           {:stats {::defn_fn1 {:loc {:line    nref}}
-                    ::defn_fn2 {:loc {:line (+ nref 1)}}
-                    :__fn3     {:loc {:line (+ nref 2)}}
-                    :__fn4     {:loc {:line (+ nref 3)}}
-                    :__fn4_1   {:loc {:line (+ nref 3)}}
-                    :__fn4_2   {:loc {:line (+ nref 3)}}
-                    ::defn_fn5 {:loc {:line (+ nref 4)}}
-                    ::fn_fn6   {:loc {:line (+ nref 7)}}
-                    :__fn7     {:loc {:line (+ nref 8)}}}})))])])
+           {:stats {::fn1     {:loc {:line    nref}}
+                    ::fn2     {:loc {:line (+ nref 1)}}
+                    :my-fn3   {:loc {:line (+ nref 2)}}
+                    :my-fn4   {:loc {:line (+ nref 3)}}
+                    :my-fn4_1 {:loc {:line (+ nref 3)}}
+                    :my-fn4_2 {:loc {:line (+ nref 3)}}
+                    ::fn5     {:loc {:line (+ nref 4)}}
+                    ::fn6     {:loc {:line (+ nref 7)}}
+                    :my-fn7   {:loc {:line (+ nref 8)}}}})))])])
 
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 
