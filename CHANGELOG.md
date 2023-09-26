@@ -70,7 +70,7 @@ See **referenced commit messages** for details.
 ```
 
 > This is a very minor maintenance release. It should be **non-breaking**.
-> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
+> See [here](https://github.com/taoensso/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
 
 ## Changes since `v2.3.0`
 
@@ -88,7 +88,7 @@ See **referenced commit messages** for details.
 ```
 
 > This is a major feature and fix release. Should be **non-breaking** for vast majority of folks.  
-> See [here](https://github.com/ptaoussanis/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
+> See [here](https://github.com/taoensso/encore#recommended-steps-after-any-significant-dependency-update) for recommended steps when updating any Clojure/Script dependencies.
 
 ## Behavioural changes since `v2.2.0`
 
