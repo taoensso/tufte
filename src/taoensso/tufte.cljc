@@ -79,7 +79,7 @@
   "*")
 
 (let [fn?         fn?
-      compile     (enc/fmemoize (fn [x] (enc/compile-str-filter x)))
+      compile     (enc/fmemoize (fn [x] (enc/name-filter x)))
       conform?*   (enc/fmemoize (fn [x ns] ((compile x) ns)))
       ;; conform? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
       conform?
@@ -235,7 +235,7 @@
    (let [f
          (if (or (nil? ns-pattern) (= ns-pattern "*"))
            handler-fn
-           (let [nsf? (enc/compile-str-filter ns-pattern)]
+           (let [nsf? (enc/name-filter ns-pattern)]
              (fn [m]
                (when (nsf? (get m :ns-str))
                  (handler-fn m)))))]
@@ -666,8 +666,8 @@
 
 ;;;; Public user utils
 
-(defn compile-ns-filter "Wraps `taoensso.encore/compile-str-filter`."
-  [ns-pattern] (enc/compile-str-filter ns-pattern))
+(defn compile-ns-filter "Wraps `taoensso.encore/name-filter`."
+  [ns-pattern] (enc/name-filter ns-pattern))
 
 (defn chance "Returns true with 0<`p`<1 probability."
   [p] (< ^double (rand) (double p)))
