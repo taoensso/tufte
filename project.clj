@@ -1,4 +1,4 @@
-(defproject com.taoensso/tufte "2.6.2"
+(defproject com.taoensso/tufte "2.6.3"
   :author "Peter Taoussanis <https://www.taoensso.com>"
   :description "Simple performance monitoring for Clojure/Script applications"
   :url "https://github.com/taoensso/tufte"
@@ -26,7 +26,7 @@
 
     :dependencies
     [[org.clojure/test.check "1.1.1"]
-     [com.taoensso/timbre    "6.3.0"]]}
+     [com.taoensso/timbre    "6.3.1"]]}
 
    :graal-tests
    {:dependencies [[org.clojure/clojure "1.11.1"]
