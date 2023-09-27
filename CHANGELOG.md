@@ -2,6 +2,16 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v2.6.2` (2023-09-27)
+
+> 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.2), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).
+
+This is a non-breaking **maintenance** release, mostly intended to synchronize dependencies with my other recent library releases.
+
+This should be a safe update for users of `v2.6.x`.
+
+---
+
 # `v2.6.1` (2023-08-18)
 
 > 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.1), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).

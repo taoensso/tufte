@@ -15,7 +15,7 @@ It provides **sensible application-level metrics**, and gives them to you as **C
 
 ## Latest release/s
 
-- `2023-08-18` `2.6.1`: [changes](../../releases/tag/v2.6.1)
+- `2023-09-27` `2.6.2`: [changes](../../releases/tag/v2.6.2)
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
