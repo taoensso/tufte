@@ -1,13 +1,15 @@
 <a href="https://www.taoensso.com/clojure" title="More stuff by @ptaoussanis at www.taoensso.com"><img src="https://www.taoensso.com/open-source.png" alt="Taoensso open source" width="340"/></a>  
-[**Documentation**](#documentation) | [Latest releases](#latest-releases) | [Get support][GitHub issues]
+[**API**][cljdoc] | [**Wiki**][GitHub wiki] | [Latest releases](#latest-releases) | [Slack channel][]
 
 # Tufte
 
-### Simple performance monitoring for Clojure/Script applications
+### Simple performance monitoring library for Clojure/Script
 
 **Tufte** allows you to **easily monitor the ongoing performance** of your Clojure and ClojureScript applications in production and other environments.
 
-It provides **sensible application-level metrics**, and gives them to you as **Clojure data** that can be easily analyzed programatically. 
+It provides **sensible application-level metrics**, and gives them to you as **Clojure data** that can be easily analyzed programatically.
+
+Works great with [Telemere](https://www.taoensso.com/telemere), enabling unique **next-gen observability** of Clojure/Script applications.
 
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
@@ -15,7 +17,7 @@ It provides **sensible application-level metrics**, and gives them to you as **C
 
 ## Latest release/s
 
-- `2023-09-27` `2.6.3`: [changes](../../releases/tag/v2.6.3)
+- `2023-09-27` `2.6.3`: [release info](../../releases/tag/v2.6.3)
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
@@ -32,7 +34,7 @@ See [here][GitHub releases] for earlier releases.
 - Arbitrary Clojure/Script **form-level** profiling
 - Full support for **thread-local** and **multi-threaded** profiling
 
-## 10-second example
+## Quick example
 
 ```clojure
 (require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])
@@ -64,8 +66,9 @@ See [here][GitHub releases] for earlier releases.
 
 ## Documentation
 
-- [Full documentation][GitHub wiki] (**getting started** and more)
-- Auto-generated API reference: [Codox][Codox docs], [clj-doc][clj-doc docs]
+- [Wiki][GitHub wiki] (getting started, usage, etc.)
+- API reference via [cljdoc][cljdoc]
+- Support via [Slack channel][] or [GitHub issues][]
 
 ## Funding
 
@@ -73,7 +76,7 @@ You can [help support][sponsor] continued work on this project, thank you!! 🙏
 
 ## License
 
-Copyright &copy; 2016-2023 [Peter Taoussanis][].  
+Copyright &copy; 2016-2025 [Peter Taoussanis][].  
 Licensed under [EPL 1.0](LICENSE.txt) (same as Clojure).
 
 <!-- Common -->
@@ -81,14 +84,14 @@ Licensed under [EPL 1.0](LICENSE.txt) (same as Clojure).
 [GitHub releases]: ../../releases
 [GitHub issues]:   ../../issues
 [GitHub wiki]:     ../../wiki
+[Slack channel]: https://www.taoensso.com/tufte/slack
 
 [Peter Taoussanis]: https://www.taoensso.com
 [sponsor]:          https://www.taoensso.com/sponsor
 
 <!-- Project -->
 
-[Codox docs]:   https://taoensso.github.io/tufte/
-[clj-doc docs]: https://cljdoc.org/d/com.taoensso/tufte/
+[cljdoc]: https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte
 
 [Clojars SVG]: https://img.shields.io/clojars/v/com.taoensso/tufte.svg
 [Clojars URL]: https://clojars.org/com.taoensso/tufte
