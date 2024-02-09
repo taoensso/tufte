@@ -3,7 +3,7 @@
 
 # Tufte
 
-### Simple performance monitoring for Clojure/Script applications
+### Simple performance monitoring library for Clojure/Script
 
 **Tufte** allows you to **easily monitor the ongoing performance** of your Clojure and ClojureScript applications in production and other environments.
 
@@ -15,7 +15,7 @@ It provides **sensible application-level metrics**, and gives them to you as **C
 
 ## Latest release/s
 
-- `2023-09-27` `2.6.3`: [changes](../../releases/tag/v2.6.3)
+- `2023-09-27` `2.6.3`: [release info](../../releases/tag/v2.6.3)
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
@@ -64,8 +64,8 @@ See [here][GitHub releases] for earlier releases.
 
 ## Documentation
 
-- [Full documentation][GitHub wiki] (**getting started** and more)
-- Auto-generated API reference: [Codox][Codox docs], [clj-doc][clj-doc docs]
+- [Wiki][GitHub wiki] (getting started, usage, etc.)
+- API reference: [Codox][Codox docs], [clj-doc][clj-doc docs]
 
 ## Funding
 
@@ -73,7 +73,7 @@ You can [help support][sponsor] continued work on this project, thank you!! 🙏
 
 ## License
 
-Copyright &copy; 2016-2023 [Peter Taoussanis][].  
+Copyright &copy; 2016-2024 [Peter Taoussanis][].  
 Licensed under [EPL 1.0](LICENSE.txt) (same as Clojure).
 
 <!-- Common -->
