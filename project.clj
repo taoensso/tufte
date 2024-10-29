@@ -10,13 +10,13 @@
   :test-paths ["test" #_"src"]
 
   :dependencies
-  [[com.taoensso/encore "3.68.0"]]
+  [[com.taoensso/encore "3.128.0"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
-   :provided {:dependencies [[org.clojure/clojurescript "1.11.121"]
+   :provided {:dependencies [[org.clojure/clojurescript "1.11.132"]
                              [org.clojure/clojure       "1.11.1"]]}
-   :c1.12    {:dependencies [[org.clojure/clojure       "1.12.0-alpha9"]]}
+   :c1.12    {:dependencies [[org.clojure/clojure       "1.12.0"]]}
    :c1.11    {:dependencies [[org.clojure/clojure       "1.11.1"]]}
    :c1.10    {:dependencies [[org.clojure/clojure       "1.10.1"]]}
    :c1.9     {:dependencies [[org.clojure/clojure       "1.9.0"]]}
@@ -39,13 +39,14 @@
 
     :dependencies
     [[org.clojure/test.check "1.1.1"]
-     [com.taoensso/timbre    "6.3.1"]]
+     [com.taoensso/telemere  "1.0.0-RC1"]
+     [com.taoensso/timbre    "6.6.1"]]
 
     :plugins
     [[lein-pprint    "1.3.2"]
      [lein-ancient   "0.7.0"]
      [lein-cljsbuild "1.1.8"]
-     [com.taoensso.forks/lein-codox "0.10.10"]]
+     [com.taoensso.forks/lein-codox "0.10.11"]]
 
     :codox
     {:language #{:clojure :clojurescript}
