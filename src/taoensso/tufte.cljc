@@ -45,6 +45,7 @@
   (:api (enc/interns-overview)))
 
 ;; TODO
+;; - sigs/signal-debug
 ;; - Review encore/sigs integration, incl. terminology
 ;; - Review docstrings (incl. default levels)
 ;; - Update tests
