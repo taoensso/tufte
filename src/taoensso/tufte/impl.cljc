@@ -56,7 +56,7 @@
 
   Object
   (toString [x]
-    (enc/str-impl "taoensso.tufte.PStats" x
+    (enc/str-impl x "taoensso.tufte.PStats"
       {:realized? (realized? realized_)})))
 
 (enc/def-print-impl [x PStats] (str "#" x))
