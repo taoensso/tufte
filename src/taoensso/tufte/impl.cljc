@@ -21,7 +21,8 @@
 
   (:require
    [clojure.string  :as str]
-   [taoensso.encore :as enc :refer-macros []]
+   [taoensso.truss  :as truss]
+   [taoensso.encore :as enc]
    [taoensso.tufte.stats :as stats])
 
   #?(:clj
@@ -428,9 +429,10 @@
 (defn- handle-blocking! [m]
   (enc/run-kv!
     (fn [id f]
-      (enc/catching (f m) e
-        (enc/catching ; Esp. nb for Cljs
-          (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e)))))
+      (truss/try* (f m)
+        (catch :default e
+          (truss/catching ; Esp. nb for Cljs
+            (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e))))))
     @handlers_))
 
 #?(:clj  (declare ^:private handler-thread_))

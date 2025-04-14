@@ -3,7 +3,8 @@
   Private ns, implementation detail."
   (:require
    [clojure.string  :as str]
-   [taoensso.encore :as enc  :refer [have have? have!]]
+   [taoensso.truss  :as truss]
+   [taoensso.encore :as enc]
    #?(:cljs [goog.array]))
 
   #?(:clj (:import [java.util LinkedList])))
@@ -563,10 +564,11 @@
 ;;;; Print methods
 
 #?(:clj
-   (enc/deftype-print-methods
-     SortedLongs SortedDoubles
-     SummaryStats
-     SummaryStatsBuffered))
+   (do
+     (enc/def-print-impl [x SortedLongs]          (str "#" x))
+     (enc/def-print-impl [x SortedDoubles]        (str "#" x))
+     (enc/def-print-impl [x SummaryStats]         (str "#" x))
+     (enc/def-print-impl [x SummaryStatsBuffered] (str "#" x))))
 
 ;;;; Formatting
 
@@ -593,8 +595,8 @@
       
       (when-let [n-dec-part (and (pos? (long precision)) (- n-abs n-int-part))]
         (str (get fmt-opts :decimal-separator)
-          (enc/get-substr-by-len (str n-dec-part "000000")
-            2 precision))))))
+          (enc/substr (str n-dec-part "000000")
+            :by-len 2 precision))))))
 
 (comment
   (fmt-num 0 123123123.5555) ; "123,123,124"
@@ -619,7 +621,7 @@
 
 (let [migrate        {:n-calls :n, :total :sum} ; For back-compatibility
       format-column? (set all-format-columns)
-      format-column  (fn [column] (have format-column? (get migrate column column)))]
+      format-column  (fn [column] (truss/have format-column? (get migrate column column)))]
 
   (defn- format-columns [columns]
     (enc/cond

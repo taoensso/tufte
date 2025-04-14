@@ -535,18 +535,10 @@
              (remove empty?)
              (take 2))))))])
 
-(deftest format-id-abbr-test
-  (testing "Format id abbr test"
-    [(is (= "foo"               ((tufte/format-id-abbr)   :foo)))
-     (is (= "e.hello/foo"       ((tufte/format-id-abbr)   :example.hello/defn_foo)))
-     (is (= "e.hello/foo"       ((tufte/format-id-abbr 1) :example.hello/defn_foo)))
-     (is (= "e.h.world/foo"     ((tufte/format-id-abbr 1) :example.hello.world/defn_foo)))
-     (is (= "e.hello.world/foo" ((tufte/format-id-abbr 2) :example.hello.world/defn_foo)))]))
-
 ;;;; Util macros
 
 (do
-  (tufte/defnp                      fn1  [x] x) ; Line 549
+  (tufte/defnp                      fn1  [x] x) ; Line 541
   (tufte/defnp                      fn2  [x] x)
   (tufte/defnp ^{:tufte/id :__fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "__fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -586,19 +578,20 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo) (p :bar) ; Line 589
+           (p :foo) (p :bar) ; Line 581
            (p :baz
              (p :qux)))]
 
      [(is (enc/submap? @ps
-            {:stats {:foo {:loc {:line 589}}
-                     :bar {:loc {:line 589}}
-                     :baz {:loc {:line 590}}
-                     :qux {:loc {:line 591}}}}))])
+            (let [nref 581]
+              {:stats {:foo {:loc {:line nref}}
+                       :bar {:loc {:line nref}}
+                       :baz {:loc {:line (+ nref 1)}}
+                       :qux {:loc {:line (+ nref 2)}}}})))])
 
    (let [[r ps]
          (profiled {}
-           (p          :foo) ; Line 601
+           (p          :foo) ; Line 594
            (p          :foo)
            (p          :foo)
            (tufte/pspy :foo))
@@ -606,21 +599,22 @@
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) #{601 602 603 604}))
+      (is (= (into #{} (map :line) loc) (let [nref 594] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
       (is (enc/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (enc/submap? @ps
-          {:stats {::defn_fn1 {:loc {:line 549}}
-                   ::defn_fn2 {:loc {:line 550}}
-                   :__fn3     {:loc {:line 551}}
-                   :__fn4     {:loc {:line 552}}
-                   :__fn4_1   {:loc {:line 552}}
-                   :__fn4_2   {:loc {:line 552}}
-                   ::defn_fn5 {:loc {:line 553}}
-                   ::fn_fn6   {:loc {:line 556}}
-                   :__fn7     {:loc {:line 557}}}}))])])
+          (let [nref 541]
+            {:stats {::defn_fn1 {:loc {:line    nref}}
+                     ::defn_fn2 {:loc {:line (+ nref 1)}}
+                     :__fn3     {:loc {:line (+ nref 2)}}
+                     :__fn4     {:loc {:line (+ nref 3)}}
+                     :__fn4_1   {:loc {:line (+ nref 3)}}
+                     :__fn4_2   {:loc {:line (+ nref 3)}}
+                     ::defn_fn5 {:loc {:line (+ nref 4)}}
+                     ::fn_fn6   {:loc {:line (+ nref 7)}}
+                     :__fn7     {:loc {:line (+ nref 8)}}}})))])])
 
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 

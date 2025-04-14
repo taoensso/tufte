@@ -33,13 +33,12 @@
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
   (:require
-   [taoensso.encore      :as enc :refer [have have?]]
+   [taoensso.truss       :as truss]
+   [taoensso.encore      :as enc]
    [taoensso.tufte.stats :as stats]
+   [taoensso.tufte.impl  :as impl #?@(:cljs [:refer [PStats]])])
 
-   #?(:clj  [taoensso.tufte.impl  :as impl]
-      :cljs [taoensso.tufte.impl  :as impl :refer [PStats]]))
-
-  #?(:clj (:import [taoensso.tufte.impl PStats]))
+  #?(:clj  (:import         [taoensso.tufte.impl PStats]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
 (comment (remove-ns 'taoensso.tufte))
@@ -56,8 +55,8 @@
 (def ^:private ^:const invalid-call-level-msg        "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
 (def ^:private ^:const invalid-min-level-msg "Invalid minimum Tufte profiling level: should be int e/o #{0 1 2 3 4 5 6}")
 
-(defn- valid-call-level [x] (or (#{0 1 2 3 4 5}   x) (throw (ex-info invalid-call-level-msg {:given x :type (type x)}))))
-(defn- valid-min-level  [x] (or (#{0 1 2 3 4 5 6} x) (throw (ex-info invalid-min-level-msg  {:given x :type (type x)}))))
+(defn- valid-call-level [x] (or (#{0 1 2 3 4 5}   x) (truss/ex-info! invalid-call-level-msg {:given x :type (type x)})))
+(defn- valid-min-level  [x] (or (#{0 1 2 3 4 5 6} x) (truss/ex-info! invalid-min-level-msg  {:given x :type (type x)})))
 (comment (enc/qb 1e5 (valid-call-level 4))) ; 7.82
 
 (def ^:dynamic *min-level*
@@ -152,13 +151,13 @@
 
 #?(:clj
    (def ^:private compile-time-min-level
-     (when-let [level (enc/read-sys-val* [:taoensso.tufte.min-level.edn :taoensso.tufte.min-level :tufte.min-level])]
+     (when-let [level (enc/get-env {:as :edn, :spec [:taoensso.tufte.min-level.edn :taoensso.tufte.min-level :tufte.min-level]})]
        (valid-min-level level)
        (do              level))))
 
 #?(:clj
    (def ^:private compile-time-ns-filter
-     (let [ns-pattern (enc/read-sys-val* [:taoensso.tufte.ns-pattern.edn :taoensso.tufte.ns-pattern :tufte.ns-pattern])]
+     (let [ns-pattern (enc/get-env {:as :edn, :spec [:taoensso.tufte.ns-pattern.edn :taoensso.tufte.ns-pattern :tufte.ns-pattern]})]
        (or ns-pattern "*"))))
 
 #?(:clj
@@ -244,43 +243,17 @@
           (when ?data (str "\ndata: " ?data))
           "\n" (format-pstats pstats format-pstats-opts))))))
 
-(defn format-id-abbr
-  "Returns a cached (fn [id]) => abbreviated id string.
-  Takes `n` (default 1), the number of namespace parts to keep unabbreviated.
+(defn format-id-abbr-fn
+  "Returns a cached (fn [id]) => abbreviated id with at most `n-full`
+  unabbreviated namespace parts.
 
-  Examples:
-    ((format-id-abbr)   :foo)                     => \"foo\"
-    ((format-id-abbr)   :example.hello/foo)       => \"e.hello/foo\"
-    ((format-id-abbr 1) :example.hello/foo)       => \"e.hello/foo\"
-    ((format-id-abbr 1) :example.hello.world/foo) => \"e.h.world/foo\"
-    ((format-id-abbr 2) :example.hello.world/foo) => \"e.hello.world/foo\"
-    ((format-id-abbr 0) :example.hello.world/foo) => \"e.h.w/foo\""
+  Example:
+    ((format-id-abbr 0)  :foo.bar/baz)   => :f.b/baz
+    ((format-id-abbr 1)  'foo.bar/baz)   => 'f.bar/baz
+    ((format-id-abbr 2) \"foo.bar/baz\") => \"foo.bar/baz\""
 
-  ([ ] (format-id-abbr 1))
-  ([n]
-   (let [n (long (enc/have enc/int? n))]
-     (enc/fmemoize
-       (fn [id]
-         (let [kw (if (keyword? id) id (keyword (enc/have string? id)))
-               ns-parts (pop (enc/explode-keyword kw))
-               cnt      (count ns-parts)
-               sb
-               (enc/reduce-indexed
-                 (fn [sb ^long idx in]
-                   (when-not (zero? idx) (enc/sb-append sb "."))
-                   (if (<= (- cnt idx) n)
-                     (enc/sb-append sb                        in)
-                     (enc/sb-append sb (enc/get-substr-by-idx in 0 1))))
-                 (enc/str-builder)
-                 ns-parts)]
-
-           (when (pos? cnt) (enc/sb-append sb "/"))
-           (do              (enc/sb-append sb (enc/str-replace (name kw) #"^defn_" "")))
-           (str sb)))))))
-
-(comment
-  ((format-id-abbr 1) :foo.bar/baz)
-  ((format-id-abbr 1) "foo.bar/baz"))
+  ([      ] (format-id-abbr-fn 1))
+  ([n-full] (enc/fmemoize (partial enc/abbreviate-ns n-full))))
 
 ;;;; Some low-level primitives
 
@@ -384,8 +357,8 @@
 ;;;; Core macros
 
 (defn- valid-compile-time-opts [dynamic? nmax]
-  (when-not (contains? #{false true} dynamic?) (throw (ex-info "[profile/d] `:dynamic?` opt must be compile-time bool value" {:value dynamic?})))
-  (when-not (integer? nmax)                    (throw (ex-info "[profile/d] `:nmax` opt must be compile-time integer value"  {:value nmax}))))
+  (when-not (contains? #{false true} dynamic?) (truss/ex-info! "[profile/d] `:dynamic?` opt must be compile-time bool value" {:value dynamic?}))
+  (when-not (integer? nmax)                    (truss/ex-info! "[profile/d] `:nmax` opt must be compile-time integer value"  {:value nmax})))
 
 (comment (valid-compile-time-opts 'sym 'sym))
 
@@ -462,10 +435,9 @@
      (let [ns-str (str *ns*)]
 
        (when-not (map? opts)
-         (throw
-           (ex-info "`tufte/profiled` requires a compile-time map as first arg."
-             {:ns-str ns-str :line (:line (meta &form))
-              :form (cons 'profiled (cons opts body))})))
+         (truss/ex-info! "`tufte/profiled` requires a compile-time map as first arg."
+           {:ns-str ns-str :line (:line (meta &form))
+            :form (cons 'profiled (cons opts body))}))
 
        (let [level-form (get opts :level    5)
              dynamic?   (get opts :dynamic? false)
@@ -567,10 +539,9 @@
      (let [ns-str (str *ns*)]
 
        (when-not (map? opts)
-         (throw
-           (ex-info "`tufte/profile` requires a compile-time map as first arg."
-             {:ns-str ns-str :line (:line (meta &form))
-              :form (cons 'profile (cons opts body))})))
+         (truss/ex-info! "`tufte/profile` requires a compile-time map as first arg."
+           {:ns-str ns-str :line (:line (meta &form))
+            :form (cons 'profile (cons opts body))}))
 
        (let [level-form (get opts :level 5)
              id-form    (get opts :id)
@@ -615,11 +586,10 @@
        (when level (valid-call-level level))
 
        (when (nil? id-form)
-         (throw
-           (ex-info "`tufte/p` requires an id."
-             {:loc  loc
-              :opts opts
-              :form (cons 'p (cons s1 body))})))
+         (truss/ex-info! "`tufte/p` requires an id."
+           {:loc  loc
+            :opts opts
+            :form (cons 'p (cons s1 body))}))
 
        (if (-elide? level ns-str)
          `(do ~@body)
@@ -638,7 +608,7 @@
 
               (do ~@body)))))))
 
-#?(:clj (defmacro pspy "`p` alias" [& args] (enc/keep-callsite `(p ~@args))))
+#?(:clj (defmacro pspy "`p` alias" [& args] (truss/keep-callsite `(p ~@args))))
 
 (comment
   (p :p1 "body")
