@@ -624,7 +624,24 @@
 
 (enc/defaliases
   enc/chance
-  impl/merge-pstats)
+  impl/merge-pstats
+  impl/format-pstats
+  impl/format-grouped-pstats)
+
+(comment
+  (let [[_ ps1] (profiled {} (p :p1))
+        [_ ps2] (profiled {} (p :p1))]
+    (enc/qb 1e5 (merge-pstats ps1 ps2))) ; 74.38
+
+  (println
+    (str "\n"
+      (format-pstats
+        (second
+          (profiled {}
+            (p :foo (Thread/sleep 200))
+            (p :bar (Thread/sleep 500))
+            (do     (Thread/sleep 800))))
+        {:columns [:clock :p50 :p95]}))))
 
 (defn format-id-abbr-fn
   "Returns a cached (fn [id]) => abbreviated id with at most `n-full`
@@ -647,28 +664,6 @@
      [] `(require '~'[taoensso.tufte :as tufte :refer [defnp p profiled profile]])))
 
 (comment (refer-tufte))
-
-(defn format-pstats
-  "Formats given pstats to a string table.
-    Accounted < Clock => Some work was done that wasn't tracked by any p forms.
-    Accounted > Clock => Nested p forms, and/or parallel threads."
-  ([ps     ] (format-pstats ps nil))
-  ([ps opts]
-   (when ps
-     (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (impl/format-pstats (get clock :total) stats opts)))))
-
-(comment
-  ;; [:n :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum]
-  (println
-    (str "\n"
-      (format-pstats
-        (second
-          (profiled {}
-            (p :foo (Thread/sleep 200))
-            (p :bar (Thread/sleep 500))
-            (do     (Thread/sleep 800))))
-        {:columns [:clock :p50 :p95]}))))
 
 ;;;; fnp stuff
 
@@ -863,53 +858,15 @@
 
 (comment
   (def my-sacc (add-accumulating-handler! {:ns-pattern "*"}))
-  (future (profile {}         (p :p1 (Thread/sleep 900))))
-  (future (profile {:id :foo} (p :p1 (Thread/sleep 900))))
-  (future (profile {:id :bar} (p :p1 (Thread/sleep 500))))
-  (println (format-grouped-pstats @my-sacc {}
-             #_{:format-pstats-opts {:columns [:n]}})))
 
-(defn format-grouped-pstats
-  "Alpha, subject to change.
-  Takes a map of {<group-id> <PStats>} and formats a combined
-  output string using `format-pstats`.
+  (do
+    (future (profile {}         (p :p1 (Thread/sleep 900))))
+    (future (profile {:id :foo} (p :p1 (Thread/sleep 900))))
+    (future (profile {:id :bar} (p :p1 (Thread/sleep 500)))))
 
-  See also example clj project."
-  ([m] (format-grouped-pstats m nil))
-  ([m {:keys [group-sort-fn format-pstats-opts]
-       :or   {group-sort-fn (fn [m] (get-in m [:clock :total] 0))}}]
-
-   (when m
-     (let [m ; {<group-id> <realised-pstats>}
-           (persistent!
-             (reduce-kv
-               (fn [m k v] (assoc! m k (enc/force-ref v)))
-               (transient m)
-               m))
-
-           sorted-group-ids
-           (sort-by (fn [id] (group-sort-fn (get m id)))
-             enc/rcompare (keys m))
-
-           ^long max-id-width
-           (reduce-kv
-             (fn [^long acc _ {:keys [clock stats]}]
-               (if-let [c (impl/get-max-id-width stats format-pstats-opts)]
-                 (if (> (long c) acc) c acc)
-                 acc))
-             0
-             m)]
-
-       (enc/str-join "\n\n"
-         (map (fn [id] (str id ",\n" (format-pstats (get m id) (assoc format-pstats-opts :max-id-width max-id-width)))))
-         sorted-group-ids)))))
-
-(comment
-  (future
-    (while true
-      (when-let [m (not-empty @my-sacc)]
-        (println (format-grouped-pstats m)))
-      (Thread/sleep 10000))))
+  (println
+    (format-grouped-pstats @my-sacc
+      {:format-pstats-opts {:columns [:n]}})))
 
 ;;;; Deprecated
 
