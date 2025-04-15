@@ -176,85 +176,6 @@
            (not (string? ns-str-form)) ; Not a compile-time ns-str const
            (may-profile-ns? compile-time-ns-filter ns-str-form))))))
 
-;;;; Output handlers
-;; Handlers are used for `profile` output, let us nicely decouple stat
-;; creation and consumption.
-
-(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line])
-
-(def         handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
-(defn remove-handler! [handler-id] (set (keys (swap! handlers_ dissoc handler-id))))
-(defn    add-handler!
-  "Use this to register interest in stats output produced by `profile` calls.
-  Each registered `handler-fn` will be called as:
-
-    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :pstats _ :pstats-str_ _})
-
-  Map args:
-    :ns-str      - Namespace string where `profile` call took place
-    :level       - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
-    :?id         - Optional group id,        given in `(profile {:id    _} ...)`
-    :?data       - Optional arb data,        given in `(profile {:data  _} ...)`
-    :pstats      - As in `(second (profiled ...))`. Derefable, mergeable.
-    :pstats-str_ - `(delay (format-pstats pstats))
-
-  Error handling (NB):
-    Handler errors will be silently swallowed. Please `try`/`catch` and
-    appropriately deal with (e.g. log) possible errors *within* `handler-fn`.
-
-  Async/blocking:
-    `handler-fn` should ideally be non-blocking, or reasonably cheap. Handler
-     dispatch occurs through a 1-thread 1k-buffer dropping queue.
-
-  Ns filtering:
-    Provide an optional `ns-pattern` arg to only call handler for matching
-    namespaces. See `*ns-filter*` for example patterns.
-
-  Handler ideas:
-    Save to a db, log, `put!` to an appropriate `core.async` channel, filter,
-    aggregate, use for a realtime analytics dashboard, examine for outliers
-    or unexpected output, ..."
-
-  ([handler-id handler-fn] (add-handler! handler-id nil handler-fn))
-  ([handler-id ns-pattern handler-fn]
-   (let [f
-         (if (or (nil? ns-pattern) (= ns-pattern "*"))
-           handler-fn
-           (let [nsf? (enc/name-filter ns-pattern)]
-             (fn [m]
-               (when (nsf? (get m :ns-str))
-                 (handler-fn m)))))]
-
-     (set (keys (swap! handlers_ assoc handler-id f))))))
-
-(declare format-pstats)
-
-(defn add-basic-println-handler!
-  "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern handler-id format-pstats-opts]
-    :or   {ns-pattern "*"
-           handler-id :basic-println}}]
-
-  (add-handler! handler-id ns-pattern
-    (fn [{:keys [?id ?data pstats]}]
-      (println
-        (str
-          (when ?id   (str "\nid: "   ?id))
-          (when ?data (str "\ndata: " ?data))
-          "\n" (format-pstats pstats format-pstats-opts))))))
-
-(defn format-id-abbr-fn
-  "Returns a cached (fn [id]) => abbreviated id with at most `n-full`
-  unabbreviated namespace parts.
-
-  Example:
-    ((format-id-abbr 0)  :foo.bar/baz)   => :f.b/baz
-    ((format-id-abbr 1)  'foo.bar/baz)   => 'f.bar/baz
-    ((format-id-abbr 2) \"foo.bar/baz\") => \"foo.bar/baz\""
-
-  ([      ] (format-id-abbr-fn 1))
-  ([n-full] (enc/fmemoize (partial enc/abbreviate-ns n-full))))
-
 ;;;; Some low-level primitives
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
@@ -619,6 +540,85 @@
   (enc/time-ms (profiled {} 2 (enc/qb 1e6 (p :p1)))) ; 3296
   (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
   (profiled {} (p :foo (p :bar))))
+
+;;;; Output handlers
+;; Handlers are used for `profile` output, let us nicely decouple stat
+;; creation and consumption.
+
+(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line])
+
+(def         handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
+(defn remove-handler! [handler-id] (set (keys (swap! handlers_ dissoc handler-id))))
+(defn    add-handler!
+  "Use this to register interest in stats output produced by `profile` calls.
+  Each registered `handler-fn` will be called as:
+
+    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :pstats _ :pstats-str_ _})
+
+  Map args:
+    :ns-str      - Namespace string where `profile` call took place
+    :level       - Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
+    :?id         - Optional group id,        given in `(profile {:id    _} ...)`
+    :?data       - Optional arb data,        given in `(profile {:data  _} ...)`
+    :pstats      - As in `(second (profiled ...))`. Derefable, mergeable.
+    :pstats-str_ - `(delay (format-pstats pstats))
+
+  Error handling (NB):
+    Handler errors will be silently swallowed. Please `try`/`catch` and
+    appropriately deal with (e.g. log) possible errors *within* `handler-fn`.
+
+  Async/blocking:
+    `handler-fn` should ideally be non-blocking, or reasonably cheap. Handler
+     dispatch occurs through a 1-thread 1k-buffer dropping queue.
+
+  Ns filtering:
+    Provide an optional `ns-pattern` arg to only call handler for matching
+    namespaces. See `*ns-filter*` for example patterns.
+
+  Handler ideas:
+    Save to a db, log, `put!` to an appropriate `core.async` channel, filter,
+    aggregate, use for a realtime analytics dashboard, examine for outliers
+    or unexpected output, ..."
+
+  ([handler-id handler-fn] (add-handler! handler-id nil handler-fn))
+  ([handler-id ns-pattern handler-fn]
+   (let [f
+         (if (or (nil? ns-pattern) (= ns-pattern "*"))
+           handler-fn
+           (let [nsf? (enc/name-filter ns-pattern)]
+             (fn [m]
+               (when (nsf? (get m :ns-str))
+                 (handler-fn m)))))]
+
+     (set (keys (swap! handlers_ assoc handler-id f))))))
+
+(declare format-pstats)
+
+(defn add-basic-println-handler!
+  "Adds a simple handler that logs `profile` stats output with `println`."
+  [{:keys [ns-pattern handler-id format-pstats-opts]
+    :or   {ns-pattern "*"
+           handler-id :basic-println}}]
+
+  (add-handler! handler-id ns-pattern
+    (fn [{:keys [?id ?data pstats]}]
+      (println
+        (str
+          (when ?id   (str "\nid: "   ?id))
+          (when ?data (str "\ndata: " ?data))
+          "\n" (format-pstats pstats format-pstats-opts))))))
+
+(defn format-id-abbr-fn
+  "Returns a cached (fn [id]) => abbreviated id with at most `n-full`
+  unabbreviated namespace parts.
+
+  Example:
+    ((format-id-abbr 0)  :foo.bar/baz)   => :f.b/baz
+    ((format-id-abbr 1)  'foo.bar/baz)   => 'f.bar/baz
+    ((format-id-abbr 2) \"foo.bar/baz\") => \"foo.bar/baz\""
+
+  ([      ] (format-id-abbr-fn 1))
+  ([n-full] (enc/fmemoize (partial enc/abbreviate-ns n-full))))
 
 ;;;; Public user utils
 
