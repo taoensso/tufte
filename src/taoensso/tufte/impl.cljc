@@ -416,41 +416,6 @@
     (enc/qb 1e6 (capture-time! (pdata-local-get) :foo 1 nil))
     (finally (pdata-local-pop)))) ; 98.35
 
-;;;; Output handlers
-
-(enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
-
-#?(:clj
-   (enc/defonce ^:private ^ArrayBlockingQueue handler-queue
-     "While user handlers should ideally be non-blocking, we'll use a queue
-     here to be safe + make sure we never tie up the execution thread."
-     (ArrayBlockingQueue. 1024)))
-
-(defn- handle-blocking! [m]
-  (enc/run-kv!
-    (fn [id f]
-      (truss/try* (f m)
-        (catch :default e
-          (truss/catching ; Esp. nb for Cljs
-            (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e))))))
-    @handlers_))
-
-#?(:clj  (declare ^:private handler-thread_))
-#?(:cljs (defn handle! [m] (handle-blocking! m) nil))
-#?(:clj  (defn handle! [m] (.offer handler-queue m) @handler-thread_ nil))
-#?(:clj
-   (defonce ^:private handler-thread_
-     (delay
-       (let [f (fn []
-                 (loop []
-                   (let [m (.take handler-queue)]
-                     ;; Note: just drop if no registered handlers
-                     (handle-blocking! m)
-                     (recur))))]
-         (doto (Thread. f)
-           (.setDaemon true)
-           (.start))))))
-
 ;;;; Formatting
 
 (defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
@@ -647,3 +612,38 @@
        :bar (summary-stats (rand-vs 1e2 50))
        :baz (summary-stats (rand-vs 1e5 30))}
       {}) "\n"))
+
+;;;; Output handlers
+
+(enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
+
+#?(:clj
+   (enc/defonce ^:private ^ArrayBlockingQueue handler-queue
+     "While user handlers should ideally be non-blocking, we'll use a queue
+     here to be safe + make sure we never tie up the execution thread."
+     (ArrayBlockingQueue. 1024)))
+
+(defn- handle-blocking! [m]
+  (enc/run-kv!
+    (fn [id f]
+      (truss/try* (f m)
+        (catch :default e
+          (truss/catching ; Esp. nb for Cljs
+            (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e))))))
+    @handlers_))
+
+#?(:clj  (declare ^:private handler-thread_))
+#?(:cljs (defn handle! [m] (handle-blocking! m) nil))
+#?(:clj  (defn handle! [m] (.offer handler-queue m) @handler-thread_ nil))
+#?(:clj
+   (defonce ^:private handler-thread_
+     (delay
+       (let [f (fn []
+                 (loop []
+                   (let [m (.take handler-queue)]
+                     ;; Note: just drop if no registered handlers
+                     (handle-blocking! m)
+                     (recur))))]
+         (doto (Thread. f)
+           (.setDaemon true)
+           (.start))))))
