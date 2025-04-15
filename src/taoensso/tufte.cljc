@@ -33,10 +33,10 @@
   {:author "Peter Taoussanis (@ptaoussanis)"}
 
   (:require
-   [taoensso.truss       :as truss]
-   [taoensso.encore      :as enc]
-   [taoensso.tufte.stats :as stats]
-   [taoensso.tufte.impl  :as impl #?@(:cljs [:refer [PStats]])])
+   [taoensso.truss        :as truss]
+   [taoensso.encore       :as enc]
+   [taoensso.encore.stats :as stats]
+   [taoensso.tufte.impl   :as impl #?@(:cljs [:refer [PStats]])])
 
   #?(:clj  (:import         [taoensso.tufte.impl PStats]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
@@ -654,7 +654,7 @@
   ([ps opts]
    (when ps
      (let [{:keys [clock stats]} (if (instance? PStats ps) @ps ps)]
-       (stats/format-pstats (get clock :total) stats opts)))))
+       (impl/format-pstats (get clock :total) stats opts)))))
 
 (comment
   ;; [:n :min :p25 :p50 :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum]
@@ -874,7 +874,7 @@
            ^long max-id-width
            (reduce-kv
              (fn [^long acc _ {:keys [clock stats]}]
-               (if-let [c (stats/get-max-id-width stats format-pstats-opts)]
+               (if-let [c (impl/get-max-id-width stats format-pstats-opts)]
                  (if (> (long c) acc) c acc)
                  acc))
              0

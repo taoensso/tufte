@@ -23,7 +23,7 @@
    [clojure.string  :as str]
    [taoensso.truss  :as truss]
    [taoensso.encore :as enc]
-   [taoensso.tufte.stats :as stats])
+   [taoensso.encore.stats :as stats])
 
   #?(:clj
      (:import [java.util LinkedList Stack]
@@ -450,3 +450,200 @@
          (doto (Thread. f)
            (.setDaemon true)
            (.start))))))
+
+;;;; Formatting
+
+(defn- perc [n d] (str (Math/round (* (/ (double n) (double d)) 100.0)) "%"))
+(comment [(perc 1 1) (perc 1 100) (perc 12 44)])
+
+(def ^:dynamic *fmt-opts* {:decimal-separator ".", :thousands-separator ","})
+(defn- fmt-num [precision n]
+  ;; Impln is inefficient but sufficient, and consistent between clj/s
+  (let [n (enc/roundn precision n)
+        neg?       (neg?     n)
+        n-abs      (Math/abs n)
+        n-int-part (long n-abs)
+        fmt-opts   *fmt-opts*]
+    (str
+      (when neg? "-")
+      (->>
+        (str n-int-part)
+        (reverse)
+        (partition 3 3 "")
+        (mapv str/join)
+        (str/join (get fmt-opts :thousands-separator))
+        (str/reverse))
+
+      (when-let [n-dec-part (and (pos? (long precision)) (- n-abs n-int-part))]
+        (str (get fmt-opts :decimal-separator)
+          (enc/substr (str n-dec-part "000000")
+            :by-len 2 precision))))))
+
+(comment
+  (fmt-num 0 123123123.5555) ; "123,123,124"
+  (fmt-num 2 123123123.5555) ; "123,123,123.56"
+  (fmt-num 2 123123123)      ; "123,123,123.00"
+  (fmt-num 3 123)            ; "123"
+  )
+
+(defn- fmt-nsecs  [nanosecs]
+  (let [ns (double nanosecs)]
+    (cond
+      (>= ns 6e10) (str (fmt-num 2 (/ ns 6e10)) "m")
+      (>= ns 1e9)  (str (fmt-num 2 (/ ns 1e9))  "s")
+      (>= ns 1e6)  (str (fmt-num 0 (/ ns 1e6))  "ms")
+      (>= ns 1e3)  (str (fmt-num 0 (/ ns 1e3))  "μs")
+      :else        (str (fmt-num 0    ns)       "ns"))))
+
+(comment (fmt-nsecs 1e3))
+
+(def     all-format-columns [:n :min   :p25 :p50   :p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
+(def default-format-columns [:n :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :sum])
+
+(let [migrate        {:n-calls :n, :total :sum} ; For back-compatibility
+      format-column? (set all-format-columns)
+      format-column  (fn [column] (truss/have format-column? (get migrate column column)))]
+
+  (defn- format-columns [columns]
+    (enc/cond
+      (identical? columns default-format-columns) default-format-columns
+      (identical? columns     all-format-columns)     all-format-columns
+      :else (mapv format-column columns))))
+
+(comment (enc/qb 1e6 (format-columns [:min :n-calls :total])))
+
+(def default-format-id-fn (fn [id] (str id)))
+
+;; id-sstats* => {<id> <sstats>} or {<id> <sstats-map>}
+
+(defn get-max-id-width
+  [id-sstats*
+   {:keys [format-id-fn]
+    :or   {format-id-fn default-format-id-fn}}]
+
+  (when id-sstats*
+    (reduce-kv
+      (fn [^long acc id _sstats*]
+        (let [c (count (format-id-fn id))]
+          (if (> c acc) c acc)))
+      9 ; (count "Accounted")
+      id-sstats*)))
+
+(defn format-pstats
+  "Given {<id> <sstats>} or {<id> <sstats-map>} pstats, returns a formatted
+  table string. Assumes nanosecond clock, and stats based on profiling id'd
+  nanosecond times."
+  [clock-total id-sstats*
+   {:keys [columns sort-fn format-id-fn max-id-width] :as opts
+    :or   {columns      default-format-columns
+           sort-fn      (fn [ss] (get (enc/force-ref ss) :sum))
+           format-id-fn default-format-id-fn}}]
+
+  (when id-sstats*
+    (let [columns (format-columns columns)
+          clock-total (long clock-total)
+          ^long accounted-total
+          (reduce-kv
+            (fn [^long acc _id ss]
+              (+ acc (long (get (enc/force-ref ss) :sum))))
+            0 id-sstats*)
+
+          sorted-ids
+          (sort-by
+            (fn [id] (sort-fn (get id-sstats* id)))
+            enc/rcompare
+            (keys id-sstats*))
+
+          ^long max-id-width
+          (or
+            max-id-width
+            (get-max-id-width id-sstats* opts))
+
+          column->pattern
+          {:id      {:heading "pId" :min-width max-id-width :align :left}
+           :n       {:heading "nCalls"}
+           :min     {:heading "Min"}
+           :p25     {:heading "25% ≤"}
+           :p50     {:heading "50% ≤"}
+           :p75     {:heading "75% ≤"}
+           :p90     {:heading "90% ≤"}
+           :p95     {:heading "95% ≤"}
+           :p99     {:heading "99% ≤"}
+           :max     {:heading "Max"}
+           :mean    {:heading "Mean"}
+           :mad     {:heading "MAD"   :min-width 5}
+           :sum     {:heading "Total" :min-width 6}
+           :clock   {:heading "Clock"}}
+
+          sb (enc/str-builder "")
+
+          append-col
+          (fn [column s]
+            (let [{:keys [min-width align]
+                   :or   {min-width 10 align :right}}
+                  (get column->pattern column)]
+
+              (enc/sb-append sb
+                (enc/format
+                  (str "%" (case align :left "-" :right "") min-width "s")
+                  s))))]
+
+      ; Write header rows
+      (doseq [column (into [:id] columns)]
+        (when-not (= :id column)
+          (enc/sb-append sb " "))
+        (append-col column (get-in column->pattern [column :heading])))
+
+      (enc/sb-append sb "\n\n")
+
+      ; Write id rows
+      (doseq [id sorted-ids]
+        (let [ssm (enc/force-ref (get id-sstats* id))
+              {:keys [n sum mean mad]} ssm]
+
+          (append-col :id (format-id-fn id))
+          (doseq [column columns]
+            (enc/sb-append sb " ")
+            (case column
+              :n     (append-col column (fmt-num 0 n))
+              :mean  (append-col column (fmt-nsecs mean))
+              :mad   (append-col column (str "±" (perc mad mean)))
+              :sum   (append-col column (perc sum clock-total))
+              :clock (append-col column (fmt-nsecs sum))
+              (do    (append-col column (fmt-nsecs (get ssm column))))))
+
+          (enc/sb-append sb "\n")))
+
+      ; Write accounted row
+      (enc/sb-append sb "\n")
+      (append-col :id "Accounted")
+      (doseq [column columns]
+        (enc/sb-append sb " ")
+        (case column
+          :sum   (append-col column (perc accounted-total clock-total))
+          :clock (append-col column (fmt-nsecs accounted-total))
+          (do    (append-col column ""))))
+
+      ; Write clock row
+      (enc/sb-append sb "\n")
+      (append-col :id "Clock")
+      (doseq [column columns]
+        (enc/sb-append sb " ")
+        (case column
+          :sum   (append-col column "100%")
+          :clock (append-col column (fmt-nsecs clock-total))
+          (do    (append-col column ""))))
+
+      (enc/sb-append sb "\n")
+      (str sb))))
+
+(comment
+  (defn rand-vs [n & [max]]
+    (take n (repeatedly (partial rand-int (or max Integer/MAX_VALUE)))))
+
+  (println
+    (format-pstats (* 1e6 30)
+      {:foo (summary-stats (rand-vs 1e4 20))
+       :bar (summary-stats (rand-vs 1e2 50))
+       :baz (summary-stats (rand-vs 1e5 30))}
+      {}) "\n"))
