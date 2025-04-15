@@ -446,7 +446,7 @@
                      :baz {:n 1}}}))])))]))
 
 (deftest format-pstats
-  [(testing "Basic format-pstats"
+  [(testing "Basics"
      (let [data {:clock {:total 15}
                  :stats {:foo {:n 10000
                                :min 1
@@ -477,7 +477,7 @@
               (str/split-lines)
               (remove empty?))))]))
 
-   (testing "format-pstats with namespaced symbols"
+   (testing "With namespaced symbols"
      (let [data {:clock {:total 15}
                  :stats {:foo/bar {:n 10000
                                    :min 1
