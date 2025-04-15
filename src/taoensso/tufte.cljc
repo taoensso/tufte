@@ -678,7 +678,10 @@
         base-id
         (if ?meta-pid
           (enc/as-qname ?meta-pid)
-          (str *ns* "/" (if def? "defn_" "fn_") (name fn-sym)))
+          (str *ns* "/"
+            (if     ?fn-sym
+              (name ?fn-sym)
+              (str (if def? "defn_" "fn_") (name fn-sym)))))
 
         get-ids
         (if single-arity?
