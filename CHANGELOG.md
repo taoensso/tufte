@@ -2,6 +2,22 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v2.7.0` (2025-04-15)
+
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.7.0)
+- **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
+
+This is a **maintenance release** focused on updating dependencies. It **drops support for Clojure v1.9** but should otherwise be a safe update for users of `v2.6.x`.
+
+This is expected to be the last v2.x release before the upcoming Tufte v3.
+
+## Since `v2.6.3` (2023-09-27)
+
+- \[new] Use [Truss exceptions](https://cljdoc.org/d/com.taoensso/truss/CURRENT/api/taoensso.truss#ex-info) on errors \[8f89aac]
+- \[nop] Update dependencies
+
+---
+
 # `v2.6.3` (2023-09-27)
 
 > 📦 [Available on Clojars](https://clojars.org/com.taoensso/tufte/versions/2.6.3), this project uses [Break Versioning](https://www.taoensso.com/break-versioning).

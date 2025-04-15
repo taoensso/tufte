@@ -17,7 +17,7 @@ Works great with [Telemere](https://www.taoensso.com/telemere), enabling unique 
 
 ## Latest release/s
 
-- `2023-09-27` `2.6.3`: [release info](../../releases/tag/v2.6.3)
+- `2025-04-15` `2.7.0`: [release info](../../releases/tag/v2.7.0)
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
