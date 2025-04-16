@@ -377,11 +377,11 @@
          (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled true  false)))))) "(dynamic (local   ...))")]))])
 
 (deftest printing
-  [#?(:clj (is (impl/psignal? (read-string (binding [*print-dup* true] (pr-str        (impl/map->PSignal {})))))))
-   #?(:clj (is (impl/psignal? (read-string (binding [*print-dup* true] (pr-str (assoc (impl/map->PSignal {}) :k :v)))))))
-   (is (enc/str-starts-with?               (binding [*print-dup* true]    (str (assoc (impl/map->PSignal {}) :k :v))) "taoensso.tufte.PSignal{"))
-   (is (enc/str-starts-with?                                           (pr-str (assoc (impl/map->PSignal {}) :k :v)) "#taoensso.tufte.PSignal{"))
-   (is (enc/str-starts-with?                                              (str (assoc (impl/map->PSignal {}) :k :v))  "taoensso.tufte.PSignal{"))])
+  [#?(:clj (is (impl/signal? (read-string (binding [*print-dup* true] (pr-str        (impl/map->Signal {})))))))
+   #?(:clj (is (impl/signal? (read-string (binding [*print-dup* true] (pr-str (assoc (impl/map->Signal {}) :k :v)))))))
+   (is (enc/str-starts-with?              (binding [*print-dup* true]    (str (assoc (impl/map->Signal {}) :k :v))) "taoensso.tufte.Signal{"))
+   (is (enc/str-starts-with?                                          (pr-str (assoc (impl/map->Signal {}) :k :v)) "#taoensso.tufte.Signal{"))
+   (is (enc/str-starts-with?                                             (str (assoc (impl/map->Signal {}) :k :v))  "taoensso.tufte.Signal{"))])
 
 (deftest advanced
   (testing "Advanced"

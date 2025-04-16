@@ -639,26 +639,56 @@
          (map (fn [id] (str id sep (format-pstats (get m id) format-pstats-opts))))
          sorted-profiling-ids)))))
 
+;;;; API helpers
+
+#?(:clj (defmacro docstring [    rname] (enc/slurp-resource (str "docs/"    (name rname) ".txt"))))
+#?(:clj (defmacro defhelp   [sym rname] `(enc/def* ~sym {:doc ~(eval `(docstring ~rname))} "See docstring")))
+
+#?(:clj
+   (defn location-str [location]
+     (when-let [{:keys [ns line column]} location]
+       (when ns
+         (if line
+           (if column
+             (str ns "[" line "," column "]")
+             (str ns "[" line            "]"))
+           ns)))))
+
+#?(:clj
+   (defn valid-opts! [macro-form macro-env caller opts body]
+     (cond
+       (not (map? opts))
+       (truss/ex-info!
+         (str "`" caller "` needs compile-time map opts at " (location-str (enc/get-source macro-form macro-env)) ": "
+           `(~caller ~opts ~@body)))
+
+       (not (enc/const-form? (get opts :dynamic?)))
+       (truss/ex-info!
+         (str "`" caller "` needs compile-time `:dynamic?` value at " (location-str (enc/get-source macro-form macro-env)) ": "
+           `(~caller ~opts ~@body)))
+
+       :else opts)))
+
 ;;;; Profiling Signals
 ;; - Filtering relevant for `profiled`, `profile`
 ;; - Handlers  relevant for `profiled` only
 
 (enc/defonce ^:dynamic *sig-handlers* "?[<wrapped-handler-fn>]" nil)
 
-(defrecord PSignal
+(defrecord Signal
   ;; Based on `taoensso.telemere.impl/Signal`
   [schema inst, ns coords, id level, #?@(:clj [host thread]),
    sample ctx data, body-result, pstats format-pstats-fn]
 
-  Object (toString [this] (str "taoensso.tufte.PSignal" (enc/pr-edn* (into {} this)))))
+  Object (toString [this] (str "taoensso.tufte.Signal" (enc/pr-edn* (into {} this)))))
 
 ;; Verbose constructors for readability + to support extra keys
-(do     (enc/def-print-impl [x PSignal] (str "#taoensso.tufte.PSignal"      (enc/pr-edn* (into {} x)))))
-#?(:clj (enc/def-print-dup  [x PSignal] (str "#taoensso.tufte.impl.PSignal" (enc/pr-edn* (into {} x)))))
+(do     (enc/def-print-impl [x Signal] (str "#taoensso.tufte.Signal"      (enc/pr-edn* (into {} x)))))
+#?(:clj (enc/def-print-dup  [x Signal] (str "#taoensso.tufte.impl.Signal" (enc/pr-edn* (into {} x)))))
 
-(defn psignal? #?(:cljs {:tag 'boolean}) [x] (instance? PSignal x))
+(defn signal? #?(:cljs {:tag 'boolean}) [x] (instance? Signal x))
 
-(defrecord WrappedPSignal [ns id level signal-value_]
+(defrecord WrappedSignal [ns id level signal-value_]
   sigs/ISignalHandling
   (allow-signal? [_ spec-filter] (spec-filter ns id level))
   (signal-debug  [_] {:ns ns, :id id, :level level})
