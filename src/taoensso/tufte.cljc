@@ -26,14 +26,16 @@
     to programmatic monitoring."
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
-
+  (:refer-clojure :exclude [newline])
   (:require
-   [taoensso.truss        :as truss]
-   [taoensso.encore       :as enc]
-   [taoensso.encore.stats :as stats]
-   [taoensso.tufte.impl   :as impl #?@(:cljs [:refer [PStats HandlerVal]])])
+   [taoensso.truss          :as truss]
+   [taoensso.encore         :as enc]
+   [taoensso.encore.stats   :as stats]
+   [taoensso.encore.signals :as sigs]
+   [taoensso.tufte.impl     :as impl
+    #?@(:cljs [:refer [PStats HandlerVal PSignal WrappedPSignal]])])
 
-  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal]))
+  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal PSignal WrappedPSignal]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
 (comment
@@ -41,6 +43,55 @@
   (:api (enc/interns-overview)))
 
 (enc/assert-min-encore-version [3 143 1])
+
+;;;; Shared signal API
+
+(declare ; Needed to avoid `clj-kondo` "Unresolved var" warnings
+  level-aliases
+  help:filters help:handlers help:handler-dispatch-options
+  get-filters get-min-levels get-handlers get-handlers-stats
+
+  #?(:clj without-filters)
+  set-kind-filter! #?(:clj with-kind-filter)
+  set-ns-filter!   #?(:clj with-ns-filter)
+  set-id-filter!   #?(:clj with-id-filter)
+  set-min-level!   #?(:clj with-min-level)
+
+  #?(:clj with-handler) #?(:clj with-handler+)
+  add-handler! remove-handler! stop-handlers!
+
+  ^:dynamic *ctx* set-ctx! #?(:clj with-ctx) #?(:clj with-ctx+)
+  ^:dynamic *xfn* set-xfn! #?(:clj with-xfn) #?(:clj with-xfn+))
+
+(sigs/def-api
+  {:sf-arity 3
+   :ct-call-filter   impl/ct-call-filter
+   :*rt-call-filter* impl/*rt-call-filter*
+   :*sig-handlers*   impl/*sig-handlers*
+   :lib-dispatch-opts
+   (assoc sigs/default-handler-dispatch-opts
+     :convey-bindings? false ; Handled manually
+     )})
+
+;;;; Aliases
+
+(enc/defaliases
+  ;; Encore
+  #?(:clj enc/set-var-root!)
+  #?(:clj enc/update-var-root!)
+  #?(:clj enc/get-env)
+  #?(:clj enc/call-on-shutdown!)
+  enc/chance
+  enc/rate-limiter
+  enc/newline
+  sigs/comp-xfn
+  sigs/default-handler-dispatch-opts
+  #?(:clj truss/keep-callsite))
+
+;;;; Help
+
+(def help:signal-content       "TODO")
+(def help:environmental-config "TODO")
 
 ;;;; Level filtering
 ;; Terminology note: we distinguish between call/form and min levels to ensure
