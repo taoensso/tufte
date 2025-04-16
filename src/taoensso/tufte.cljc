@@ -268,10 +268,10 @@
 
      See `new-pdata` for more info on low-level primitives.
      See also `capture-time!*`."
-     ([pdata id nano-secs-elapsed] `(~pdata ~id ~nano-secs-elapsed ~(enc/get-source &form &env)))
+     ([pdata id nano-secs-elapsed] `(~pdata ~id ~nano-secs-elapsed ~(dissoc (enc/get-source &form &env) :file)))
      ([      id nano-secs-elapsed]
       `(when-let [pd# (or impl/*pdata* (impl/pdata-local-get))]
-         (pd# ~id ~nano-secs-elapsed ~(enc/get-source &form &env))))))
+         (pd# ~id ~nano-secs-elapsed ~(dissoc (enc/get-source &form &env) :file))))))
 
 (defn capture-time!*
   "Like `capture-time!` but a function and does not collect callsite location info."
@@ -310,7 +310,7 @@
            opts    (if (map? s1) s1 {:level 5 :id s1})
            level   (get opts :level)
            id-form (get opts :id)
-           loc (or (get opts :loc) (enc/get-source &form &env))]
+           loc (or (get opts :loc) (dissoc (enc/get-source &form &env) :file))]
 
        ;; If *any* level is present, it must be a valid compile-time level
        ;; since this macro doesn't offer runtime level checking
@@ -713,7 +713,7 @@
      [& sigs]
      (let [[?fn-sym sigs] (if (symbol? (first sigs)) [(first sigs) (next sigs)] [nil sigs])
            new-sigs       (fn-sigs (not :def) (:tufte/id (meta ?fn-sym)) ?fn-sym sigs
-                            (enc/get-source &form &env))]
+                            (dissoc (enc/get-source &form &env) :file))]
        (if ?fn-sym
          `(fn ~?fn-sym ~@new-sigs)
          `(fn          ~@new-sigs)))))
@@ -737,7 +737,7 @@
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
            new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs
-                           (enc/get-source &form &env))]
+                           (dissoc (enc/get-source &form &env) :file))]
        `(defn ~fn-sym ~@new-sigs))))
 
 #?(:clj
@@ -749,7 +749,7 @@
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
            new-sigs      (fn-sigs :def (get (meta fn-sym) :tufte/id) fn-sym sigs
-                           (enc/get-source &form &env))]
+                           (dissoc (enc/get-source &form &env) :file))]
        `(defn ~fn-sym ~@new-sigs))))
 
 (comment
