@@ -13,7 +13,8 @@
    [clojure.string  :as str]
    [taoensso.truss  :as truss]
    [taoensso.encore :as enc]
-   [taoensso.encore.stats :as stats])
+   [taoensso.encore.stats   :as stats]
+   [taoensso.encore.signals :as sigs])
 
   #?(:cljs
      (:require-macros
@@ -638,6 +639,60 @@
          (map (fn [id] (str id sep (format-pstats (get m id) format-pstats-opts))))
          sorted-profiling-ids)))))
 
+;;;; Profiling Signals
+;; - Filtering relevant for `profiled`, `profile`
+;; - Handlers  relevant for `profiled` only
+
+(enc/defonce ^:dynamic *sig-handlers* "?[<wrapped-handler-fn>]" nil)
+
+(defrecord PSignal
+  ;; Based on `taoensso.telemere.impl/Signal`
+  [schema inst, ns coords, id level, #?@(:clj [host thread]),
+   sample ctx data, body-result, pstats format-pstats-fn]
+
+  Object (toString [this] (str "taoensso.tufte.PSignal" (enc/pr-edn* (into {} this)))))
+
+;; Verbose constructors for readability + to support extra keys
+(do     (enc/def-print-impl [x PSignal] (str "#taoensso.tufte.PSignal"      (enc/pr-edn* (into {} x)))))
+#?(:clj (enc/def-print-dup  [x PSignal] (str "#taoensso.tufte.impl.PSignal" (enc/pr-edn* (into {} x)))))
+
+(defn psignal? #?(:cljs {:tag 'boolean}) [x] (instance? PSignal x))
+
+(defrecord WrappedPSignal [ns id level signal-value_]
+  sigs/ISignalHandling
+  (allow-signal? [_ spec-filter] (spec-filter ns id level))
+  (signal-debug  [_] {:ns ns, :id id, :level level})
+  (signal-value  [_ handler-sample-rate]
+    (sigs/signal-with-combined-sample-rate handler-sample-rate
+      (force signal-value_))))
+
+#?(:clj
+   (let [base      (enc/get-env {:as :edn} [:taoensso.tufte/ct-filters<.platform><.edn>])
+         ns-filter (enc/get-env {:as :edn} [:taoensso.tufte/ct-ns-filter<.platform><.edn> :taoensso.tufte/ns-pattern])
+         id-filter (enc/get-env {:as :edn} [:taoensso.tufte/ct-id-filter<.platform><.edn>])
+         min-level (enc/get-env {:as :edn} [:taoensso.tufte/ct-min-level<.platform><.edn> :taoensso.tufte/min-level])]
+
+     (enc/defonce ct-call-filter
+       "`SpecFilter` used for compile-time elision, or nil."
+       (sigs/spec-filter
+         {:ns-filter (or ns-filter (get base :ns-filter))
+          :id-filter (or id-filter (get base :id-filter))
+          :min-level (or min-level (get base :min-level))}))))
+
+(let [base      (enc/get-env {:as :edn}             [:taoensso.tufte/rt-filters<.platform><.edn>])
+      ns-filter (enc/get-env {:as :edn}             [:taoensso.tufte/rt-ns-filter<.platform><.edn>])
+      id-filter (enc/get-env {:as :edn}             [:taoensso.tufte/rt-id-filter<.platform><.edn>])
+      min-level (enc/get-env {:as :edn, :default 2} [:taoensso.tufte/rt-min-level<.platform><.edn>])]
+
+  (enc/defonce ^:dynamic *rt-call-filter*
+    "`SpecFilter` used for runtime filtering, or nil."
+    (sigs/spec-filter
+      {:ns-filter (or ns-filter (get base :ns-filter))
+       :id-filter (or id-filter (get base :id-filter))
+       :min-level (or min-level (get base :min-level))})))
+
+(comment (enc/get-env {:as :edn, :return :explain} :taoensso.tufte/rt-filters<.platform><.edn>))
+
 ;;;; Handlers
 
 (defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line]
@@ -646,8 +701,6 @@
 ;; Verbose constructors for readability + to support extra keys
 (do     (enc/def-print-impl [x HandlerVal] (str "#taoensso.tufte.HandlerVal"      (enc/pr-edn* (into {} x)))))
 #?(:clj (enc/def-print-dup  [x HandlerVal] (str "#taoensso.tufte.impl.HandlerVal" (enc/pr-edn* (into {} x)))))
-
-(defn handler-val? #?(:cljs {:tag 'boolean}) [x] (instance? HandlerVal x))
 
 (enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
 
