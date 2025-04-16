@@ -80,7 +80,7 @@
         (is (ps? ps))
         (is (truss/submap? @ps {:stats {:foo {:n 110} :bar {:n 50}}}))])
 
-     (let [[r ps] (profiled {} (p :foo) (p ::foo) (p 'foo) (p `foo))]
+     (let [[r ps] (profiled {} (p :foo nil) (p ::foo nil) (p 'foo nil) (p `foo nil))]
        [(is (truss/submap? @ps {:stats {:foo {} ::foo {} 'foo {} `foo {}}})
           "Support un/qualified keyword and symbol pids")])]))
 
@@ -113,8 +113,8 @@
      (testing "Capture/threaded"
        [(let [[r ps]
               (profiled {}
-                (future (p :foo))
-                (future (p :bar))
+                (future (p :foo nil))
+                (future (p :bar nil))
                 (Thread/sleep 100)
                 (p :foo "foo"))]
 
@@ -124,8 +124,8 @@
 
         (let [[r ps]
               (profiled {:dynamic? true}
-                (future (p :foo))
-                (future (p :bar))
+                (future (p :foo nil))
+                (future (p :bar nil))
                 (Thread/sleep 100)
                 (p :foo "foo"))]
 
@@ -136,17 +136,17 @@
 (deftest merging-basics
   [(testing "Merging/basics"
      [;; Note mixed dynamic/non-dynamic
-      (let [[_ ps0] (profiled {:dynamic? true} (looped 100 (p :foo) (p :bar)))
-            [_ ps1] (profiled {}               (looped  20 (p :foo)))
-            [_ ps2] (profiled {:dynamic? true} (looped  30 (p :baz)))
+      (let [[_ ps0] (profiled {:dynamic? true} (looped 100 (p :foo nil) (p :bar nil)))
+            [_ ps1] (profiled {}               (looped  20 (p :foo nil)))
+            [_ ps2] (profiled {:dynamic? true} (looped  30 (p :baz nil)))
             ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
         [(is (ps? ps3))
          (is (truss/submap? @ps3 {:stats {:foo {:n 120} :bar {:n 100} :baz {:n 30}}}))])
 
       ;; Invert dynamic/non-dynamic
-      (let [[_ ps0] (profiled {}               (looped 100 (p :foo) (p :bar)))
-            [_ ps1] (profiled {:dynamic? true} (looped  20 (p :foo)))
-            [_ ps2] (profiled {}               (looped  30 (p :baz)))
+      (let [[_ ps0] (profiled {}               (looped 100 (p :foo nil) (p :bar nil)))
+            [_ ps1] (profiled {:dynamic? true} (looped  20 (p :foo nil)))
+            [_ ps2] (profiled {}               (looped  30 (p :baz nil)))
             ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
         [(is (ps? ps3))
          (is (truss/submap? @ps3 {:stats {:foo {:n 120} :bar {:n 100} :baz {:n 30}}}))])])
@@ -162,8 +162,8 @@
   (testing "Compaction/capture"
     [(let [[r ps]
            (profiled {:nmax 10}
-             (looped 100 (p :foo))
-             (looped  50 (p :foo (p :bar (p :baz))))
+             (looped 100 (p :foo nil))
+             (looped  50 (p :foo (p :bar (p :baz nil))))
              (looped   2 (p :qux "qux")))]
 
        [(is (= r "qux"))
@@ -179,8 +179,8 @@
 
      (let [[r ps]
            (profiled {:nmax 10 :dynamic? true}
-             (looped 100 (p :foo))
-             (looped  50 (p :foo (p :bar (p :baz))))
+             (looped 100 (p :foo nil))
+             (looped  50 (p :foo (p :bar (p :baz nil))))
              (looped   2 (p :qux "qux")))]
 
        [(is (= r "qux"))
@@ -198,9 +198,9 @@
 (deftest compaction-merge
   (testing "Compaction/merge"
     [;; Note mixed dynamic/non-dynamic
-     (let [[_ ps0] (profiled {:dynamic? true :nmax 10} (looped 100 (p :foo)) (looped 50 (p :foo (p :bar))))
-           [_ ps1] (profiled {}                        (looped  20 (p :foo)))
-           [_ ps2] (profiled {:dynamic? true :nmax 5}  (looped  10 (p :bar)))
+     (let [[_ ps0] (profiled {:dynamic? true :nmax 10} (looped 100 (p :foo nil)) (looped 50 (p :foo (p :bar nil))))
+           [_ ps1] (profiled {}                        (looped  20 (p :foo nil)))
+           [_ ps2] (profiled {:dynamic? true :nmax 5}  (looped  10 (p :bar nil)))
            ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
 
        [(is (= (get-in @ps0 [:stats :tufte/compaction :n]) 19))
@@ -215,9 +215,9 @@
           "Merging does uncounted compaction")])
 
      ;; Invert dynamic/non-dynamic
-     (let [[_ ps0] (profiled {:nmax 10}       (looped 100 (p :foo)) (looped 50 (p :foo (p :bar))))
-           [_ ps1] (profiled {:dynamic? true} (looped  20 (p :foo)))
-           [_ ps2] (profiled {:nmax 5}        (looped  10 (p :bar)))
+     (let [[_ ps0] (profiled {:nmax 10}       (looped 100 (p :foo nil)) (looped 50 (p :foo (p :bar nil))))
+           [_ ps1] (profiled {:dynamic? true} (looped  20 (p :foo nil)))
+           [_ ps2] (profiled {:nmax 5}        (looped  10 (p :bar nil)))
            ps3 (reduce tufte/merge-pstats [nil ps0 nil nil ps1 ps2 nil])]
 
        [(is (= (get-in @ps0 [:stats :tufte/compaction :n]) 19))
@@ -232,7 +232,7 @@
           "Merging does uncounted compaction")])
 
      ;; [#54] merging PStats with times still (only) in accumulator
-     (let [[_ ^PStats ps0] (profiled {:nmax 10} (p :foo))
+     (let [[_ ^PStats ps0] (profiled {:nmax 10} (p :foo nil))
            ps (enc/reduce-n (fn [ps _] (tufte/merge-pstats ps ps0)) nil 1000)]
 
        [(is (<= (count (:foo (.-id-times  ps0))) 10))
@@ -265,8 +265,8 @@
    #?(:clj
       (testing "Accurate clock time even when merging non-increasing t0s" ; #52
         (let [sacc (tufte/stats-accumulator)
-              _    (do                        (sacc :g1 (second (profiled {:id :foo} (p :p1))))) ; 1st-t0
-              f1   (future (Thread/sleep 800) (sacc :g1 (second (profiled {:id :foo} (p :p1))))) ; 3rd-t0
+              _    (do                        (sacc :g1 (second (profiled {:id :foo} (p :p1 nil))))) ; 1st-t0
+              f1   (future (Thread/sleep 800) (sacc :g1 (second (profiled {:id :foo} (p :p1 nil))))) ; 3rd-t0
               f2   (future                    (sacc :g1 (second (profiled {:id :foo} (p :p1 (Thread/sleep 1000)))))) ; 2nd-t0
               ]
 
@@ -308,7 +308,7 @@
 
      #?(:clj
         (let [th (add-test-handler!)
-              r  (profile {} (future (p :foo)) (Thread/sleep 100) (p :bar "bar"))
+              r  (profile {} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
               m  (th)
               ps (:pstats m)]
 
@@ -322,7 +322,7 @@
 
      #?(:clj
         (let [th (add-test-handler!)
-              r  (profile {:dynamic? true} (future (p :foo)) (Thread/sleep 100) (p :bar "bar"))
+              r  (profile {:dynamic? true} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
               m  (th)
               ps (:pstats m)]
 
@@ -344,15 +344,15 @@
      `(let [inner_# (atom nil)
             outer#
             (profiled {:dynamic? ~outer-dynamic?}
-              (p :foo)
+              (p :foo nil)
               (p :bar
                 (reset! inner_#
                   (profiled {:dynamic? ~inner-dynamic?}
-                    (p :foo)
-                    (p :baz)
+                    (p :foo nil)
+                    (p :baz nil)
                     "inner")))
 
-              (p :qux) ; Captured *after* inner pdata released (needs stack)
+              (p :qux nil) ; Captured *after* inner pdata released (needs stack)
               "outer")]
 
         [(nested-profiled-output   outer#)
@@ -590,9 +590,9 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo) (p :bar) ; Line 593
+           (p :foo nil) (p :bar nil) ; Line 593
            (p :baz
-             (p :qux)))]
+             (p :qux nil)))]
 
      [(is (truss/submap? @ps
             (let [nref 593]
@@ -603,10 +603,10 @@
 
    (let [[r ps]
          (profiled {}
-           (p :foo) ; Line 606
-           (p :foo)
-           (p :foo)
-           (p :foo))
+           (p :foo nil) ; Line 606
+           (p :foo nil)
+           (p :foo nil)
+           (p :foo nil))
 
          loc (get-in @ps [:stats :foo :loc])]
 
