@@ -33,9 +33,9 @@
    [taoensso.encore.stats   :as stats]
    [taoensso.encore.signals :as sigs]
    [taoensso.tufte.impl     :as impl
-    #?@(:cljs [:refer [PStats HandlerVal PSignal WrappedPSignal]])])
+    #?@(:cljs [:refer [PStats HandlerVal Signal WrappedSignal]])])
 
-  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal PSignal WrappedPSignal]))
+  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal Signal WrappedSignal]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
 (comment
@@ -63,15 +63,18 @@
   ^:dynamic *ctx* set-ctx! #?(:clj with-ctx) #?(:clj with-ctx+)
   ^:dynamic *xfn* set-xfn! #?(:clj with-xfn) #?(:clj with-xfn+))
 
+(def default-handler-dispatch-opts
+  "See `help:handler-dispatch-opts` for details."
+  (dissoc sigs/default-handler-dispatch-opts
+    :convey-bindings? ; We use `enc/bound-delay`
+    ))
+
 (sigs/def-api
   {:sf-arity 3
-   :ct-call-filter   impl/ct-call-filter
-   :*rt-call-filter* impl/*rt-call-filter*
-   :*sig-handlers*   impl/*sig-handlers*
-   :lib-dispatch-opts
-   (assoc sigs/default-handler-dispatch-opts
-     :convey-bindings? false ; Handled manually
-     )})
+   :ct-call-filter    impl/ct-call-filter
+   :*rt-call-filter*  impl/*rt-call-filter*
+   :*sig-handlers*    impl/*sig-handlers*
+   :lib-dispatch-opts default-handler-dispatch-opts})
 
 ;;;; Aliases
 
@@ -85,156 +88,34 @@
   enc/rate-limiter
   enc/newline
   sigs/comp-xfn
-  sigs/default-handler-dispatch-opts
-  #?(:clj truss/keep-callsite))
+  #?(:clj truss/keep-callsite)
+
+  ;; Impl
+  impl/merge-pstats
+  impl/format-pstats
+  impl/format-grouped-pstats)
 
 ;;;; Help
 
-(def help:signal-content       "TODO")
-(def help:environmental-config "TODO")
+(do
+  (impl/defhelp help:profiling-options    :profiling-options)
+  (impl/defhelp help:pstats-content       :pstats-content)
+  (impl/defhelp help:signal-content       :signal-content)
+  (impl/defhelp help:environmental-config :environmental-config))
 
-;;;; Level filtering
-;; Terminology note: we distinguish between call/form and min levels to ensure
-;; that it's always possible to set min-level > any call-level to disable profiling.
+;;;; Vestigial
 
-(defn- valid-call-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
-(defn- valid-min-level?  [x] (if (#{0 1 2 3 4 5 6} x) true false))
-
-(def ^:private ^:const invalid-call-level-msg        "Invalid Tufte profiling level: should be int e/o #{0 1 2 3 4 5}")
-(def ^:private ^:const invalid-min-level-msg "Invalid minimum Tufte profiling level: should be int e/o #{0 1 2 3 4 5 6}")
-
-(defn- valid-call-level [x] (or (#{0 1 2 3 4 5}   x) (truss/ex-info! invalid-call-level-msg {:given x :type (type x)})))
-(defn- valid-min-level  [x] (or (#{0 1 2 3 4 5 6} x) (truss/ex-info! invalid-min-level-msg  {:given x :type (type x)})))
-(comment (enc/qb 1e5 (valid-call-level 4))) ; 7.82
-
-(def ^:dynamic *min-level*
-  "Integer e/o #{0 1 2 3 4 5 6}, or vector mapping ns-patterns to min-levels:
-    [[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]]
-
-  See `*ns-filter*` for example patterns."
-  2)
-
-;;;; Namespace filtering
-;; Terminology note: we distinguish loosely between `ns-filter` (which may be a
-;; fn or `ns-pattern`) and `ns-pattern` (subtype of `ns-filter`).
-
-(def ^:dynamic *ns-filter*
-  "(fn may-profile-ns? [ns]) predicate, or ns-pattern.
-  Example ns-patterns:
-    #{}, \"*\", \"foo.bar\", \"foo.bar.*\", #{\"foo\" \"bar.*\"},
-    {:allow #{\"foo\" \"bar.*\"} :deny #{\"foo.*.bar.*\"}}"
-  "*")
-
-(let [fn?         fn?
-      compile     (enc/fmemoize (fn [x] (enc/name-filter x)))
-      conform?*   (enc/fmemoize (fn [x ns] ((compile x) ns)))
-      ;; conform? (enc/fmemoize (fn [x ns] (if (fn? x) (x ns) ((compile x) ns))))
-      conform?
-      (fn [ns-filter ns]
-        (if (fn? ns-filter)
-          (ns-filter           ns) ; Intentionally uncached, can be handy
-          (conform?* ns-filter ns)))]
-
-  (defn- #?(:clj may-profile-ns? :cljs ^boolean may-profile-ns?)
-    "Implementation detail."
-    ([          ns] (if (conform? *ns-filter* ns) true false))
-    ([ns-filter ns] (if (conform?  ns-filter  ns) true false)))
-
-  (def ^:private ns->?min-level
-    "[[<ns-pattern> <min-level>] ... [\"*\" <default-min-level>]], ns -> ?min-level"
-    (enc/fmemoize
-      (fn [specs ns]
-        (enc/rsome
-          (fn [[ns-pattern min-level]]
-            (when (conform?* ns-pattern ns)
-              (valid-min-level min-level)))
-          specs)))))
-
-(comment
-  (enc/qb 1e6
-    (may-profile-ns? "taoensso.tufte")
-    (ns->?min-level [[#{"taoensso.*" "foo.bar"} 1] ["*" 2]] "foo.bar")) ; [162.85 136.88]
-
-  (binding [*ns-filter* "foo.baz"]    (profiled {} (p {:id "id"} "body")))
-  (binding [*ns-filter* "taoensso.*"] (profiled {} (p {:id "id"} "body"))))
-
-;;;; Combo filtering
-
-(let [valid-min-level valid-min-level
-      ns->?min-level  ns->?min-level]
-
-  (defn- get-min-level [default x ns]
-    (valid-min-level
-      (or
-        (if (vector? x) (ns->?min-level x ns) x)
-        default))))
-
-(comment
-  (get-min-level 6 [["foo" 2]] *ns*) ; Default to 6 (don't profile)
-  (let [ns *ns*] (enc/qb 1e6 (get-min-level *min-level* ns))) ; 260.34
-  (binding [*min-level* [["taoensso.*" 1] ["*" 4]]] (get-min-level "foo")))
-
-(let [valid-call-level valid-call-level
-      may-profile-ns?  may-profile-ns?
-      get-min-level    get-min-level]
-
-  (defn #?(:clj may-profile? :cljs ^boolean may-profile?)
-    "Implementation detail.
-    Returns true iff level and ns are runtime unfiltered."
-    ([level   ] (may-profile? level *ns*))
-    ([level ns]
-     (if (>= ^long (valid-call-level     level)
-             (long (get-min-level 6 *min-level* ns)))
-       (if (may-profile-ns? *ns-filter* ns) true false)
-       false))))
-
-(comment
-  (enc/qb 1e6 (may-profile? 2)) ; 468.24
-
-  (binding [*min-level* [["foo.bar" 1] ["*" 3]]
-            *ns-filter* "*"]
-    (may-profile? 2 "baz")))
-
-;;;; Compile-time filtering
-
-#?(:clj
-   (def ^:private compile-time-min-level
-     (when-let [level (enc/get-env {:as :edn, :spec [:taoensso.tufte.min-level.edn :taoensso.tufte.min-level :tufte.min-level]})]
-       (valid-min-level level)
-       (do              level))))
-
-#?(:clj
-   (def ^:private compile-time-ns-filter
-     (let [ns-pattern (enc/get-env {:as :edn, :spec [:taoensso.tufte.ns-pattern.edn :taoensso.tufte.ns-pattern :tufte.ns-pattern]})]
-       (or ns-pattern "*"))))
-
-#?(:clj
-   (defn -elide?
-     "Returns true iff level or ns are compile-time filtered.
-     Called only at macro-expansiom time."
-     [level-form ns-str-form]
-     (not
-       (and
-         (or ; Level okay
-           (nil? compile-time-min-level)
-           (not (valid-call-level? level-form)) ; Not a compile-time level const
-           (>= (long level-form) (long (get-min-level 6 compile-time-min-level ns-str-form))))
-
-         (or ; Namespace okay
-           (not (string? ns-str-form)) ; Not a compile-time ns-str const
-           (may-profile-ns? compile-time-ns-filter ns-str-form))))))
+(def ^:dynamic *min-level* "Vestigial, currently ignored." 2)
+(def ^:dynamic *ns-filter* "Vestigial, currently ignored." "*")
 
 ;;;; Low-level primitives
-
-#?(:clj (defn- valid-opts!        [caller x] (if (map? x)            x (truss/ex-info! (str caller " opts must be a const (compile-time) map")              (enc/typed-val x)))))
-#?(:clj (defn- valid-opt:dynamic! [caller x] (if (enc/const-form? x) x (truss/ex-info! (str caller " `:dynamic?` opt must be a const (compile-time) value") (enc/typed-val x)))))
 
 (defn profiling? "Returns e/o #{nil :thread :dynamic}."
   [] (if impl/*pdata* :dynamic (when (impl/pdata-local-get) :thread)))
 
 (comment (enc/qb 1e6 (profiling?))) ; 43.91
 
-(def ^:const ^:private default-nmax (long 8e5))
+(def ^:const ^:no-doc default-nmax (long 8e5))
 (defn new-pdata
   "Low-level primitive for advanced users.
   Returns a new pdata object for use with `with-profiling` and/or `capture-time!`.
@@ -275,8 +156,8 @@
      macros.
 
      See `new-pdata` for more info on low-level primitives."
-     [pdata {:keys [dynamic?]} & body]
-     (valid-opt:dynamic! 'tufte/with-profiling dynamic?)
+     [pdata {:as opts, :keys [dynamic?]} & body]
+     (impl/valid-opts! &form &env 'tufte/with-profiling opts body)
      (if dynamic?
        `(binding [impl/*pdata* ~pdata] (do ~@body))
        `(binding [impl/*pdata*    nil] ; Ensure no dynamic parent (=>nesting) steals local captures
@@ -286,11 +167,11 @@
             (finally (impl/pdata-local-pop)))))))
 
 #?(:clj
-   (defmacro ^:private profiled*
-     "Unconditionally returns [<body-result> <pstats>]."
+   (defmacro ^:no-doc profiled*
+     "Unconditionally returns [<body-result> <pstats>].
+     Implementation detail."
      [caller dynamic? nmax run-form]
-     (valid-opt:dynamic! caller dynamic?)
-     (if dynamic?
+     (if     dynamic?
        `(let [pd# (impl/new-pdata-dynamic (or ~nmax default-nmax))] (binding [impl/*pdata* pd#] [~run-form @pd#]))
        `(let [pd# (impl/new-pdata-local   (or ~nmax default-nmax))]
           (binding [impl/*pdata* nil]
@@ -344,43 +225,35 @@
 
 #?(:clj
    (defmacro p
-     "Profiling spy.
-
-     Use this to wrap forms that should be timed during profiling:
-       - Always executes body and returns <body-result>.
-       - When profiling is active (via `profiled` or `profile`),
-         records body's execution time.
-
-     Options include:
-      `:id`    - Form id for this body in stats output (e.g. `::my-fn-call`)
-      `:level` - e/o #{0 1 2 3 4 5} ; Default is `5`"
-
-     {:arglists '([id & body] [opts & body])}
+     "Profiling spy, wraps forms that should be timed during profiling."
+     {:doc (impl/docstring :p)
+      :arglists '([id & body] [{:keys [id level]} & body])}
      [s1 & body]
-     (let [ns-str  (str *ns*)
-           opts    (if (map? s1) s1 {:level 5 :id s1})
-           level   (get opts :level)
-           id-form (get opts :id)
-           loc (or (get opts :loc) (dissoc (enc/get-source &form &env) :file))]
+     (let [opts       (if (map? s1) s1 {:id s1})
+           level-form (get opts :level 5)
+           id-form    (get opts :id)
+           location
+           (enc/assoc-some nil
+             (or (get opts :loc) (dissoc (enc/get-source &form &env) :file)))]
 
-       ;; If *any* level is present, it must be a valid compile-time level
+       ;; If level is present, it must be a valid compile-time level
        ;; since this macro doesn't offer runtime level checking
-       (when level (valid-call-level level))
+       (when level-form (sigs/valid-level level-form))
 
-       (when (nil? id-form)
-         (truss/ex-info! "`tufte/p` requires an id."
-           {:loc  loc
-            :opts opts
-            :form (cons 'p (cons s1 body))}))
+       (when (or (nil? id-form) (empty? body))
+         (truss/ex-info!
+           (str "`tufte/p` form needs an id at " (impl/location-str location) ": "
+             `(~'p s1 ~@body))))
 
-       (if (-elide? level ns-str)
+       (if-let [elide? (when-let [sf impl/ct-call-filter] (not (sf (:ns location) (enc/const-form id-form) (enc/const-form level-form))))]
          `(do ~@body)
+         ;; Note no `impl/*rt-call-filter*` check
          `(if-let [pd#     (or impl/*pdata* (impl/pdata-local-get))]
             (let  [t0#     (enc/now-nano*)
                    result# (do ~@body)
                    t1#     (enc/now-nano*)]
               ;; Note that capture cost is excluded from p time
-              (pd# ~id-form (- t1# t0#) ~loc)
+              (pd# ~id-form (- t1# t0#) ~location)
               result#)
             (do ~@body))))))
 
@@ -392,221 +265,81 @@
       (p :bar (Thread/sleep 200)))
     @(pd)))
 
-(defn- valid-compile-time-opts [dynamic? nmax]
-  (when-not (contains? #{false true} dynamic?) (truss/ex-info! "[profile/d] `:dynamic?` opt must be compile-time bool value" {:value dynamic?}))
-  (when-not (integer? nmax)                    (truss/ex-info! "[profile/d] `:nmax` opt must be compile-time integer value"  {:value nmax})))
-
-(comment (valid-compile-time-opts 'sym 'sym))
-
+#?(:clj (defn- auto-> [form auto-form] (if (= form :auto) auto-form form)))
 #?(:clj
    (defmacro profiled
-     "Always executes body, and always returns [<body-result> <?pstats>].
-
-     When [ns level] unelided and [ns level `when`] unfiltered, executes body
-     with profiling active.
-
-     Handy if you'd like to consume stats output directly.
-     Otherwise see `profile`.
-
-     `pstats` objects are derefable and mergeable:
-       - @pstats                 => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
-       - @(merge-pstats ps1 ps2) => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
-
-     Full set of keys in above `:stats` maps:
-       :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99 :loc :last
-
-       All values are numerical (longs or doubles), except for `:loc` which
-       is a map of `p` callsite location information, or set of such maps, e.g.:
-         {:ns \"my-ns\", :file \"/tmp/my-ns.clj\", :line 122, :column 21}
-
-     Compile-time opts:
-       `:dynamic?` - Use multi-threaded profiling? ; Default is `false`
-       `:nmax` ----- ~Max captures per id before compaction ; Default is 8e5
-
-     Runtime opts:
-       `:level` ---- e/o #{0 1 2 3 4 5} ; Default is `5`
-       `:when` ----- Optional arbitrary conditional form (e.g. boolean expr)
-
-     Laziness in body:
-       Lazy seqs and other forms of laziness (e.g. delays) in body will only
-       contribute to profiling results if/when EVALUATION ACTUALLY OCCURS.
-       This is intentional and a useful property. Compare:
-
-         (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-         (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep
-
-     Async code in body:
-       Execution time of any code in body that runs asynchronously on a
-       different thread will generally NOT be automatically captured by default.
-
-       `:dynamic?` can be used to support capture in cases where Clojure's
-       binding conveyance applies (e.g. futures, agents, pmap). Just make sure
-       that all work you want to capture has COMPLETED before the `profiled`
-       form ends- for example, by blocking on pending futures.
-
-       In other advanced cases (notably core.async `go` blocks), please see
-       `with-profiling` and `capture-time!`.
-
-     `core.async` warning:
-        `core.async` code can be difficult to profile correctly without a deep
-        understanding of precisely what it's doing under-the-covers.
-
-        Some general recommendations that can help keep things simple:
-
-          - Try minimize the amount of code + logic in `go` blocks. Use `go`
-            blocks for un/parking to get the data you need, then pass the data
-            to external fns. Profile these fns (or in these fns), not in your
-            `go` blocks.
-
-          - In particular: you MUST NEVER have parking calls inside
-            `(profiled {:dynamic? false} ...)`.
-
-            This can lead to concurrency exceptions.
-
-            If you must profile code within a go block, and you really want to
-            include un/parking times, use `(profiled {:dynamic? true} ...)`
-            instead."
+     "Conditionally profiles body, returns [<body-result> <?pstats>]."
+     {:doc (impl/docstring :profiled)
+      :arglists
+      '([{:keys [elidable? #_elide? #_allow? #_callsite-id,
+                 sample ns id level when limit limit-by]}
+         & body])}
 
      [opts & body]
-     (let [ns-str (str *ns*)]
+     (impl/valid-opts! &form &env 'tufte/profiled opts body)
+     (let [opts     (merge {:level 5} opts)
+           ns-form* (get opts :ns :auto)
+           ns-form  (auto-> ns-form* (str *ns*))
 
-       (when-not (map? opts)
-         (truss/ex-info! "`tufte/profiled` requires a compile-time map as first arg."
-           {:ns-str ns-str :line (:line (meta &form))
-            :form (cons 'profiled (cons opts body))}))
+           {:keys [elide? allow?]}
+           (sigs/filter-call
+             {:cljs? (boolean (:ns &env))
+              :sf-arity 3
+              :ct-call-filter     impl/ct-call-filter
+              :*rt-call-filter* `impl/*rt-call-filter*}
+             (assoc opts :ns ns-form))
 
-       (let [level-form (get opts :level    5)
-             dynamic?   (get opts :dynamic? false)
-             test-form  (get opts :when     true)
-             nmax       (get opts :nmax     default-nmax)
+           {:keys [dynamic? nmax]} opts]
 
-             _ (valid-compile-time-opts dynamic? nmax)
-             nmax (long nmax)]
-
-         (when (integer? level-form) (valid-call-level level-form))
-
-         (if (-elide? level-form ns-str)
-           `[(do ~@body)]
-           (let [runtime-check
-                 (if (= test-form true) ; Common case
-                        `(may-profile? ~level-form ~ns-str)
-                   `(and (may-profile? ~level-form ~ns-str) ~test-form))]
-
-             (if dynamic?
-               `(if ~runtime-check
-                  (let [pd# (impl/new-pdata-dynamic ~nmax)]
-                    (binding [impl/*pdata* pd#]
-                      [(do ~@body) @pd#]))
-                  [(do ~@body)])
-
-               `(if ~runtime-check
-                  (let [pd# (impl/new-pdata-local ~nmax)]
-                    (binding [impl/*pdata* nil] ; Ensure no dynamic parent (=>nesting) steals local captures
-                      (try
-                        (impl/pdata-local-push pd#)
-                        [(do ~@body) @pd#]
-                        (finally (impl/pdata-local-pop)))))
-                  [(do ~@body)]))))))))
+       (if elide?
+         `[(do ~@body)]
+         `((fn [] ; iife for better IoC compatibility
+             (let [body-fn# (fn [] ~@body)]
+               (enc/if-not ~allow?
+                 [(body-fn#)]
+                 (profiled* 'tufte/profiled ~dynamic? ~nmax (body-fn#))))))))))
 
 (comment
-  (enc/qb 1e6 ; [463.23 560.09]
-    (profiled {})
-    (profiled {} 2 (p :p1)))
+  (enc/qb 1e6   (profiled {:allow? false}) (profiled {})) ; [36.74 259.73]
+  (macroexpand '(profiled {:allow? false}))
 
-  (profiled {} (p :p1))
-  (profiled {} (p {:level 5 :id :p1}))
+  (profiled {} (p :p1 nil))
+  (profiled {} (p {:level 5 :id :p1} nil))
   (profiled {} (p (let [x :foo/id] x) "body"))
   (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
-  (profiled {} (p :foo (p :bar))))
+  (profiled {} (p :foo (p :bar nil))))
 
 #?(:clj
    (defmacro profile
-     "Always executes body, and always returns <body-result>.
-
-     When [ns level] unelided and [ns level `when`] unfiltered, executes body
-     with profiling active and dispatches stats to any registered handlers
-     (see `add-handler!`).
-
-     Handy if you'd like to consume/aggregate stats output later/elsewhere.
-     Otherwise see `profiled`.
-
-     Compile-time opts:
-       `:dynamic?` - Use multi-threaded profiling? ; Default is `false`
-       `:nmax` ----- ~Max captures per id before compaction ; Default is 8e5
-
-     Runtime opts:
-       `:level` ---- e/o #{0 1 2 3 4 5} ; Default is `5`
-       `:when` ----- Optional arbitrary conditional form (e.g. boolean expr)
-       `:id` ------- Optional profiling id provided to handlers (e.g. `::my-stats-1`)
-       `:data` ----- Optional arbitrary data provided to handlers
-
-     Laziness in body:
-       Lazy seqs and other forms of laziness (e.g. delays) in body will only
-       contribute to profiling results if/when EVALUATION ACTUALLY OCCURS.
-       This is intentional and a useful property. Compare:
-
-         (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
-         (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep
-
-     Async code in body:
-       Execution time of any code in body that runs asynchronously on a
-       different thread will generally NOT be automatically captured by default.
-
-       `:dynamic?` can be used to support capture in cases where Clojure's
-       binding conveyance applies (e.g. futures, agents, pmap). Just make sure
-       that all work you want to capture has COMPLETED before the `profiled`
-       form ends- for example, by blocking on pending futures.
-
-       In other advanced cases (notably core.async `go` blocks), please see
-       `with-profiling` and `capture-time!`.
-
-     `core.async` warning:
-        `core.async` code can be difficult to profile correctly without a deep
-        understanding of precisely what it's doing under-the-covers.
-
-        Some general recommendations that can help keep things simple:
-
-          - Try minimize the amount of code + logic in `go` blocks. Use `go`
-            blocks for un/parking to get the data you need, then pass the data
-            to external fns. Profile these fns (or in these fns), not in your
-            `go` blocks.
-
-          - In particular: you MUST NEVER have parking calls inside
-            `(profiled {:dynamic? false} ...)`.
-
-            This can lead to concurrency exceptions.
-
-            If you must profile code within a go block, and you really want to
-            include un/parking times, use `(profiled {:dynamic? true} ...)`
-            instead."
+     "Conditionally profiles body, returns <body-result> and ?dispatches
+     signal to registered handlers."
+     {:doc (impl/docstring :profile)
+      :arglists
+      '([{:keys [elidable? #_elide? #_allow? #_callsite-id,
+                 sample ns id level when limit limit-by]}
+         & body])}
 
      [opts & body]
-     (let [ns-str (str *ns*)]
+     (impl/valid-opts! &form &env 'tufte/profile opts body)
+     (let [opts       (merge {:level 5} opts)
+           ns-form*   (get opts :ns :auto)
+           ns-form    (auto-> ns-form* (str *ns*))
+           level-form (get opts :level)
+           id-form    (get opts :id)
+           data-form  (get opts :data)]
 
-       (when-not (map? opts)
-         (truss/ex-info! "`tufte/profile` requires a compile-time map as first arg."
-           {:ns-str ns-str :line (:line (meta &form))
-            :form (cons 'profile (cons opts body))}))
-
-       (let [level-form (get opts :level 5)
-             id-form    (get opts :id)
-             data-form  (get opts :data)]
-
-         (when (integer? level-form) (valid-call-level level-form))
-
-         `(let [[result# pstats#] (profiled ~opts ~@body)]
-            (when pstats#
-              (impl/handle!
-                (HandlerVal. ~ns-str ~level-form ~id-form ~data-form
-                  pstats# (delay (format-pstats pstats#))
-                  ~*file* ~(:line (meta &form)))))
-            result#)))))
+       `(let [[result# pstats#] (profiled ~opts ~@body)]
+          (when        pstats#
+            (impl/handle!
+              (HandlerVal. ~ns-form ~level-form ~id-form ~data-form
+                pstats# (delay (format-pstats pstats#))
+                ~*file* ~(:line (meta &form)))))
+          result#))))
 
 (comment (profile {:id ::my-id} (p :p1 "body")))
 
 ;;;; Handlers
-;; Handlers are used for `profile` output, let us nicely decouple stat
-;; creation and consumption.
+;; Handlers used by `profile`, decouple `pstats` creation and consumption
 
 (def         handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
 (defn remove-handler! [handler-id] (set (keys (swap! handlers_ dissoc handler-id))))
@@ -669,28 +402,7 @@
           (when ?data (str "\ndata: " ?data))
           "\n" (format-pstats pstats format-pstats-opts))))))
 
-;;;; Public user utils
-
-(enc/defaliases
-  enc/chance
-  impl/merge-pstats
-  impl/format-pstats
-  impl/format-grouped-pstats)
-
-(comment
-  (let [[_ ps1] (profiled {} (p :p1))
-        [_ ps2] (profiled {} (p :p1))]
-    (enc/qb 1e5 (merge-pstats ps1 ps2))) ; 74.38
-
-  (println
-    (str "\n"
-      (format-pstats
-        (second
-          (profiled {}
-            (p :foo (Thread/sleep 200))
-            (p :bar (Thread/sleep 500))
-            (do     (Thread/sleep 800))))
-        {:columns [:clock :p50 :p95]}))))
+;;;; Public utils
 
 (defn format-id-abbr-fn
   "Returns a cached (fn [id]) => abbreviated id with at most `n-full`
@@ -704,17 +416,12 @@
   ([      ] (format-id-abbr-fn 1))
   ([n-full] (enc/fmemoize (partial enc/abbreviate-ns n-full))))
 
-(defn compile-ns-filter "Wraps `taoensso.encore/name-filter`."
-  [ns-pattern] (enc/name-filter ns-pattern))
-
 #?(:clj
    (defmacro refer-tufte
           "(require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])"
      [] `(require '~'[taoensso.tufte :as tufte :refer [defnp p profiled profile]])))
 
 (comment (refer-tufte))
-
-;;;; fnp stuff
 
 (defn- fn-sigs [def? ?meta-id ?fn-sym sigs location]
   (let [single-arity?   (vector? (first sigs))
@@ -920,8 +627,11 @@
 ;;;; Deprecated
 
 (enc/deprecated
-  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level "Prefer `binding`." [level & body] `(binding [*min-level* ~level] ~@body)))
-  (defn             ^:no-doc ^:deprecated set-min-level! "Prefer `alter-var-root`." [level]
+  #?(:clj (defmacro ^:no-doc ^:deprecated pspy           "Prefer `p`." [& args] (truss/keep-callsite `(p ~@args))))
+  (enc/def*         ^:no-doc ^:deprecated format-id-abbr "Prefer `format-id-abbr-fn`." format-id-abbr-fn)
+
+  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level  "Prefer `binding`." [level & body] `(binding [*min-level* ~level] ~@body)))
+  (defn             ^:no-doc ^:deprecated  set-min-level! "Prefer `alter-var-root`." [level]
     #?(:cljs (set!             *min-level*         level)
        :clj  (alter-var-root #'*min-level* (fn [_] level))))
 
@@ -977,6 +687,20 @@
       (p :foo/a (Thread/sleep 120))
       (p :foo/b (Thread/sleep 220))))
 
+  (let [[_ ps1] (profiled {} (p :p1 nil))
+        [_ ps2] (profiled {} (p :p1 nil))]
+    (enc/qb 1e5 (merge-pstats ps1 ps2))) ; 83.5
+
+  (println
+    (str "\n"
+      (format-pstats
+        (second
+          (profiled {}
+            (p :foo (Thread/sleep 200))
+            (p :bar (Thread/sleep 500))
+            (do     (Thread/sleep 800))))
+        {:columns [:clock :p50 :p95]})))
+
   (println "\n" (format-pstats (second (profiled {} (p :p1 (p :p2 (p :p3 "foo")))))))
   (println "\n"
     (time
@@ -990,9 +714,3 @@
     (format-pstats
       (second
         (profiled {} (p :foo (Thread/sleep 100)))))))
-
-;;;; Deprecated
-
-(enc/deprecated
-  #?(:clj (defmacro ^:no-doc pspy            {:deprecated "vX.Y.Z (YYYY-MM-DD)" :doc "Prefer `p`."} [& args] (truss/keep-callsite `(p ~@args))))
-  (enc/def*         ^:no-doc format-id-abbr  {:deprecated "vX.Y.Z (YYYY-MM-DD)" :doc "Prefer `format-id-abbr-fn`."} format-id-abbr-fn))
