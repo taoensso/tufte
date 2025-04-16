@@ -638,7 +638,16 @@
          (map (fn [id] (str id sep (format-pstats (get m id) format-pstats-opts))))
          sorted-profiling-ids)))))
 
-;;;; Output handlers
+;;;; Handlers
+
+(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line]
+  Object (toString [this] (str "taoensso.tufte.HandlerVal" (enc/pr-edn* (into {} this)))))
+
+;; Verbose constructors for readability + to support extra keys
+(do     (enc/def-print-impl [x HandlerVal] (str "#taoensso.tufte.HandlerVal"      (enc/pr-edn* (into {} x)))))
+#?(:clj (enc/def-print-dup  [x HandlerVal] (str "#taoensso.tufte.impl.HandlerVal" (enc/pr-edn* (into {} x)))))
+
+(defn handler-val? #?(:cljs {:tag 'boolean}) [x] (instance? HandlerVal x))
 
 (enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
 

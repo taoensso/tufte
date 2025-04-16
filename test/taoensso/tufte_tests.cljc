@@ -376,6 +376,13 @@
          (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled false true))))))  "(local   (dynamic ...))")
          (is (every? #(= nested-reference @%) (doall (repeatedly 100 (fn [] (future (Thread/sleep 10) (nested-profiled true  false)))))) "(dynamic (local   ...))")]))])
 
+(deftest printing
+  [#?(:clj (is (impl/handler-val? (read-string (binding [*print-dup* true] (pr-str        (impl/map->HandlerVal {})))))))
+   #?(:clj (is (impl/handler-val? (read-string (binding [*print-dup* true] (pr-str (assoc (impl/map->HandlerVal {}) :k :v)))))))
+   (is (enc/str-starts-with?                   (binding [*print-dup* true]    (str (assoc (impl/map->HandlerVal {}) :k :v))) "taoensso.tufte.HandlerVal{"))
+   (is (enc/str-starts-with?                                               (pr-str (assoc (impl/map->HandlerVal {}) :k :v)) "#taoensso.tufte.HandlerVal{"))
+   (is (enc/str-starts-with?                                                  (str (assoc (impl/map->HandlerVal {}) :k :v))  "taoensso.tufte.HandlerVal{"))])
+
 (deftest advanced
   (testing "Advanced"
     [(testing "Capture in `profiled`"
@@ -543,7 +550,7 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                       fn1  [x] x) ; Line 546
+  (tufte/defnp                       fn1  [x] x) ; Line 553
   (tufte/defnp                       fn2  [x] x)
   (tufte/defnp ^{:tufte/id :my-fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "my-fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -583,12 +590,12 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo) (p :bar) ; Line 586
+           (p :foo) (p :bar) ; Line 593
            (p :baz
              (p :qux)))]
 
      [(is (truss/submap? @ps
-            (let [nref 586]
+            (let [nref 593]
               {:stats {:foo {:loc {:line nref}}
                        :bar {:loc {:line nref}}
                        :baz {:loc {:line (+ nref 1)}}
@@ -596,7 +603,7 @@
 
    (let [[r ps]
          (profiled {}
-           (p :foo) ; Line 599
+           (p :foo) ; Line 606
            (p :foo)
            (p :foo)
            (p :foo))
@@ -604,13 +611,13 @@
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) (let [nref 599] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
+      (is (= (into #{} (map :line) loc) (let [nref 606] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
       (is (truss/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (truss/submap? @ps
-          (let [nref 546]
+          (let [nref 553]
             {:stats {::fn1     {:loc {:line    nref}}
                      ::fn2     {:loc {:line (+ nref 1)}}
                      :my-fn3   {:loc {:line (+ nref 2)}}

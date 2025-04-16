@@ -31,9 +31,9 @@
    [taoensso.truss        :as truss]
    [taoensso.encore       :as enc]
    [taoensso.encore.stats :as stats]
-   [taoensso.tufte.impl   :as impl #?@(:cljs [:refer [PStats]])])
+   [taoensso.tufte.impl   :as impl #?@(:cljs [:refer [PStats HandlerVal]])])
 
-  #?(:clj  (:import [taoensso.tufte.impl PStats]))
+  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal]))
   #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
 
 (comment
@@ -468,8 +468,6 @@
   (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
   (profiled {} (p :foo (p :bar))))
 
-(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line])
-
 #?(:clj
    (defmacro profile
      "Always executes body, and always returns <body-result>.
@@ -555,7 +553,7 @@
 
 (comment (profile {:id ::my-id} (p :p1 "body")))
 
-;;;; Output handlers
+;;;; Handlers
 ;; Handlers are used for `profile` output, let us nicely decouple stat
 ;; creation and consumption.
 
