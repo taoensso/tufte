@@ -43,7 +43,7 @@
 
 (comment (remove-ns 'taoensso.tufte))
 
-(enc/assert-min-encore-version [3 142 0])
+(enc/assert-min-encore-version [3 143 1])
 
 ;;;; Level filtering
 ;; Terminology note: we distinguish between call/form and min levels to ensure
