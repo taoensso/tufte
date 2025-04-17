@@ -5,19 +5,19 @@
   profiling of these wrapped exprs using the `profiled` or `profile` macros:
 
     (profiled {} (p :my-fn (my-fn))) ; Returns [<body-result> <?pstats>]
-    (profile  {} (p :my-fn (my-fn))) ; Returns  <body-result>, dispatches
-                                     ; pstats to any registered handlers.
+    (profile  {} (p :my-fn (my-fn))) ; Returns  <body-result> and dispatches a
+                                     ; profiling signal (map) to all registered handlers.
 
   Provides extensive facilities for compile-time elision and runtime filtering.
 
   See the relevant docstrings for more info:
-    `p`, `profiled`, `profile`, `add-handler!` ; Core API
+    `p`, `profiled`, `profile`, `add-handler!`, etc.
 
     (p        [opts & body] [id & body]) ; e.g. `(p ::my-id (do-work))`
     (profiled [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
     (profile  [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
 
-    (add-handler! [handler-id ns-pattern handler-fn])
+    (add-handler! [handler-id handler-fn dispatch-opts])
 
   How/where to use this library:
     Tufte profiling is highly optimized: even without elision, you can usually
@@ -33,10 +33,10 @@
    [taoensso.encore.stats   :as stats]
    [taoensso.encore.signals :as sigs]
    [taoensso.tufte.impl     :as impl
-    #?@(:cljs [:refer [PStats HandlerVal Signal WrappedSignal]])])
+    #?@(:cljs [:refer [PStats Signal WrappedSignal]])])
 
-  #?(:clj  (:import [taoensso.tufte.impl PStats HandlerVal Signal WrappedSignal]))
-  #?(:cljs (:require-macros [taoensso.tufte :refer [profiled]])))
+  #?(:clj  (:import [taoensso.tufte.impl PStats Signal WrappedSignal]))
+  #?(:cljs (:require-macros [taoensso.tufte :refer [p profiled profile with-signal]])))
 
 (comment
   (remove-ns (symbol (str *ns*)))
@@ -98,7 +98,7 @@
 ;;;; Help
 
 (do
-  (impl/defhelp help:profiling-options    :profiling-options)
+  (impl/defhelp help:filters              :filters) ; Replace default
   (impl/defhelp help:pstats-content       :pstats-content)
   (impl/defhelp help:signal-content       :signal-content)
   (impl/defhelp help:environmental-config :environmental-config))
@@ -242,7 +242,7 @@
 
        (when (or (nil? id-form) (empty? body))
          (truss/ex-info!
-           (str "`tufte/p` form needs an id at " (impl/location-str location) ": "
+           (str "`tufte/p` form needs an id at " (sigs/format-callsite location) ": "
              `(~'p s1 ~@body))))
 
        (if-let [elide? (when-let [sf impl/ct-call-filter] (not (sf (:ns location) (enc/const-form id-form) (enc/const-form level-form))))]
@@ -271,7 +271,8 @@
      "Conditionally profiles body, returns [<body-result> <?pstats>]."
      {:doc (impl/docstring :profiled)
       :arglists
-      '([{:keys [elidable? #_elide? #_allow? #_callsite-id,
+      '([{:keys [dynamic? nmax,
+                 elidable? #_elide? #_allow? #_callsite-id,
                  sample ns id level when limit limit-by]}
          & body])}
 
@@ -312,22 +313,28 @@
 #?(:clj
    (defmacro profile
      "Conditionally profiles body, returns <body-result> and ?dispatches
-     signal to registered handlers."
+     profiling signal (map) to all registered handlers."
      {:doc (impl/docstring :profile)
       :arglists
-      '([{:keys [elidable? #_elide? #_allow? #_callsite-id,
-                 sample ns id level when limit limit-by]}
+      '([{:keys [dynamic? nmax,
+                 elidable? #_elide? #_allow? #_callsite-id,
+                 sample ns id level when limit limit-by,
+                 #_inst #_coords #_host #_thread,
+                 ctx ctx+ data xfn xfn+]}
          & body])}
 
      [opts & body]
      (impl/valid-opts! &form &env 'tufte/profile opts body)
-     (let [opts     (merge {:level 5} opts)
+     (let [cljs?    (boolean (:ns &env))
+           clj?     (not cljs?)
+
+           opts     (merge {:level 5} opts)
            ns-form* (get opts :ns :auto)
            ns-form  (auto-> ns-form* (str *ns*))
 
            {:keys [elide? allow?]}
            (sigs/filter-call
-             {:cljs? (boolean (:ns &env))
+             {:cljs? cljs?
               :sf-arity 3
               :ct-call-filter     impl/ct-call-filter
               :*rt-call-filter* `impl/*rt-call-filter*}
@@ -340,96 +347,62 @@
 
        (if elide?
          (do ~@body)
-         (let [{dynamic?    :dynamic?
-                nmax-form   :nmax
-                id-form     :id
-                level-form  :level
-                sample-form :sample
-                data-form   :data} opts]
+         (let [coords (get opts :coords (when (= ns-form* :auto) (truss/callsite-coords &form)))
+
+               {inst-form  :inst
+                id-form    :id
+                level-form :level
+                dynamic?   :dynamic
+                nmax       :nmax} opts
+
+               host-form   (auto-> (get opts :host   :auto) (when clj? `(enc/host-info)))
+               thread-form (auto-> (get opts :thread :auto) (when clj? `(enc/thread-info)))
+               inst-form   (auto-> (get opts :inst   :auto)            `(enc/now-inst*))
+
+               signal-form
+               (let [{sample-form :sample
+                      data-form   :data} opts
+
+                     ctx-form
+                     (if-let [ctx+ (get opts :ctx+)]
+                       `(taoensso.encore.signals/update-ctx taoensso.tufte/*ctx* ~ctx+)
+                       (get opts :ctx                      `taoensso.tufte/*ctx*))
+
+                     xfn-form
+                     (if-let [xfn+ (get opts :xfn+)]
+                       `(taoensso.encore.signals/comp-xfn taoensso.tufte/*xfn* ~xfn+)
+                       (get opts :xfn                    `taoensso.tufte/*xfn*))
+
+                     record-form
+                     (if clj?
+                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level, ~host-form ~thread-form, ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats))
+                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level,                          ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats)))]
+
+                 `(enc/bound-delay
+                    (let [signal# ~record-form]
+                      (if-let [xfn# ~xfn-form]
+                        (xfn# signal#)
+                        (do   signal#)))))]
 
            `((fn [] ; iife for better IoC compatibility
-               (let [;; handlers# impl/*sig-handlers*
+               (let [handlers# impl/*sig-handlers*
                      body-fn#  (fn [] ~@body)
                      ~'__ns    ~ns-form
                      ~'__id    ~id-form
                      ~'__level ~level-form]
 
-                 (enc/if-not (enc/and? #_handlers# ~allow?)
+                 (enc/if-not (enc/and? handlers# ~allow?)
                    (body-fn#)
-                   (let [;; inst# (enc/now-inst)
-                         [body-result# pstats#] (profiled* 'tufte/profiled ~dynamic? ~nmax-form (body-fn#))]
-                     (when             pstats#
-                       (impl/handle!
-                         (HandlerVal. ~ns-form ~level-form ~id-form ~data-form
-                           pstats# (delay (format-pstats pstats#))
-                           ~*file* ~(:line (meta &form)))))
-                     body-result#))))))))))
+                   (let [~'__inst   ~inst-form
+                         ~'__thread ~thread-form
+                         [~'__body-result ~'__pstats] (profiled* 'tufte/profiled ~dynamic? ~nmax (body-fn#))]
+
+                     (when ~'__pstats
+                       (sigs/call-handlers! handlers#
+                         (WrappedSignal. ~'__ns ~'__id ~'__level ~signal-form)))
+                     ~'__body-result))))))))))
 
 (comment (profile {:id ::my-id} (p :p1 "body")))
-
-;;;; Handlers
-;; Handlers used by `profile`, decouple `pstats` creation and consumption
-
-(def         handlers_ "{<handler-id> <handler-fn>}" impl/handlers_)
-(defn remove-handler! [handler-id] (set (keys (swap! handlers_ dissoc handler-id))))
-(defn    add-handler!
-  "Use this to register interest in stats output produced by `profile` calls.
-  Each registered `handler-fn` will be called as:
-
-    (handler-fn {:ns-str _ :level _ :?id _ :?data _ :pstats _ :pstats-str_ _})
-
-  Map args:
-    `:ns-str` ------ Namespace string where `profile` call took place
-    `:level` ------- Level e/o #{0 1 2 3 4 5}, given in `(profile {:level _} ...)`
-    `:?id` --------- Optional profiling id,    given in `(profile {:id    _} ...)`
-    `:?data` ------- Optional arb data,        given in `(profile {:data  _} ...)`
-    `:pstats` ------ As in `(second (profiled ...))`. Derefable, mergeable.
-    `:pstats-str_` - (delay (format-pstats pstats))
-
-  Error handling (NB):
-    Handler errors will be silently swallowed. Please `try`/`catch` and
-    appropriately deal with (e.g. log) possible errors *within* `handler-fn`.
-
-  Async/blocking:
-    `handler-fn` should ideally be non-blocking, or reasonably cheap. Handler
-     dispatch occurs through a 1-thread 1k-buffer dropping queue.
-
-  Ns filtering:
-    Provide an optional `ns-pattern` arg to only call handler for matching
-    namespaces. See `*ns-filter*` for example patterns.
-
-  Handler ideas:
-    Save to a db, log, `put!` to an appropriate `core.async` channel, filter,
-    aggregate, use for a realtime analytics dashboard, examine for outliers
-    or unexpected output, ..."
-
-  ([handler-id handler-fn] (add-handler! handler-id nil handler-fn))
-  ([handler-id ns-pattern handler-fn]
-   (let [f
-         (if (or (nil? ns-pattern) (= ns-pattern "*"))
-           handler-fn
-           (let [nsf? (enc/name-filter ns-pattern)]
-             (fn [m]
-               (when (nsf? (get m :ns-str))
-                 (handler-fn m)))))]
-
-     (set (keys (swap! handlers_ assoc handler-id f))))))
-
-(declare format-pstats)
-
-(defn add-basic-println-handler!
-  "Adds a simple handler that logs `profile` stats output with `println`."
-  [{:keys [ns-pattern handler-id format-pstats-opts]
-    :or   {ns-pattern "*"
-           handler-id :basic-println}}]
-
-  (add-handler! handler-id ns-pattern
-    (fn [{:keys [?id ?data pstats]}]
-      (println
-        (str
-          (when ?id   (str "\nid: "   ?id))
-          (when ?data (str "\ndata: " ?data))
-          "\n" (format-pstats pstats format-pstats-opts))))))
 
 ;;;; Public utils
 
@@ -598,51 +571,172 @@
     (sacc :profiled2 (second (profiled {} (p :p2 nil))))
     [@sacc @sacc]))
 
-(defn add-accumulating-handler!
-  "Alpha, subject to change.
-
-  Creates a new StatsAccumulator (and agent in clj), then
-  registers a handler to accumulate `profile` output to the
-  StatsAccumulator using the agent.
-
-  Returns the StatsAccumulator. You can deref the result to
-  drain the accumulator and return {<group-id> <merged-pstats>}.
-
-  One common pattern is to deref the accumulator every n
-  minutes/etc. to get a view of total-system performance over
-  the period, e.g.:
-
-  (defonce my-sacc (add-accumulating-handler! {:ns-pattern \"*\"}))
-  (defonce my-sacc-drainer
-    ;; Will drain and print formatted stats every minute
-    (future
-      (while true
-        (when-let [m (not-empty @my-sacc)]
-          (println (format-grouped-pstats m)))
-        (Thread/sleep 60000))))
-
-  (profile ...) ; Used elsewhere in your application, e.g.
-                ; wrapping relevant Ring routes in a web application.
-
-  See also `format-grouped-pstats`, example clj project."
-
-  [{:keys [ns-pattern handler-id]
-    :or   {ns-pattern "*"
-           handler-id :accumulating}}]
-
-  (let [sacc   (stats-accumulator)
-        agent_ #?(:clj (delay (agent nil :error-mode :continue)) :cljs nil)]
-
-    (add-handler! handler-id ns-pattern
-      (fn [{:keys [?id ?data pstats]}]
-        (let [id (or ?id :tufte/nil-id)]
-          #?(:clj (send @agent_ (fn [_] (sacc id pstats)))
-             :cljs                      (sacc id pstats)))))
-
-    sacc))
-
 (comment
   (def my-sacc (add-accumulating-handler! {:ns-pattern "*"}))
+
+  (do
+    (future (profile {}         (p :p1 (Thread/sleep 900))))
+    (future (profile {:id :foo} (p :p1 (Thread/sleep 900))))
+    (future (profile {:id :bar} (p :p1 (Thread/sleep 500)))))
+
+  (println
+    (format-grouped-pstats @my-sacc
+      {:format-pstats-opts {:columns [:n]}})))
+
+;;;; Handlers: (fn ([signal]) ([])) => effects
+
+#?(:clj
+   (defmacro ^:no-doc with-signal
+     "Private, don't use."
+     [form]
+     `(let [sig_# (volatile! nil)]
+        (with-handler ::capture (fn [sig#] (vreset! sig_# sig#)) ~form)
+        @sig_#)))
+
+(defn-    dummy-signal [] (with-signal (profile {:allow? true, :id ::id1} (p :p1 (p :p2 (p :p3 "foo"))))))
+(comment (dummy-signal))
+
+(defn format-signal-fn
+  "Alpha, subject to change.
+  Returns a (fn format [signal]) that:
+    - Takes a Tufte profiling signal (map).
+    - Returns a human-readable signal string.
+
+  Options:
+    `:incl-newline?` ------ Include terminating system newline? (default true)
+    `:format-inst-fn` ----- (fn format [instant]) => string (default ISO8601)
+    `:format-pstats-opts` - Opts map provided to `format-pstats` (default nil)
+    `:incl-keys` ---------- Subset of profiling signal keys to retain from those
+                            otherwise excluded by default: #{:host :thread}"
+
+  ;; Implementation based on `taoensso.telemere.utils/format-signal-fn`
+
+  ([] (format-signal-fn nil))
+  ([{:keys [incl-newline? format-inst-fn format-pstats-opts incl-keys]
+     :or
+     {incl-newline?  true
+      format-inst-fn (enc/format-inst-fn)}}]
+
+   (let [nl newline
+         incl-host?   (contains? incl-keys :host)
+         incl-thread? (contains? incl-keys :thread)]
+
+     (fn format-signal [signal]
+       (let [{:keys [inst ns #_coords, id level, #?@(:clj [host thread]), ctx data,
+                     pstats format-pstats-fn]} signal
+
+             sb    (enc/str-builder)
+             s+spc (enc/sb-appender sb " ")]
+
+         (when inst  (when-let [ff format-inst-fn] (s+spc (ff inst))))
+         (when level (s+spc (sigs/format-level level)))
+         #?(:clj
+            (when-let [hostname (enc/get-in* signal [:host :name])]
+              (s+spc   hostname)))
+
+         (when ns (s+spc (sigs/format-callsite ns (get signal :coords))))
+         (when id (s+spc (sigs/format-id ns id)))
+
+         #?(:clj (when   (enc/and? host   incl-host?)   (enc/sb-append sb nl "   host: " (enc/pr-edn* host))))
+         #?(:clj (when   (enc/and? thread incl-thread?) (enc/sb-append sb nl " thread: " (enc/pr-edn* thread))))
+         (when-let [data (enc/not-empty-coll data)]     (enc/sb-append sb nl "   data: " (enc/pr-edn* data)))
+         (when-let [ctx  (enc/not-empty-coll ctx)]      (enc/sb-append sb nl "    ctx: " (enc/pr-edn* ctx)))
+
+         (enc/when-let [ff format-pstats-fn, formatted (ff pstats format-pstats-opts)]
+           (enc/sb-append sb nl "<<< pstats <<<" nl formatted ">>> pstats >>>"))
+
+         (when incl-newline? (enc/sb-append sb nl))
+         (str sb))))))
+
+(comment ((format-signal-fn) (assoc (dummy-signal) :data {:k1 :v1})))
+
+#?(:clj
+   (defn handler:console
+     "Alpha, subject to change.
+     Returns a signal handler that:
+       - Takes a Tufte profiling signal (map).
+       - Writes the signal as a string to specified stream.
+
+     A general-purpose `println`-style handler that's well suited for outputting
+     signals as human or machine-readable (edn, JSON) strings.
+
+     Options:
+       `:output-fn` - (fn [signal]) => string, see `format-signal-fn`.
+       `:stream` ---- `java.io.writer` (default `*out*`)."
+
+     ([] (handler:console nil))
+     ([{:keys [stream output-fn]
+        :or
+        {stream    :out
+         output-fn (format-signal-fn)}}]
+
+      (fn a-handler:console
+        ([]) ; Stop => noop
+        ([signal]
+         (let [^java.io.Writer stream
+               (case stream
+                 (:out :*out*) *out*
+                 (:err :*err*) *err*
+                 stream)]
+
+           (when-let [output (output-fn signal)]
+             (.write stream (str output))
+             (.flush stream)))))))
+
+   :cljs
+   (defn handler:console
+     "Alpha, subject to change.
+     If `js/console` exists, returns a signal handler that:
+       - Takes a Tufte profiling signal (map).
+       - Writes the signal as a string to JavaScript console.
+
+     A general-purpose `println`-style handler that's well suited for outputting
+     signals as human or machine-readable (edn, JSON) strings.
+
+     Options:
+       `:output-fn` - (fn [signal]) => string, see `format-signal-fn`."
+
+     ([] (handler:console nil))
+     ([{:keys [output-fn]
+        :or   {output-fn (format-signal-fn)}}]
+
+      (when (exists? js/console)
+        (let [js-console-logger
+              (fn    [level]
+                (case level
+                  :trace  js/console.trace
+                  :debug  js/console.debug
+                  :info   js/console.info
+                  :warn   js/console.warn
+                  :error  js/console.error
+                  :fatal  js/console.error
+                  :report js/console.info
+                  (do     js/console.log)))]
+
+          (fn a-handler:console
+            ([      ]) ; Stop => noop
+            ([signal]
+             (when-let [output (output-fn signal)]
+               (let [logger (js-console-logger (get signal :level))]
+                 (.call logger logger (str output)))))))))))
+
+(comment ((handler:console) (assoc (dummy-signal) :data {:k1 :v1})))
+
+(defn handler:accumulating
+  "Alpha, subject to change.
+  Returns a signal handler that:
+     - Takes a Tufte profiling signal (map).
+     - Merges the signal's `pstats` into the given accumulator.
+
+  See `stats-accumulator` for more info."
+  [^StatsAccumulator sacc]
+  (fn a-handler:accumulating [signal]
+    (let [{:keys [id pstats]} signal]
+      (sacc id pstats))))
+
+(comment
+  (def my-sacc (stats-accumulator))
+  (add-handler! :my-sacc (handler:accumulating my-sacc))
 
   (do
     (future (profile {}         (p :p1 (Thread/sleep 900))))
@@ -656,23 +750,67 @@
 ;;;; Deprecated
 
 (enc/deprecated
-  #?(:clj (defmacro ^:no-doc ^:deprecated pspy           "Prefer `p`." [& args] (truss/keep-callsite `(p ~@args))))
-  (enc/def*         ^:no-doc ^:deprecated format-id-abbr "Prefer `format-id-abbr-fn`." format-id-abbr-fn)
+  #?(:clj (defmacro ^:no-doc ^:deprecated with-ns-pattern "Prefer `with-ns-filter`" [ns-pattern & body] `(with-ns-filter ~ns-pattern (do ~@body))))
+  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level  "Prefer `with-min-level`" [level      & body] `(with-min-level ~level      (do ~@body))))
+  (defn             ^:no-doc ^:deprecated set-ns-pattern! "Prefer `set-ns-filter!`" [ns-pattern] (set-ns-filter! ns-pattern))
+  (defn             ^:no-doc ^:deprecated set-min-level!  "Prefer `set-min-level!`" [level]      (set-min-level! level))
 
-  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level  "Prefer `binding`." [level & body] `(binding [*min-level* ~level] ~@body)))
-  (defn             ^:no-doc ^:deprecated  set-min-level! "Prefer `alter-var-root`." [level]
-    #?(:cljs (set!             *min-level*         level)
-       :clj  (alter-var-root #'*min-level* (fn [_] level))))
+  #?(:clj (defmacro ^:no-doc ^:deprecated pspy            "Prefer `p`." [& args] (truss/keep-callsite `(p ~@args))))
+  (enc/def*         ^:no-doc ^:deprecated format-id-abbr  "Prefer `format-id-abbr-fn`." format-id-abbr-fn)
+  (defn             ^:no-doc ^:deprecated add-legacy-handler!
+    "Register given legacy handler-fn that expects a Tufte v2 style handler argument."
+    ([handler-id            handler-fn] (add-handler! handler-id nil handler-fn))
+    ([handler-id ns-pattern handler-fn]
+     (let [dispatch-opts
+           (when    (and ns-pattern (not= ns-pattern "*"))
+             {:ns-filter ns-pattern})]
 
-  #?(:clj (defmacro ^:no-doc ^:deprecated with-ns-pattern  "Prefer `binding`." [ns-pattern & body] `(binding [*ns-filter* ~ns-pattern] ~@body)))
-  (defn             ^:no-doc ^:deprecated  set-ns-pattern! "Prefer `alter-var-root`." [ns-pattern]
-    #?(:cljs (set!             *ns-filter*         ns-pattern)
-       :clj  (alter-var-root #'*ns-filter* (fn [_] ns-pattern)))))
+       (add-handler! handler-id
+         (fn [signal]
+           (when-let [{:keys [ns id data coords pstats]} signal]
+             (let [pstats-str_ (delay (format-pstats pstats))] ; No opts support
+               ;; Add v3->v2 handler keys
+               (assoc signal
+                 :ns-str      ns
+                 :?id         id
+                 :?data       data
+                 :?line       (get coords 0)
+                 :pstats-str_ pstats-str_))))))))
+
+  (defn ^:no-doc ^:deprecated add-basic-println-handler!
+    "Prefer (add-handler! <handler-id> (handler:console {<handler-opts>}) <dispatch-opts>)."
+    [{:keys [ns-pattern handler-id format-pstats-opts]
+      :or   {ns-pattern "*"
+             handler-id :basic-println}}]
+
+    (let [handler-fn (handler:console {:format-pstats-opts format-pstats-opts})
+          dispatch-opts
+           (when    (and ns-pattern (not= ns-pattern "*"))
+             {:ns-filter ns-pattern})]
+
+      (add-handler! handler-id handler-fn dispatch-opts)))
+
+  (defn ^:no-doc ^:deprecated add-accumulating-handler!
+    "Prefer
+      (def my-sacc (stats-accumulator))
+      (add-handler! <handler-id> (handler:accumulating my-sacc) <dispatch-opts>)."
+    [{:keys [ns-pattern handler-id runner-opts]
+      :or   {ns-pattern "*"
+             handler-id :accumulating}}]
+
+    (let [sacc       (stats-accumulator)
+          handler-fn (handler:accumulating sacc)
+          dispatch-opts
+          (when    (and ns-pattern (not= ns-pattern "*"))
+            {:ns-filter ns-pattern})]
+
+      (add-handler! handler-id handler-fn dispatch-opts)
+      sacc)))
 
 ;;;;
 
 (comment
-  (add-basic-println-handler! {})
+  (add-handler! :console (handler:console))
   (defn sleepy-threads []
     (dotimes [n 5]
       (Thread/sleep 100) ; Unaccounted

@@ -1,33 +1,72 @@
 (ns taoensso.tufte.timbre
-  "Simple logging handler for integration with Timbre."
+  "Handler for Timbre,
+    Ref. <https://www.taoensso.com/timbre>."
   (:require
-            [taoensso.encore :as enc]
-            [taoensso.tufte  :as tufte]
-   #?(:clj  [taoensso.timbre :as timbre :refer        [log!]]
-      :cljs [taoensso.timbre :as timbre :refer-macros [log!]])))
+   [taoensso.encore         :as enc]
+   [taoensso.encore.signals :as sigs]
+   [taoensso.tufte          :as tufte]
+   [taoensso.tufte.impl     :as impl]
+   [taoensso.timbre         :as timbre]))
 
-(defn add-timbre-logging-handler!
-  "Adds a simple handler that logs `profile` stats output with Timbre.
+(defn handler:timbre
+  "Alpha, subject to change.
+  Returns a signal handler that:
+    - Takes a Tufte profiling signal (map).
+    - Uses Timbre to log the signal as a human-readable string.
 
-  `timbre-level` may be a fixed Timbre level (e.g. :info), or a
-  (fn [tufte-level]) -> timbre-level, e.g. {0 :trace 1 :debug ...}."
-  [{:keys [timbre-level ns-pattern handler-id]
-    :or   {timbre-level :info
-           ns-pattern "*"
-           handler-id :timbre}}]
+  Options:
+    `:timbre-level-fn` ---- (fn [tufte-level]) => timbre-level (default to constantly `:info`)
+    `:format-pstats-opts` - Opts map provided to `format-pstats` (default nil)
+    `:incl-keys` ---------- Subset of profiling signal keys to retain from those
+                            otherwise excluded by default: #{:host :thread}"
 
-  (tufte/add-handler! handler-id ns-pattern
-    (fn [m]
-      (let [{:keys [ns-str level ?id ?data pstats pstats-str_ ?file ?line]} m
-            profile-opts (enc/assoc-some {:level level} :id ?id :data ?data)
-            timbre-level
-            (cond
-              (keyword? timbre-level) timbre-level
-              (ifn? timbre-level) (timbre-level level)
-              :else timbre-level)]
+  ([] (handler:timbre nil))
+  ([{:keys [timbre-level-fn format-pstats-opts incl-keys]
+     :or   {timbre-level-fn (fn [tufte-level] :info)}}]
 
-        (log! timbre-level :p
-          [(str "Tufte `profile` output " profile-opts ":\n\n" @pstats-str_ "\n")]
-          {:?ns-str ns-str :?file ?file :?line ?line})))))
+   (let [nl enc/newline
+         incl-host?   (contains? incl-keys :host)
+         incl-thread? (contains? incl-keys :thread)]
 
-(comment (add-timbre-logging-handler! {}))
+     (fn a-handler:timbre [signal]
+       (let [{:keys [inst ns coords, id level, #?@(:clj [host thread]), ctx data,
+                     pstats format-pstats-fn]} signal]
+         (timbre/log!
+           {:loc      (when ns (let [[line column] coords] {:ns ns, :line line, :column column}))
+            :level    (timbre-level-fn level)
+            :instant  #?(:clj (enc/as-dt inst), :cljs inst)
+            :msg-type :p
+            :vargs
+            (let [sb    (enc/str-builder)
+                  s+spc (enc/sb-appender sb " ")]
+
+              (s+spc "Tufte signal")
+              (when id (s+spc (sigs/format-id ns id)))
+
+              #?(:clj (when   (enc/and? host   incl-host?)   (enc/sb-append sb nl "   host: " (enc/pr-edn* host))))
+              #?(:clj (when   (enc/and? thread incl-thread?) (enc/sb-append sb nl " thread: " (enc/pr-edn* thread))))
+              (when-let [data (enc/not-empty-coll data)]     (enc/sb-append sb nl "   data: " (enc/pr-edn* data)))
+              (when-let [ctx  (enc/not-empty-coll ctx)]      (enc/sb-append sb nl "    ctx: " (enc/pr-edn* ctx)))
+
+              (enc/when-let [ff format-pstats-fn, formatted (ff pstats format-pstats-opts)]
+                (enc/sb-append sb nl "<<< pstats <<<" nl formatted ">>> pstats >>>"))
+
+              [(str sb)])}))))))
+
+(comment ((handler:timbre) (assoc (#'tufte/dummy-signal) :data {:k1 :v1})))
+
+(enc/deprecated
+  (defn ^:no-doc ^:deprecated add-timbre-logging-handler!
+    "Prefer (add-handler! <handler-id> (handler:timbre) <dispatch-opts>)."
+    [{:keys [ns-pattern handler-id timbre-level]
+      :or   {ns-pattern "*"
+             handler-id   :timbre
+             timbre-level :info}}]
+
+    (let [timbre-level-fn (if (fn? timbre-level) timbre-level (fn [_] timbre-level))
+          handler-fn      (handler:timbre {:timbre-level-fn timbre-level-fn})
+          dispatch-opts
+          (when    (and ns-pattern (not= ns-pattern "*"))
+            {:ns-filter ns-pattern})]
+
+      (tufte/add-handler! handler-id handler-fn dispatch-opts))))

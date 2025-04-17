@@ -275,66 +275,73 @@
            (is (>= (/ (double (get-in @(:g1 @sacc) [:clock :total])) 1e6) 1000))])))])
 
 (defn add-test-handler! []
-  #?(:clj
-     (let [p_ (promise)]
-       (tufte/add-handler! :testing (fn [x] (p_ x)))
-       (fn [] (deref p_ 1000 nil)))
-
-     :cljs
-     (let [a_ (atom ::nil)]
-       (tufte/add-handler! :testing (fn [x] (compare-and-set! a_ ::nil x)))
-       (fn [] (deref a_)))))
+  (let [sig_ (volatile! nil)]
+    (tufte/add-handler! :testing (fn [sig] (vreset! sig_ sig)) {:async nil})
+    (fn [] @sig_)))
 
 (deftest profile-basics
   (testing "Profile/basics"
 
-    [(let [th (add-test-handler!)
-           r  (profile {} "foo")
-           m  (th)
-           ps (:pstats m)]
+    [(let [th     (add-test-handler!)
+           res    (profile {} "foo")
+           sig    (th)
+           pstats (:pstats sig)]
 
-       [(is (= r "foo"))
-        (is (ps? ps))
-        (is (truss/submap? @ps {:clock :submap/ex :stats nil}))])
+       [(is (= res "foo"))
+        (is (ps? pstats))
+        (is (truss/submap? @pstats {:clock {:total enc/nat-int?} :stats nil}))])
 
-     (let [th (add-test-handler!)
-           r  (profile {:dynamic? true} "foo")
-           m  (th)
-           ps (:pstats m)]
+     (let [th     (add-test-handler!)
+           res    (profile {:dynamic? true} "foo")
+           sig    (th)
+           pstats (:pstats sig)]
 
-       [(is (= r "foo"))
-        (is (ps? ps))
-        (is (truss/submap? @ps {:clock :submap/ex :stats nil}))])
+       [(is (= res "foo"))
+        (is (ps? pstats))
+        (is (truss/submap? @pstats {:clock {:total enc/nat-int?} :stats nil}))])
 
-     #?(:clj
-        (let [th (add-test-handler!)
-              r  (profile {} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
-              m  (th)
-              ps (:pstats m)]
+     (let [th     (add-test-handler!)
+           res    (profile {} (p :foo "foo") (p :bar "bar"))
+           sig    (th)
+           pstats (:pstats sig)]
 
-          [(is (= r "bar"))
-           (is (ps? ps))
-           (is (truss/submap? @ps
-                 {:clock       :submap/ex
-                  :stats {:foo :submap/nx
-                          :bar {:n 1}}}))
-           (is (string? @(:pstats-str_ m)))]))
-
-     #?(:clj
-        (let [th (add-test-handler!)
-              r  (profile {:dynamic? true} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
-              m  (th)
-              ps (:pstats m)]
-
-          [(is (= r "bar"))
-           (is (ps? ps))
-           (is (truss/submap? @ps
-                 {:clock :submap/ex
+          [(is (= res "bar"))
+           (is (ps? pstats))
+           (is (truss/submap? @pstats
+                 {:clock {:total enc/nat-int?}
                   :stats {:foo {:n 1}
                           :bar {:n 1}}}))
-           (is (string? @(:pstats-str_ m)))]))
+           (is (string? ((:format-pstats-fn sig) pstats)))])
 
-     (tufte/remove-handler! :testing)]))
+     #?(:clj
+        (let [th     (add-test-handler!)
+              res    (profile {} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
+              sig    (th)
+              pstats (:pstats sig)]
+
+          [(is (= res "bar"))
+           (is (ps? pstats))
+           (is (truss/submap? @pstats
+                 {:clock {:total enc/nat-int?}
+                  :stats {:foo :submap/nx
+                          :bar {:n 1}}}))
+           (is (string? ((:format-pstats-fn sig) pstats)))]))
+
+     #?(:clj
+        (let [th     (add-test-handler!)
+              res    (profile {:dynamic? true} (future (p :foo nil)) (Thread/sleep 100) (p :bar "bar"))
+              sig    (th)
+              pstats (:pstats sig)]
+
+          [(is (= res "bar"))
+           (is (ps? pstats))
+           (is (truss/submap? @pstats
+                 {:clock {:total enc/nat-int?}
+                  :stats {:foo :submap/nx
+                          :bar {:n 1}}}))
+           (is (string? ((:format-pstats-fn sig) pstats)))]))
+
+     (do (tufte/remove-handler! :testing) :remove-handler)]))
 
 (let [get-ns (fn [ps] (enc/map-vals #(get % :n) (:stats @ps)))]
   (defn- nested-profiled-output [[r ps]] [r (get-ns ps)]))
@@ -550,7 +557,7 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                       fn1  [x] x) ; Line 553
+  (tufte/defnp                       fn1  [x] x) ; Line 560
   (tufte/defnp                       fn2  [x] x)
   (tufte/defnp ^{:tufte/id :my-fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "my-fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -590,12 +597,12 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo nil) (p :bar nil) ; Line 593
+           (p :foo nil) (p :bar nil) ; Line 600
            (p :baz
              (p :qux nil)))]
 
      [(is (truss/submap? @ps
-            (let [nref 593]
+            (let [nref 600]
               {:stats {:foo {:loc {:line nref}}
                        :bar {:loc {:line nref}}
                        :baz {:loc {:line (+ nref 1)}}
@@ -603,7 +610,7 @@
 
    (let [[r ps]
          (profiled {}
-           (p :foo nil) ; Line 606
+           (p :foo nil) ; Line 613
            (p :foo nil)
            (p :foo nil)
            (p :foo nil))
@@ -611,13 +618,13 @@
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) (let [nref 606] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
+      (is (= (into #{} (map :line) loc) (let [nref 613] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
       (is (truss/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (truss/submap? @ps
-          (let [nref 553]
+          (let [nref 560]
             {:stats {::fn1     {:loc {:line    nref}}
                      ::fn2     {:loc {:line (+ nref 1)}}
                      :my-fn3   {:loc {:line (+ nref 2)}}
