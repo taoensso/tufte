@@ -645,26 +645,16 @@
 #?(:clj (defmacro defhelp   [sym rname] `(enc/def* ~sym {:doc ~(eval `(docstring ~rname))} "See docstring")))
 
 #?(:clj
-   (defn location-str [location]
-     (when-let [{:keys [ns line column]} location]
-       (when ns
-         (if line
-           (if column
-             (str ns "[" line "," column "]")
-             (str ns "[" line            "]"))
-           ns)))))
-
-#?(:clj
    (defn valid-opts! [macro-form macro-env caller opts body]
      (cond
        (not (map? opts))
        (truss/ex-info!
-         (str "`" caller "` needs compile-time map opts at " (location-str (enc/get-source macro-form macro-env)) ": "
+         (str "`" caller "` needs compile-time map opts at " (sigs/format-callsite (enc/get-source macro-form macro-env)) ": "
            `(~caller ~opts ~@body)))
 
-       (not (enc/const-form? (get opts :dynamic?)))
+       (not (contains? #{true false nil} (get opts :dynamic?)))
        (truss/ex-info!
-         (str "`" caller "` needs compile-time `:dynamic?` value at " (location-str (enc/get-source macro-form macro-env)) ": "
+         (str "`" caller "` needs compile-time `:dynamic?` value at " (sigs/format-callsite (enc/get-source macro-form macro-env)) ": "
            `(~caller ~opts ~@body)))
 
        :else opts)))
@@ -722,45 +712,3 @@
        :min-level (or min-level (get base :min-level))})))
 
 (comment (enc/get-env {:as :edn, :return :explain} :taoensso.tufte/rt-filters<.platform><.edn>))
-
-;;;; Handlers
-
-(defrecord HandlerVal [ns-str level ?id ?data pstats pstats-str_ ?file ?line]
-  Object (toString [this] (str "taoensso.tufte.HandlerVal" (enc/pr-edn* (into {} this)))))
-
-;; Verbose constructors for readability + to support extra keys
-(do     (enc/def-print-impl [x HandlerVal] (str "#taoensso.tufte.HandlerVal"      (enc/pr-edn* (into {} x)))))
-#?(:clj (enc/def-print-dup  [x HandlerVal] (str "#taoensso.tufte.impl.HandlerVal" (enc/pr-edn* (into {} x)))))
-
-(enc/defonce handlers_ "{<hid> <handler-fn>}" (atom nil))
-
-#?(:clj
-   (enc/defonce ^:private ^java.util.concurrent.ArrayBlockingQueue handler-queue
-     "While user handlers should ideally be non-blocking, we'll use a queue
-     here to be safe + make sure we never tie up the execution thread."
-     (java.util.concurrent.ArrayBlockingQueue. 1024)))
-
-(defn- handle-blocking! [m]
-  (enc/run-kv!
-    (fn [id f]
-      (truss/try* (f m)
-        (catch :default e
-          (truss/catching ; Esp. nb for Cljs
-            (println (str "WARNING: Uncaught Tufte `" id "` handler error\n" e))))))
-    @handlers_))
-
-#?(:clj  (declare ^:private handler-thread_))
-#?(:cljs (defn handle! [m] (handle-blocking! m) nil))
-#?(:clj  (defn handle! [m] (.offer handler-queue m) @handler-thread_ nil))
-#?(:clj
-   (defonce ^:private handler-thread_
-     (delay
-       (let [f (fn []
-                 (loop []
-                   (let [m (.take handler-queue)]
-                     ;; Note: just drop if no registered handlers
-                     (handle-blocking! m)
-                     (recur))))]
-         (doto (Thread. f)
-           (.setDaemon true)
-           (.start))))))
