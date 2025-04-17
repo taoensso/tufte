@@ -321,20 +321,49 @@
 
      [opts & body]
      (impl/valid-opts! &form &env 'tufte/profile opts body)
-     (let [opts       (merge {:level 5} opts)
-           ns-form*   (get opts :ns :auto)
-           ns-form    (auto-> ns-form* (str *ns*))
-           level-form (get opts :level)
-           id-form    (get opts :id)
-           data-form  (get opts :data)]
+     (let [opts     (merge {:level 5} opts)
+           ns-form* (get opts :ns :auto)
+           ns-form  (auto-> ns-form* (str *ns*))
 
-       `(let [[result# pstats#] (profiled ~opts ~@body)]
-          (when        pstats#
-            (impl/handle!
-              (HandlerVal. ~ns-form ~level-form ~id-form ~data-form
-                pstats# (delay (format-pstats pstats#))
-                ~*file* ~(:line (meta &form)))))
-          result#))))
+           {:keys [elide? allow?]}
+           (sigs/filter-call
+             {:cljs? (boolean (:ns &env))
+              :sf-arity 3
+              :ct-call-filter     impl/ct-call-filter
+              :*rt-call-filter* `impl/*rt-call-filter*}
+             (assoc opts
+               :ns ns-form
+               :local-forms
+               {:ns    '__ns
+                :id    '__id
+                :level '__level}))]
+
+       (if elide?
+         (do ~@body)
+         (let [{dynamic?    :dynamic?
+                nmax-form   :nmax
+                id-form     :id
+                level-form  :level
+                sample-form :sample
+                data-form   :data} opts]
+
+           `((fn [] ; iife for better IoC compatibility
+               (let [;; handlers# impl/*sig-handlers*
+                     body-fn#  (fn [] ~@body)
+                     ~'__ns    ~ns-form
+                     ~'__id    ~id-form
+                     ~'__level ~level-form]
+
+                 (enc/if-not (enc/and? #_handlers# ~allow?)
+                   (body-fn#)
+                   (let [;; inst# (enc/now-inst)
+                         [body-result# pstats#] (profiled* 'tufte/profiled ~dynamic? ~nmax-form (body-fn#))]
+                     (when             pstats#
+                       (impl/handle!
+                         (HandlerVal. ~ns-form ~level-form ~id-form ~data-form
+                           pstats# (delay (format-pstats pstats#))
+                           ~*file* ~(:line (meta &form)))))
+                     body-result#))))))))))
 
 (comment (profile {:id ::my-id} (p :p1 "body")))
 
