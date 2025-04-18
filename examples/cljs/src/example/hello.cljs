@@ -1,14 +1,12 @@
 (ns example.hello
-  (:require [taoensso.tufte :as tufte
-             :refer-macros (defnp p profiled profile)]))
+  (:require [taoensso.tufte :as tufte]))
 
-(tufte/add-basic-println-handler! {})
+(tufte/add-handler! :my-console-handler (tufte/handler:console))
 
 (defn get-x [] (+ 1 1))
 (defn get-y [] (+ 2 2))
 
-(profile ; Profile any `p` forms called during body execution
-  {} ; Profiling options; we'll use the defaults for now
+(tufte/profile {:level :info, :id ::my-profiling-id}
   (dotimes [_ 5]
-    (p :get-x (get-x))
-    (p :get-y (get-y))))
+    (tufte/p :get-x (get-x))
+    (tufte/p :get-y (get-y))))

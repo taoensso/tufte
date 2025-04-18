@@ -37,31 +37,33 @@ See [here][GitHub releases] for earlier releases.
 ## Quick example
 
 ```clojure
-(require '[taoensso.tufte :as tufte :refer [defnp p profiled profile]])
+(require '[taoensso.tufte :as tufte)
 
-;; Request to send `profile` stats to `println`:
-(tufte/add-basic-println-handler! {})
+;; Send `profile` signals to console
+(tufte/add-handler! :my-console-handler (tufte/handler:console))
 
 ;;; Define a couple dummy fns to simulate doing some expensive work
 (defn get-x [] (Thread/sleep 500)             "x val")
 (defn get-y [] (Thread/sleep (rand-int 1000)) "y val")
 
 ;; Let's check how these fns perform:
-
-(profile ; Profile any `p` forms called during body execution
+(tufte/profile ; Profile any `p` forms called during body execution
   {} ; Profiling options; we'll use the defaults for now
   (dotimes [_ 5]
-    (p :get-x (get-x))
-    (p :get-y (get-y))))
+    (tufte/p :get-x (get-x))
+    (tufte/p :get-y (get-y))))
 
 ;; The following will be printed to *out*:
+;; 2025-04-18T11:23:08.820786Z INFO MyHost readme-examples[15,1]
+;; <<< pstats <<<
+;; pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total
 ;;
-;; pId      nCalls      Min    50% ≤    90% ≤    95% ≤    99% ≤      Max     Mean   MAD    Clock  Total
-;; :get-x        5    501ms    503ms    505ms    505ms    505ms    505ms    503ms   ±0%    2.52s    53%
-;; :get-y        5     78ms    396ms    815ms    815ms    815ms    815ms    452ms  ±48%    2.25s    47%
+;; :get-y             5      238ms      501ms      981ms      981ms      981ms      981ms      618ms  ±42%      3.09s    55%
+;; :get-x             5      501ms      502ms      505ms      505ms      505ms      505ms      503ms   ±0%      2.51s    45%
 ;;
-;; Accounted                                                                               4.78s   100%
-;; Clock                                                                                   4.78s   100%
+;; Accounted                                                                                                    5.60s   100%
+;; Clock                                                                                                        5.60s   100%
+;; >>> pstats >>>
 ```
 
 ## Documentation

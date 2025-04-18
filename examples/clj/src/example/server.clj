@@ -1,32 +1,28 @@
 (ns example.server
-  "Quick Tufte example, showing how to use Tufte for
+  "Quick Tufte example showing how to use Tufte for
   simple ongoing application performance monitoring.
 
   Note that a similar pattern can also be used for Cljs apps.
-
   See the Tufte README for more info!"
-
   {:author "Peter Taoussanis (@ptaoussanis)"}
   (:require
    [clojure.string     :as str]
    [ring.middleware.defaults]
    [ring.adapter.jetty]
-   [compojure.core     :as comp :refer (defroutes GET POST)]
+   [compojure.core     :as comp :refer [defroutes GET POST]]
    [compojure.route    :as route]
    [hiccup.core        :as hiccup]
-   [taoensso.encore    :as enc :refer (have have?)]
+   [taoensso.encore    :as enc :refer [have have?]]
    [taoensso.tufte     :as tufte]))
 
 (enc/defonce stats-accumulator
-  "On eval, will register a Tufte handler to accumulate the results from
-  all unfiltered `profile` data. Deref this to get the accumulated data.
+  "Accumulates results from all unfiltered `profile` calls.
+  Deref this to get the accumulated data."
+  (tufte/stats-accumulator))
 
-  (tufte/profile {:id :endpoint1} ...)
-  (tufte/profile {:id :endpoint2} ...)
-  ...
-  @stats-accumulator => Return accumulated performance stats"
-
-  (tufte/add-accumulating-handler! {:ns-pattern "*"}))
+;; Register handler for `profile` results
+(tufte/add-handler! :my-accumulating-handler
+  (tufte/handler:accumulating stats-accumulator))
 
 (defroutes ring-routes
   (GET "/" ring-req
@@ -75,6 +71,11 @@
 (defn -main "For `lein run`, etc." []
   (println "Starting example Ring server...")
   (ring.adapter.jetty/run-jetty #'main-ring-handler {:port 8088 :join? false})
+
+  ;; Cleanly stop handlers on shutdown
+  (tufte/call-on-shutdown!
+    (fn [] (tufte/stop-handlers!)))
+
   (let [uri "http://localhost:8088/"]
     (println (str "Jetty running on: " uri))
     (try
