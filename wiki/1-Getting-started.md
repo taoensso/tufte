@@ -11,7 +11,7 @@ And setup your namespace imports:
 
 ```clojure
 (ns my-app
-  (:require [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
+  (:require [taoensso.tufte :as tufte]]))
 ```
 
 # Usage
@@ -23,7 +23,7 @@ Wrap the forms you'd like to [sometimes] profile with [`p`](https://taoensso.git
 ```clojure
 (defn get-customer-info []
   (let [raw-customer-map (p ::get-raw-customer (fetch-from-db))]
-    (p ::enrich-raw-customer
+    (tufte/p ::enrich-raw-customer
       (do-some-work raw-customer-map))))
 ```
 
@@ -80,7 +80,7 @@ See [`tufte/*ns-filter*`](https://taoensso.github.io/tufte/taoensso.tufte.html#v
 `p`, `profiled`, and `profile` forms can take an optional **profiling level** ∈ `#{0 1 2 3 4 5}`, e.g.:
 
 ```clojure
-(profiled {:level 3} ...) ; Only activates profiling when (>= 3 *min-level*)
+(tufte/profiled {:level 3} ...) ; Only activates profiling when (>= 3 *min-level*)
 ```
 
 These form levels will be checked against [`tufte/*min-level*`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-*min-level*) which can be an constant integer, or a `[[<ns-pattern> <min-level-int>] ... ["*" <default-min-level-int>]]` for namespace-specific levels.
@@ -97,7 +97,7 @@ Compile-time | `taoensso.tufte.min-level` JVM property or `TAOENSSO_TUFTE_MIN_LE
 Finally, `profiled` and `profile` both support an optional arbitrary test expression:
 
 ```clojure
-(profiled {:when my-cond?} ...) ; Only activates profiling when `my-cond?` is truthy
+(tufte/profiled {:when my-cond?} ...) ; Only activates profiling when `my-cond?` is truthy
 ```
 
 This can be used for a wide range of sophisticated behaviour including smart, **application-aware rate limiting**.
@@ -105,7 +105,7 @@ This can be used for a wide range of sophisticated behaviour including smart, **
 As one simpler example, we can get **sampled profiling** like this:
 
 ```clojure
-(profiled {:when (tufte/chance 0.5)} ...) ; Only activates profiling with 50% probability
+(tufte/profiled {:when (tufte/chance 0.5)} ...) ; Only activates profiling with 50% probability
 ```
 
 # Formatting `pstats`
@@ -129,15 +129,17 @@ If you're using [`tufte/add-basic-println-handler!`](https://taoensso.github.io/
 through the `:format-pstats-opts` option:
 
 ```clojure
-(tufte/add-basic-println-handler!
-  {:format-pstats-opts {:columns [:n :p50 :mean :clock :sum]
-                        :format-id-fn name}})
+;; See the individual docstrings for options, etc.:
+(tufte/add-handler! :my-console-handler
+  (tufte/handler:console
+    {:output-fn
+     (tufte/format-signal-fn
+       {:format-pstats-opts {:columns [:n :p50 :mean :clock :sum]}})}))
 
 (defnp get-x [] (Thread/sleep 500)             "x val")
 (defnp get-y [] (Thread/sleep (rand-int 1000)) "y val")
 
-(profile
-  {}
+(tufte/profile {:level :info, :id ::my-profiling-id}
   (dotimes [_ 5]
     (get-x)
     (get-y)))
