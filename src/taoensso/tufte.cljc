@@ -14,8 +14,8 @@
     `p`, `profiled`, `profile`, `add-handler!`, etc.
 
     (p        [opts & body] [id & body]) ; e.g. `(p ::my-id (do-work))`
-    (profiled [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
-    (profile  [opts & body])             ; e.g. `(profiled {:level 2} (my-fn))`
+    (profiled [opts & body])             ; e.g. `(profiled {:level :info} (my-fn))`
+    (profile  [opts & body])             ; e.g. `(profiled {:level :info} (my-fn))`
 
     (add-handler! [handler-id handler-fn dispatch-opts])
 
@@ -102,11 +102,6 @@
   (impl/defhelp help:pstats-content       :pstats-content)
   (impl/defhelp help:signal-content       :signal-content)
   (impl/defhelp help:environmental-config :environmental-config))
-
-;;;; Vestigial
-
-(def ^:dynamic *min-level* "Vestigial, currently ignored." 2)
-(def ^:dynamic *ns-filter* "Vestigial, currently ignored." "*")
 
 ;;;; Low-level primitives
 
@@ -230,7 +225,7 @@
       :arglists '([id & body] [{:keys [id level]} & body])}
      [s1 & body]
      (let [opts       (if (map? s1) s1 {:id s1})
-           level-form (get opts :level 5)
+           level-form (get opts :level :info)
            id-form    (get opts :id)
            location
            (enc/assoc-some nil
@@ -278,7 +273,7 @@
 
      [opts & body]
      (impl/valid-opts! &form &env 'tufte/profiled opts body)
-     (let [opts     (merge {:level 5} opts)
+     (let [opts     (merge {:level :info} opts)
            ns-form* (get opts :ns :auto)
            ns-form  (auto-> ns-form* (str *ns*))
 
@@ -305,9 +300,9 @@
   (macroexpand '(profiled {:allow? false}))
 
   (profiled {} (p :p1 nil))
-  (profiled {} (p {:level 5 :id :p1} nil))
+  (profiled {} (p {:level :info :id :p1} nil))
   (profiled {} (p (let [x :foo/id] x) "body"))
-  (profiled {:level 2 :when (chance 0.5)} (p :p1 "body"))
+  (profiled {:level :info :when (chance 0.5)} (p :p1 "body"))
   (profiled {} (p :foo (p :bar nil))))
 
 #?(:clj
@@ -328,7 +323,7 @@
      (let [cljs?    (boolean (:ns &env))
            clj?     (not cljs?)
 
-           opts     (merge {:level 5} opts)
+           opts     (merge {:level :info} opts)
            ns-form* (get opts :ns :auto)
            ns-form  (auto-> ns-form* (str *ns*))
 
@@ -823,8 +818,8 @@
       (p :10ms (Thread/sleep 10))
       "Result"))
 
-  (profile {:level 2 :id ::sleepy :data "foo"}    (sleepy-threads))
-  (profile {:level 2 :id ::sleepy :dynamic? true} (sleepy-threads))
+  (profile {:level :info :id ::sleepy :data "foo"}    (sleepy-threads))
+  (profile {:level :info :id ::sleepy :dynamic? true} (sleepy-threads))
   (p :hello "Hello, this is a result") ; Falls through (no pdata context)
 
   (defnp arithmetic []
@@ -841,7 +836,7 @@
   (profile  {} (dotimes [n 1e5] (p :p1 nil)))
   (profile  {} (dotimes [n 1e6] (p :p1 nil)))
   (profiled {} (dotimes [n 1e6] (p :p1 nil)))
-  (profiled {:level 2 :when (chance 0.5)} "body")
+  (profiled {:level :info :when (chance 0.5)} "body")
 
   @(second (profiled {:nmax 10000 :dynamic? true} (dotimes [n 200] (p :p1 nil))))
 

@@ -699,10 +699,10 @@
           :id-filter (or id-filter (get base :id-filter))
           :min-level (or min-level (get base :min-level))}))))
 
-(let [base      (enc/get-env {:as :edn}             [:taoensso.tufte/rt-filters<.platform><.edn>])
-      ns-filter (enc/get-env {:as :edn}             [:taoensso.tufte/rt-ns-filter<.platform><.edn>])
-      id-filter (enc/get-env {:as :edn}             [:taoensso.tufte/rt-id-filter<.platform><.edn>])
-      min-level (enc/get-env {:as :edn, :default 2} [:taoensso.tufte/rt-min-level<.platform><.edn>])]
+(let [base      (enc/get-env {:as :edn}                 [:taoensso.tufte/rt-filters<.platform><.edn>])
+      ns-filter (enc/get-env {:as :edn}                 [:taoensso.tufte/rt-ns-filter<.platform><.edn>])
+      id-filter (enc/get-env {:as :edn}                 [:taoensso.tufte/rt-id-filter<.platform><.edn>])
+      min-level (enc/get-env {:as :edn, :default :info} [:taoensso.tufte/rt-min-level<.platform><.edn>])]
 
   (enc/defonce ^:dynamic *rt-call-filter*
     "`SpecFilter` used for runtime filtering, or nil."
