@@ -38,6 +38,7 @@
 
     :dependencies
     [[org.clojure/test.check "1.1.1"]
+     [com.taoensso/telemere  "1.0.0-RC5"]
      [com.taoensso/timbre    "6.7.0"]]
 
     :plugins
