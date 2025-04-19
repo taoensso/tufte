@@ -12,8 +12,8 @@
 (defn get-y [] (Thread/sleep (rand-int 1000)) "y val")
 
 ;; Let's check how these fns perform:
-(tufte/profile ; Profile any `p` forms called during body execution
-  {} ; Profiling options; we'll use the defaults for now
+(tufte/profile   ; Profile any `p` forms called during body execution
+  {:level :info} ; Rich set of filtering options available
   (dotimes [_ 5]
     (tufte/p :get-x (get-x))
     (tufte/p :get-y (get-y))))
@@ -29,5 +29,21 @@
 ;; Accounted                                                                                                    5.60s   100%
 ;; Clock                                                                                                        5.60s   100%
 ;; >>> pstats >>>
+
+(tufte/profile
+  ;; See `profile` docstring for all options:
+  {:dynamic? true ; Use dynamic (multi-threaded) profiling
+   :level :debug  ; Must be allowed by `set-min-level!`, etc.
+   :id    :id1    ; Must be allowed by `set-id-filter!`, etc.
+
+   :sample 0.75     ; Profile 75% of calls
+   :when  (my-pred) ; Must be truthy at runtime to profile
+   :limit [[1 2000]
+           [2 60000]]   ; Rate limit (1 per 2 secs, 2 per minute)
+   :limit-by my-user-id ; Rate limit per unique user-id
+   }
+
+  ;; Code that has forms wrapped with `tufte/p`:
+  (my-code))
 
 )

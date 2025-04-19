@@ -6,34 +6,15 @@ And they can certainly do the job, but they also tend to be a little hairy: requ
 
 In contrast, Tufte offers some interesting benefits:
 
-- A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications
-- Arbitrary **application-aware, form-level** profiling; measure _just_ what you care about at the application level
-- Simple **thread-local or multi-threaded semantics**
-- During dev/debug: check performance **right from within your REPL**
-- During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**)
+- A **cross-platform API** that works seamlessly between your server (Clj) and client (Cljs) applications.
+- Arbitrary **application-aware, form-level** profiling; measure _just_ what you care about at the application level.
+- Simple **thread-local or multi-threaded semantics**.
+- During dev/debug: check performance **right from within your REPL**.
+- During production: **ongoing, application-aware** conditional profiling, logging, and analysis (stats are just **Clojure maps**).
 
-Note that JVM profiling tools can still be very handy. Tufte doesn't offer memory profiling for example, and it's not well suited to forensic or very low-level profiling.
+Note that JVM profiling tools can still be handy. Tufte doesn't offer memory profiling for example, and it's not well suited to forensic or very low-level profiling.
 
 If you want to know `clojure.lang.Numbers$LongOps.lt(Number, Number)` or memory stats, you'll want a JVM tool. If you want to know `my-fn` stats, or you want ongoing stats in production - Tufte could be a good fit.
-
-# How does Tufte compare to the profiling in Timbre?
-
-I developed Tufte one weekend while refactoring the profiling tools in [Timbre](https://www.taoensso.com/timbre). It's basically a refinement of the ideas from there.
-
-I decided that I could make worthwhile improvements with some breaking API changes and a new set of dedicated docs. Tufte's implementation is cross-platform, considerably faster, and its API more flexible.
-
-With the release of Tufte, **Timbre's profiling tools are deprecated**.
-
-Note that Tufte's a feature **superset** of Timbre's profiling, so porting should be straightforward:
-
-API | Timbre | Tufte
---- | --- | ---
-`p` | `[id & body]` | `[id & body]`, `[opts & body]`
-`profile` | `[level id & body]` | `[opts & body]`
-`profiled` | `[level id & body]` | `[opts & body]`
-`profile` | Output -> log | Output -> arbitrary handler-fn [1]
-
-> **[1]** See [`tufte.timbre/add-timbre-logging-handler!`](https://taoensso.github.io/tufte/taoensso.tufte.timbre.html#var-add-timbre-logging-handler.21) for directing Tufte's `profile` output to Timbre.
 
 # How does Tufte compare to Criterium?
 
@@ -85,31 +66,29 @@ In contrast, **dynamic profiling** works across thread boundaries using Clojure'
 
 # How to do dynamic (multi-threaded) profiling?
 
-`profiled` and `profile` have a `:dynamic?` option:
+[`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled) and [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile) both have a `:dynamic?` option:
 
 ```clojure
-(profiled {:dynamic? true} ...) ; Activates dynamic (multi-threaded) profiling
+(tufte/profiled {:dynamic? true} ...) ; Activates dynamic (multi-threaded) profiling
 ```
 
 This works through Clojure's standard `^:dynamic` binding conveyance.
 
-If you really want to get fancy, you can also do _manual_ multi-threaded profiling using [`tufte/stats-accumulator`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-stats-accumulator).
+If you really want to get fancy, you can also do _manual_ multi-threaded profiling using [`stats-accumulator`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#stats-accumulator).
 
 # What's the difference between Clock Time and Accounted Time?
 
-> This question refers to the values reported by the [`format-pstats`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-format-pstats) util
+> This question refers to the values reported by the [`format-pstats`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#format-pstats) util.
 
-**Clock time** is just the total real-world time that elapsed between the start and end of a `profiled` or `profile` call. This is the amount of time that you'd have seen pass on a stopwatch in your hand.
+**Clock time** is just the total real-world time that elapsed between the start and end of a [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled) or [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile) call. This is the amount of time that you'd have seen pass on a stopwatch in your hand.
 
-**Accounted time** is the total execution time tracked by all `p` forms during the same period. It can be:
+**Accounted time** is the total execution time tracked by all [`p`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#p) forms during the same period. It can be:
 
-Outcome | Meaning
---- | ---
-`(< accounted clock-time)` | Some work was done that wasn't tracked by any `p` forms
-`(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling[1]
-
-> **[1]** For example: if you're doing concurrent work on 6 threads, then you can do 6ms of work for each 1ms of clock time.
+| Outcome                    | Meaning                                                                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `(< accounted clock-time)` | Some work was done that wasn't tracked by any `p` forms                                                                                                       |
+| `(> accounted clock-time)` | Nested `p` forms, and/or multi-threaded profiling. If you're doing concurrent work on 6 threads, then you can do 6ms of work for each 1ms of clock time, etc. |
 
 # How to time across a promise / async handler / etc.?
 
-A low-level util ([`tufte/capture-time!`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-capture-time.21)) is provided for this and similar use cases.
+The low-level [`capture-time!`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#capture-time!) util is provided for this and similar use cases.
