@@ -9,7 +9,7 @@
 
 It provides **sensible application-level metrics**, and gives them to you as **Clojure data** that can be easily analyzed programatically.
 
-Works great with [Telemere](https://www.taoensso.com/telemere), enabling unique **next-gen observability** of Clojure/Script applications.
+It works great with [Telemere](https://www.taoensso.com/telemere) and [Truss](https://www.taoensso.com/truss) to help enable unique **next-gen observability** for Clojure and ClojureScript applications.
 
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
@@ -17,7 +17,8 @@ Works great with [Telemere](https://www.taoensso.com/telemere), enabling unique 
 
 ## Latest release/s
 
-- `2025-04-15` `2.7.0`: [release info](../../releases/tag/v2.7.0)
+- `2025-04-15` `v2.7.0`: (stable) [release info](../../releases/tag/v2.7.0)
+- `YYYY-MM-DD` `v3.0.0-RC1`: (dev) [release info](../../releases/tag/v3.0.0-RC1) (v3 shares a common filter and handler API with [Telemere](https://www.taoensso.com/telemere))
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
@@ -26,13 +27,14 @@ See [here][GitHub releases] for earlier releases.
 
 ## Why Tufte?
 
-- Small, **fast**, cross-platform Clojure/Script codebase
-- Sensible **application-level metrics** without the obscure JVM-level noise
+- Small, **fast**, cross-platform Clojure/Script codebase.
+- Sensible **form-level** profiling without the low-level JVM noise.
 - **Metrics as Clojure maps**: easily aggregate, **analyse**, log, serialize to db, etc.
-- **Tiny**, flexible API: [`p`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-p), [`profiled`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-profiled), [`profile`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-profile)
-- Great **compile-time elision** and **runtime filtering** support
-- Arbitrary Clojure/Script **form-level** profiling
-- Full support for **thread-local** and **multi-threaded** profiling
+- **Tiny**, flexible API: [`p`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#p), [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled), [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile).
+- Full support for **thread-local** and dynamic (**multi-threaded**) profiling.
+- Shared [filter](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:filters) API with [Telemere](https://www.taoensso.com/telemere): **conditionally activate profiling** by namespace, id pattern, level, level by namespace pattern, etc.
+- Shared [handler](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options) API with [Telemere](https://www.taoensso.com/telemere): fully configurable **a/sync dispatch**, **sampling**, **rate limiting**, **back-pressure monitoring**, etc.
+- Includes handlers for [Telemere](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte.telemere#handler:telemere), [Timbre](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte.timbre#handler:timbre), and [consoles](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#handler:console) (`*out*`, etc.).
 
 ## Quick example
 
@@ -47,8 +49,8 @@ See [here][GitHub releases] for earlier releases.
 (defn get-y [] (Thread/sleep (rand-int 1000)) "y val")
 
 ;; Let's check how these fns perform:
-(tufte/profile ; Profile any `p` forms called during body execution
-  {} ; Profiling options; we'll use the defaults for now
+(tufte/profile   ; Profile any `p` forms called during body execution
+  {:level :info} ; Rich set of filtering options available
   (dotimes [_ 5]
     (tufte/p :get-x (get-x))
     (tufte/p :get-y (get-y))))

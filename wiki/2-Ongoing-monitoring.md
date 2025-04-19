@@ -2,7 +2,7 @@
 
 One of Tufte's most valuable use cases is for monitoring the **ongoing performance** of production applications, etc.
 
-The `pstats` objects generated from Tufte's `profiled` or `profile` calls are **~losslessly mergeable**.
+The [`pstats`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:pstats-content) objects generated from Tufte's [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled) or [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:profile) calls are **~losslessly mergeable** with [`merge-pstats`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#merge-pstats).
 
 This gives you a lot of flexibility re: integrating Tufte into your running applications.
 
@@ -13,14 +13,12 @@ As one example, suppose you have an HTTP application that you'd like to monitor+
 - Every n minutes, drain the buffer and log endpoint performance to a db.
 - Trigger alarms if any performance info (e.g. 95th percentile response times) are out of spec. The accumulated `pstats` info will also be helpful in quickly diagnosing a cause.
 
-[`tufte/add-accumulating-handler!`](https://taoensso.github.io/tufte/taoensso.tufte.html#var-add-accumulating-handler.21) provides one common/convenient way to do this.
+[`handler:accumulating`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#handler:accumulating) provides one common/convenient way to do this.
 
 See the [example project](../tree/master/examples/clj) for more info.
 
 # Performance
 
-Tufte's designed specifically to support ongoing use in production, and is **highly optimized**: its overhead is on the order of a couple nanoseconds per wrapping.
+Tufte's designed specifically to support ongoing use **in production**, and is **highly optimized**. If your code's remotely expensive enough to be worth profiling, then Tufte's overhead will likely be insignificant.
 
-If something's remotely worth profiling, Tufte's overhead should be completely insignificant.
-
-Also, keep in mind that Tufte's [conditional profiling](./1-Getting-started#conditional-profiling) gives you complete control over if and when you do pay (however little) for profiling.
+And Tufte's [conditional profiling](./1-Getting-started#conditional-profiling) gives you highly expressive control over what to profile, and when. This is useful both to minimize performance costs, and the production of unnecessary data that may be costly to store or analyze.
