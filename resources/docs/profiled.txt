@@ -1,0 +1,65 @@
+Use this to conditionally activate profiling for given body:
+
+- ALWAYS executes body and returns [<body-result> <?pstats>].
+- When filtering conditions are met (see `help:filters`), records execution times
+  of all `p` forms in body and includes resulting `pstats` object in return value.
+
+Handy when you want to consume profiling results directly at the callsite,
+otherwise prefer `profile`.
+
+Options include:
+
+  `:dynamic?` --- Perform multi-threaded profiling with binding conveyance? (default false)
+  `:level` ------ Profiling level (default `:info`), must be >= active minimum level to profile
+  `:id` --------- Profiling ?id for filtering, etc. (e.g. `::my-profiling-id`)
+
+  `:sample` ----- Sample rate ∈ℝ[0,1], profile only this random proportion of calls (0.75 => 75%, nil => all)
+  `:when` ------- Arb ?form; when present, form must return truthy to allow profiling
+  `:limit` ------ Rate limit ?spec given to `taoensso.tufte/rate-limiter`, see its docstring for details
+  `:limit-by` --- When present, rate limits will be enforced independently for each value (any Clojure value!)
+
+  `:nmax` ------- Max captures per `p` id before compaction (default 8e5).
+  `:elidable?` -- Should profiling be subject to compile-time elision? (default true)
+
+Laziness in body:
+
+  Lazy seqs and other forms of laziness (e.g. delays) in body will only
+  contribute to profiling results if/when EVALUATION ACTUALLY OCCURS.
+  This is intentional and a useful property. Compare:
+
+    (profiled {}  (delay (Thread/sleep 2000))) ; Doesn't count sleep
+    (profiled {} @(delay (Thread/sleep 2000))) ; Does    count sleep
+
+Async code in body:
+
+  Execution time of any code in body that runs asynchronously on a
+  different thread will generally NOT be automatically captured by default.
+
+  `:dynamic?` can be used to support capture in cases where Clojure's
+  binding conveyance applies (e.g. futures, agents, pmap). Just make sure
+  that all work you want to capture has COMPLETED before the `profiled`
+  form ends- for example, by blocking on pending futures.
+
+  In other advanced cases (notably core.async `go` blocks), please see
+  `with-profiling` and `capture-time!`.
+
+`core.async` warning:
+
+   `core.async` code can be difficult to profile correctly without a deep
+   understanding of precisely what it's doing under-the-covers.
+
+   Some general recommendations that can help keep things simple:
+
+     - Try minimize the amount of code + logic in `go` blocks. Use `go`
+       blocks for un/parking to get the data you need, then pass the data
+       to external fns. Profile these fns (or in these fns), not in your
+       `go` blocks.
+
+     - In particular: you MUST NEVER have parking calls inside
+       `(profiled {:dynamic? false} ...)`.
+
+       This can lead to concurrency exceptions.
+
+       If you must profile code within a go block, and you really want to
+       include un/parking times, use `(profiled {:dynamic? true} ...)`
+       instead.

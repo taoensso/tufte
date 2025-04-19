@@ -1,0 +1,55 @@
+Tufte supports extensive environmental config via JVM properties,
+environment variables, or classpath resources.
+
+Environmental filter config includes:
+
+  1. Minimum level (see signal `:level`):
+    a.       JVM property: `taoensso.tufte.rt-min-level`
+    b.       Env variable: `TAOENSSO_TUFTE_RT_MIN_LEVEL`
+    c. Classpath resource: `taoensso.tufte.rt-min-level`
+
+  2. Namespace filter (see signal `:ns`):
+    a.       JVM property: `taoensso.tufte.rt-ns-filter`
+    b.       Env variable: `TAOENSSO_TUFTE_RT_NS_FILTER`
+    c. Classpath resource: `taoensso.tufte.rt-ns-filter`
+
+  3. Id filter (see signal `:id`):
+    a.       JVM property: `taoensso.tufte.rt-id-filter`
+    b.       Env variable: `TAOENSSO_TUFTE_RT_ID_FILTER`
+    c. Classpath resource: `taoensso.tufte.rt-id-filter`
+
+Config values are parsed as edn, examples:
+
+  `taoensso.tufte.rt-min-level`      => ":info"
+  `TAOENSSO_TUFTE_RT_NS_FILTER`      => "{:disallow \"taoensso.*\"}"
+  `taoensso.tufte.rt-id-filter.cljs` => "#{:my-id1 :my-id2}"
+  `TAOENSSO_TUFTE_RT_ID_FILTER_CLJ`  => "nil"
+
+Runtime vs compile-time filters
+
+  The above filters (1..4) all apply at RUNTIME ("rt").
+  This is typically what you want, since it allows you to freely adjust filtering
+  (making it less OR MORE permissive) through later API calls like `set-min-level!`.
+
+  As an advanced option, you can instead/additionally ELIDE (entirely omit) filtered
+  callsites at COMPILE-TIME ("ct") by replacing "rt"->"ct" / "RT"->"CT" in the config
+  ids above. Compile-time filters CANNOT be made MORE permissive at runtime.
+
+Tips:
+
+  - The above config ids will affect both Clj AND Cljs.
+    For platform-specific filters, use
+      ".clj"  / "_CLJ"  or
+      ".cljs" / "_CLJS" suffixes instead.
+      e.g. "taoensso.tufte.rt-min-level.cljs".
+
+  - To get the right edn syntax, first set your runtime filters using the
+    standard utils (`set-min-level!`, etc.). Then call `get-filters` and
+    serialize the relevant parts to edn with `pr-str`.
+
+  - All environmental config uses `get-env` underneath.
+    See the `get-env` docstring for more/advanced details.
+
+  - Classpath resources are files accessible on your project's
+    classpath. This usually includes files in your project's
+    `resources/` dir.

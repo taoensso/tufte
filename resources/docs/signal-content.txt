@@ -1,0 +1,28 @@
+Tufte profiling signals are maps with {:keys [inst id ns level data ...]},
+though they can be modified by call and/or handler transforms (xfns).
+
+Default signal keys:
+
+`:schema` ----------- Int version of signal schema (current: 1)
+`:inst` ------------- Platform instant [1] when `profile` called, monotonicity depends on system clock
+`:ns` --------------- ?str namespace of `profile` callsite
+`:coords` ----------- ?[line column] of `profile` callsite
+
+`:level` ------------ Profiling level ∈ #{<int> :trace :debug :info :warn :error :fatal :report ...}
+`:id` --------------- Profiling ?id (usu. keyword)
+
+`:data` ------------- Arb app-level data ?val (usu. a map) given to `profile` call
+`:ctx` -------------- ?val of `*ctx*` (arb app-level state) when `profile` was called
+
+`:body-result` ------ Return value of the body wrapped by `profile` call
+`:pstats` ----------- Profiling stats object that can be derefed and/or merged (see `help:pstats-content`)
+`:format-pstats-fn` - Cached (fn [pstats]) => formatted table string function
+
+`:host` ------------- (Clj only) {:keys [name ip]}       info for network host
+`:thread` ----------- (Clj only) {:keys [name id group]} info for thread that called `profile`
+
+`:sample` ----------- Sample ?rate ∈ℝ[0,1] for combined call AND handler sampling (0.75 => allow 75% of signals, nil => allow all)
+
+If anything is unclear, please ping me (@ptaoussanis) so that I can improve these docs!
+
+[1] `java.time.Instant` or `js/Date`

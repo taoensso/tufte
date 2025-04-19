@@ -1,0 +1,15 @@
+Profiling stats (`pstats`)
+
+When profiling (activated by `profile/d`) is complete, you'll get back a
+profiling stats (`pstats`) object that can be derefed and/or merged
+with other `pstats`:
+
+  - @pstats                 => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
+  - @(merge-pstats ps1 ps2) => {:clock {:keys [t0 t1 total]}, :stats {<id> {:keys [n sum ...]}}}
+
+Full set of keys in the above `:stats` maps:
+  :n :min :max :mean :mad :sum :p25 :p50 :p75 :p90 :p95 :p99 :loc :last
+
+  All values are numerical (longs or doubles), except for `:loc` which is
+  a map of `p` callsite location information, or set of such maps, e.g.:
+  #{{:ns \"my-ns\", :line 122, :column 21}}
