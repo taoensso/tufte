@@ -1,0 +1,17 @@
+Profiling spy.
+
+Use this macro to wrap forms that should be timed during active profiling.
+A unique form id (keyword) must be provided, e.g.:
+
+  (p      ::my-form  (do-something))
+  (p {:id ::my-form} (do-something))
+  (p {:id ::my-form
+      :level :debug} (do-something))
+
+`p` will ALWAYS execute its body and return the body's result, even when
+profiling isn't active.
+
+Options include:
+  `:id` ---- Unique id for this form in resulting `pstats` (e.g. `::my-fn-call`)
+  `:level` - Profiling level ∈ #{<int> :trace :debug :info :warn :error :fatal :report ...}
+             (default `:info`)

@@ -1,0 +1,77 @@
+Tufte profiling is activated using the `profiled` or  `profile` macros:
+
+  - `profiled` returns [<body-result> <?pstats>].
+    Handy when you want to consume profiling results directly at the callsite.
+
+  - `profile`  returns <body-result> and dispatches a profiling signal (map)
+    to all registered handlers. This map includes `:pstats` and other info.
+
+    Handy when you want to consume profiling results later/elsewhere.
+
+Profiling is activated only when ALL of the following are true:
+
+    1. Call filters pass (relevant for both `profile/d`):
+      a. Compile-time: sample rate, kind, ns, id, level, when form, rate limit
+      b. Runtime:      sample rate, kind, ns, id, level, when form, rate limit
+
+    2. Handler filters pass (relevant only for `profile`):
+      a. Compile-time: not applicable
+      b. Runtime:      sample rate, kind, ns, id, level, when fn, rate limit
+
+    (Relevant only for `profile`):
+    3. Call    transform (fn [signal]) => ?modified-signal returns non-nil
+    4. Handler transform (fn [signal]) => ?modified-signal returns non-nil
+
+  Transform fns provides a flexible way to modify and/or filter signals by
+  arbitrary signal data/content conditions (return nil to skip handling).
+
+  Config:
+
+    To set call filters (1a, 1b):
+
+      Use:
+        `set-kind-filter!`, `with-kind-filter`
+        `set-ns-filter!`,   `with-ns-filter`
+        `set-id-filter!`,   `with-id-filter`
+        `set-min-level!`,   `with-min-level`
+
+      or see `help:environmental-config`.
+
+    To set handler filters (2b) or transform (4):
+
+      Provide relevant opts when calling `add-handler!` or `with-handler/+`.
+      See `help:handler-dispatch-options` for details.
+
+      Note: call filters (1a, 1b) should generally be AT LEAST as permissive
+      as handler filters (2b) since they're always applied first.
+
+    To set call transform (3): use `set-xfn!`, `with-xfn`.
+
+  Compile-time vs runtime filtering:
+
+    Compile-time filters are an advanced feature that can be tricky to set
+    and use correctly. Most folks will want ONLY runtime filters.
+
+    Compile-time filters works by eliding (completely removing the code for)
+    disallowed calls. This means zero performance cost for these calls, but
+    also means that compile-time filters are PERMANENT once applied.
+
+    So if you set `:info` as the compile-time minimum level, that'll REMOVE
+    CODE for every signal call below `:info` level. To decrease that minimum
+    level, you'll need to rebuild.
+
+    Compile-time filters can be set ONLY with environmental config
+    (see `help:environmental-config` for details).
+
+  Signal and handler sampling is multiplicative:
+
+    Both calls and handlers can have independent sample rates, and these
+    MULTIPLY! If a signal is created with 20% sampling and a handler
+    handles 50% of received signals, then 10% of possible signals will be
+    handled (50% of 20%).
+
+    When sampling is active, the final (combined multiplicative) rate is
+    helpfully reflected in each signal's `:sample` rate value ∈ℝ[0,1].
+
+If anything is unclear, please ping me (@ptaoussanis) so that I can
+improve these docs!
