@@ -1,4 +1,4 @@
-(defproject com.taoensso/tufte "2.7.0"
+(defproject com.taoensso/tufte "3.0.0-beta1"
   :author "Peter Taoussanis <https://www.taoensso.com>"
   :description "Simple performance monitoring library for Clojure/Script"
   :url "https://github.com/taoensso/tufte"

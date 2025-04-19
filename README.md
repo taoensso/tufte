@@ -17,8 +17,8 @@ It works great with [Telemere](https://www.taoensso.com/telemere) and [Truss](ht
 
 ## Latest release/s
 
+- `2025-04-21` `v3.0.0-beta1`: (forthcoming) [release info](../../releases/tag/v3.0.0-beta1) (v3 shares a common filter and handler API with [Telemere](https://www.taoensso.com/telemere))
 - `2025-04-15` `v2.7.0`: (stable) [release info](../../releases/tag/v2.7.0)
-- `YYYY-MM-DD` `v3.0.0-RC1`: (dev) [release info](../../releases/tag/v3.0.0-RC1) (v3 shares a common filter and handler API with [Telemere](https://www.taoensso.com/telemere))
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]
