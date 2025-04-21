@@ -478,8 +478,8 @@
     `:incl-newline?` - Include terminating system newline? (default true)
     `:columns` ------- Default [:n :min #_:p25 :p50 #_:p75 :p90 :p95 :p99 :max :mean :mad :clock :sum]"
 
-  ([ps] (format-pstats ps nil))
-  ([ps
+  ([pstats] (format-pstats pstats nil))
+  ([pstats
     {:keys [incl-newline? columns sort-fn format-id-fn max-id-width] :as opts
      :or
      {incl-newline? true
@@ -487,8 +487,8 @@
       sort-fn       (fn [ss] (get (enc/force-ref ss) :sum))
       format-id-fn  (fn [id] (str id))}}]
 
-   (when ps
-     (let [{:keys [clock stats]} (enc/force-ref ps)
+   (when pstats
+     (let [{:keys [clock stats]} (enc/force-ref pstats)
            clock-total (long (get clock :total))
            id-sstats* stats
 

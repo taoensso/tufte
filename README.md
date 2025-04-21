@@ -17,7 +17,7 @@ It works great with [Telemere](https://www.taoensso.com/telemere) and [Truss](ht
 
 ## Latest release/s
 
-- `2025-04-21` `v3.0.0-beta1`: (forthcoming) [release info](../../releases/tag/v3.0.0-beta1) (v3 shares a common filter and handler API with [Telemere](https://www.taoensso.com/telemere))
+- `2025-04-21` `v3.0.0-beta1`: (forthcoming) [release info](../../releases/tag/v3.0.0-beta1) (shares filter + handler API with [Telemere](https://www.taoensso.com/telemere))
 - `2025-04-15` `v2.7.0`: (stable) [release info](../../releases/tag/v2.7.0)
 
 [![Main tests][Main tests SVG]][Main tests URL]
@@ -32,8 +32,8 @@ See [here][GitHub releases] for earlier releases.
 - **Metrics as Clojure maps**: easily aggregate, **analyse**, log, serialize to db, etc.
 - **Tiny**, flexible API: [`p`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#p), [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled), [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile).
 - Full support for **thread-local** and dynamic (**multi-threaded**) profiling.
-- Shared [filter](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:filters) API with [Telemere](https://www.taoensso.com/telemere): **conditionally activate profiling** by namespace, id pattern, level, level by namespace pattern, etc.
-- Shared [handler](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options) API with [Telemere](https://www.taoensso.com/telemere): fully configurable **a/sync dispatch**, **sampling**, **rate limiting**, **back-pressure monitoring**, etc.
+- Rich [filtering](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:filters): **conditional profiling** by namespace, id pattern, level, level by namespace pattern, etc.
+- Rich a/sync [handling](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options): with sampling, rate limiting, back-pressure monitoring, etc.
 - Includes handlers for [Telemere](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte.telemere#handler:telemere), [Timbre](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte.timbre#handler:timbre), and [consoles](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#handler:console) (`*out*`, etc.).
 
 ## Quick example

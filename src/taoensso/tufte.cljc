@@ -406,9 +406,9 @@
   unabbreviated namespace parts.
 
   Example:
-    ((format-id-abbr 0)  :foo.bar/baz)   => :f.b/baz
-    ((format-id-abbr 1)  'foo.bar/baz)   => 'f.bar/baz
-    ((format-id-abbr 2) \"foo.bar/baz\") => \"foo.bar/baz\""
+    ((format-id-abbr 2) :foo.bar/baz) => :foo.bar/baz
+    ((format-id-abbr 1) :foo.bar/baz) =>   :f.bar/baz
+    ((format-id-abbr 0) :foo.bar/baz) =>     :f.b/baz"
 
   ([      ] (format-id-abbr-fn 1))
   ([n-full] (enc/fmemoize (partial enc/abbreviate-ns n-full))))

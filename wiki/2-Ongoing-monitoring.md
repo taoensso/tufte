@@ -19,6 +19,6 @@ See the [example project](../tree/master/examples/clj) for more info.
 
 # Performance
 
-Tufte's designed specifically to support ongoing use **in production**, and is **highly optimized**. If your code's remotely expensive enough to be worth profiling, then Tufte's overhead will likely be insignificant.
+Tufte's designed specifically to support ongoing use **in production**. If your code's expensive enough to be worth profiling, then Tufte's overhead will likely be insignificant.
 
 And Tufte's [conditional profiling](./1-Getting-started#conditional-profiling) gives you highly expressive control over what to profile, and when. This is useful both to minimize performance costs, and the production of unnecessary data that may be costly to store or analyze.

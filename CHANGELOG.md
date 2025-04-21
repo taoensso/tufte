@@ -9,9 +9,7 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 This is a **major upgrade** of Tufte with *many* new features and improvements, including expanded documentation and a rich new API for filtering and handling that it has in common with [Telemere](https://www.taoensso.com/telemere).
 
-v3 includes **breaking changes** (indicated by ➤ below) that may affect some (but not all) users. Please see the **relevant linked commit messages** below for details and migration info.
-
-Apologies for any hassle while upgrading! My hope is that most users will be unaffected, and that those affected will be able to migrate easily.
+v3 includes **breaking changes** (indicated by ➤ below) that may affect some (but not all) users. Please see the **relevant linked commit messages** below for details and migration info.Apologies for any hassle while upgrading! My hope is that most users will be unaffected, and that those affected will be able to migrate easily.
 
 As always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/telemere/slack), and feel free to ping if I can provide any assistance! 🙏
 
@@ -29,7 +27,7 @@ Please read **linked commit messages** carefully in case you may be affected:
 ## New since v2.7.0 (2024-04-15)
 
 - \[new] *Many* new options available to [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled), [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile) (see linked docstrings)
-- \[new] *Many* new options available to [`add-handler!`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#add-handler!) (see linked docstring, [`help:handler-dispatch-options`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options)
+- \[new] *Many* new options available to [`add-handler!`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#add-handler!) (see linked docstring, [`help:handler-dispatch-options`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options))
 - \[new] Significantly expanded filtering and handler capabilities, see [`help:filters`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:filters) and [`help:handlers`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handlers)
 - \[new] Automatic handler stats (see [`get-handlers-stats`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#get-handlers-stats))
 - \[new] Add [Telemere](https://www.taoensso.com/telemere) handler \[d3ab990]
