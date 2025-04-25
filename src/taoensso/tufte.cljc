@@ -517,28 +517,38 @@
 
 (deftype StatsAccumulator [acc]
   ;; `acc` - (latom {<profiling-id> <pstats>})
-  #?(:clj clojure.lang.IDeref :cljs IDeref) (#?(:clj deref  :cljs -deref)  [_] (enc/reset-in! acc {})) ; Drain
-  #?(:clj clojure.lang.IFn    :cljs IFn)    (#?(:clj invoke :cljs -invoke) [_] (enc/reset-in! acc {})) ; Drain
-  (                                          #?(:clj invoke :cljs -invoke) [_ profiling-id ps]
-   (when (and profiling-id ps)
-     ;; Contention would be expensive so consumer should serialize calls
-     (acc profiling-id #(impl/merge-pstats % ps))
-     true)))
+
+  #?(:cljs IDeref :clj clojure.lang.IDeref)
+  #?(:clj   (deref [this] @acc)
+     :cljs (-deref [this] @acc))
+
+  #?(:cljs IFn :clj clojure.lang.IFn)
+  #?(:clj   (invoke [this] (enc/reset-in! acc {}))
+     :cljs (-invoke [this] (enc/reset-in! acc {})))
+
+  ;; Contention would be expensive here so consumer may want to serialize calls
+  #?(:clj   (invoke [this id pstats] (when (and id pstats) (locking acc (acc id #(impl/merge-pstats % pstats))) true))
+     :cljs (-invoke [this id pstats] (when (and id pstats)              (acc id #(impl/merge-pstats % pstats))  true))))
+
+(comment
+  (let [sacc (stats-accumulator)
+        [_ ps1] (profiled {} (p :foo (Thread/sleep 10)))]
+    (enc/qb 1e5 (sacc :id1 ps1)))) ; 45.01
 
 (defn stats-accumulator
   "Experimental, subject to change. Feedback welcome!
   Small util to help merge `pstats` from multiple runs and/or threads.
 
   Returns a stateful `StatsAccumulator` (`sacc`) with:
-    - (sacc <profiling-id> <pstats>) ; Merges given pstats under given profile id
-    - @sacc                          ; Drains accumulator and returns drained
-                                     ; {<profiling-id> <merged-pstats>}
+    - (sacc <id> <pstats>) - Merges given pstats under given profiling id
+    - (sacc) --------------- Returns current {<profiling-id> <merged-pstats>} and drains accumulator
+    - @sacc ---------------- Returns current {<profiling-id> <merged-pstats>} WITHOUT draining
 
-  Note that for performance reasons, you'll likely want some kind of
-  async/buffer/serialization mechanism in front of merge calls.
+  For performance you may want to use some sort of serialization
+  mechanism (e.g. agent) to avoid high contention when merging.
 
   One common pattern using `handler:accumulating` is to create a
-  system-wide accumulator that you deref every n minutes/etc. to get
+  system-wide accumulator that you invoke every n minutes/etc. to get
   a view of system-wide performance over the period, e.g.:
 
     (defonce my-sacc (stats-accumulator) ; Create an accumulator
@@ -548,7 +558,7 @@
       ;; Drain and print formatted stats every minute
       (future
         (while true
-          (when-let [m (not-empty @my-sacc)]
+          (when-let [m (not-empty (my-sacc))]
             (println (format-grouped-pstats m)))
           (Thread/sleep 60000))))
 
@@ -562,9 +572,8 @@
   (enc/qb 1e6 (stats-accumulator)) ; 45.37
   (let [sacc  (stats-accumulator)]
     (sacc :profiled1 (second (profiled {} (p :p1 nil))))
-    (Thread/sleep 100)
     (sacc :profiled2 (second (profiled {} (p :p2 nil))))
-    [@sacc @sacc]))
+    [(sacc) (sacc)]))
 
 (comment
   (def my-sacc (add-accumulating-handler! {:ns-pattern "*"}))

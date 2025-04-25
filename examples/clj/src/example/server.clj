@@ -17,7 +17,7 @@
 
 (enc/defonce stats-accumulator
   "Accumulates results from all unfiltered `profile` calls.
-  Deref this to get the accumulated data."
+  Invoke this to drain and return accumulated data."
   (tufte/stats-accumulator))
 
 ;; Register handler for `profile` results
@@ -55,7 +55,7 @@
         [:h1 "Performance report since last call:"]
         [:hr]
         [:pre
-         (if-let [m (not-empty @stats-accumulator)]
+         (if-let [m (not-empty (stats-accumulator))]
            (tufte/format-grouped-pstats m)
            "Nothing (try visit the /sleep/... endpoints)")]
         [:hr]
