@@ -243,17 +243,26 @@
        (if-let [elide? (when-let [sf impl/ct-call-filter] (not (sf (:ns location) (enc/const-form id-form) (enc/const-form level-form))))]
          `(do ~@body)
          ;; Note no `impl/*rt-call-filter*` check
-         `(if-let [pd#     (or impl/*pdata* (impl/pdata-local-get))]
-            (let  [t0#     (enc/now-nano*)
-                   result# (do ~@body)
-                   t1#     (enc/now-nano*)]
-              ;; Note that capture cost is excluded from p time
-              (pd# ~id-form (- t1# t0#) ~location)
-              result#)
-            (do ~@body))))))
+         `(let [~'body-fn (fn [] ~@body)
+                ~'pd      (impl/pdata-get)]
+            (if ~'pd
+              (let [~'t0     (enc/now-nano*)
+                    ~'result (~'body-fn)]
+                (~'pd ~id-form (- (enc/now-nano*) ~'t0) ~location) ; time excl. capture cost
+                ~'result)
+              (~'body-fn)))))))
 
 (comment
   (macroexpand '(p :foo "hello"))
+
+  (enc/qb 1e5 ; [3.6 4.37 8.21 8.61 9.26 9.59]
+    impl/*pdata*
+    (impl/pdata-local-get)
+    (do                      (p :p1 "p1"))
+    (do               (p :p2 (p :p1 "p1")))
+    (do        (p :p3 (p :p2 (p :p1 "p1"))))
+    (do (p :p4 (p :p3 (p :p2 (p :p1 "p1"))))))
+
   (let [pd (new-pdata)]
     (with-profiling pd {}
       (p :foo (Thread/sleep 100))

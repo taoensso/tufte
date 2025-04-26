@@ -163,6 +163,7 @@
          ^ThreadLocal stack-proxy (proxy [ThreadLocal] [] (initialValue [] (java.util.Stack.)))
          ^ThreadLocal pdata-proxy (proxy [ThreadLocal] [])]
 
+     (defn pdata-get [] (or *pdata* (.get pdata-proxy)))
      (defn pdata-local-get "nnil iff thread-local profiling active" [] (.get pdata-proxy))
      (defn pdata-local-pop []
        (let [^java.util.Stack stack (.get stack-proxy)]
@@ -180,6 +181,7 @@
    (let [pdata_ (volatile! nil)
          stack #js []]
 
+     (defn pdata-get [] (or *pdata* @pdata_))
      (defn pdata-local-get "nnil iff thread-local profiling active" [] @pdata_)
      (defn pdata-local-pop []
        (if-let [stashed (.pop stack)]
