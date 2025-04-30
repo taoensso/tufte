@@ -10,11 +10,11 @@
   :test-paths ["test" #_"src"]
 
   :dependencies
-  [[com.taoensso/encore "3.143.1"]]
+  [[com.taoensso/encore "3.145.0"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
-   :provided {:dependencies [[org.clojure/clojurescript "1.11.132"]
+   :provided {:dependencies [[org.clojure/clojurescript "1.12.35"]
                              [org.clojure/clojure       "1.11.4"]]}
    :c1.12    {:dependencies [[org.clojure/clojure       "1.12.0"]]}
    :c1.11    {:dependencies [[org.clojure/clojure       "1.11.4"]]}
