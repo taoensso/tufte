@@ -9,7 +9,11 @@
 
 It provides **sensible application-level metrics**, and gives them to you as **Clojure data** that can be easily analyzed programatically.
 
-It works great with [Telemere](https://www.taoensso.com/telemere) and [Truss](https://www.taoensso.com/truss) to help enable unique **next-gen observability** for Clojure and ClojureScript applications.
+Use it alone, or as part of a suite of complementary **observability tools** for modern Clojure/Script applications:
+
+- [Telemere](https://www.taoensso.com/telemere) for logging, tracing, and general telemetry
+- [Tufte](https://www.taoensso.com/tufte) for performance monitoring
+- [Truss](https://www.taoensso.com/truss) for  assertions and error handling
 
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
@@ -17,8 +21,8 @@ It works great with [Telemere](https://www.taoensso.com/telemere) and [Truss](ht
 
 ## Latest release/s
 
-- `2025-04-21` `v3.0.0-beta1`: (forthcoming) [release info](../../releases/tag/v3.0.0-beta1) (shares filter + handler API with [Telemere](https://www.taoensso.com/telemere))
-- `2025-04-15` `v2.7.0`: (stable) [release info](../../releases/tag/v2.7.0)
+- `2025-04-30` `v3.0.0-RC1`: [release info](../../releases/tag/v3.0.0-RC1) (improved [Telemere](https://www.taoensso.com/telemere) interop, much more)
+- `2025-04-15` `v2.7.0`: [release info](../../releases/tag/v2.7.0)
 
 [![Main tests][Main tests SVG]][Main tests URL]
 [![Graal tests][Graal tests SVG]][Graal tests URL]

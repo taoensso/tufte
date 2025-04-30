@@ -2,29 +2,30 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
-# `v3.0.0-beta1` (2025-04-21)
+# `v3.0.0-RC1` (2025-04-30)
 
-- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.0-beta1)
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.0-RC1)
 - **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
 
 This is a **major upgrade** of Tufte with *many* new features and improvements, including expanded documentation and a rich new API for filtering and handling that it has in common with [Telemere](https://www.taoensso.com/telemere).
 
-v3 includes **breaking changes** (indicated by ➤ below) that may affect some (but not all) users. Please see the **relevant linked commit messages** below for details and migration info.Apologies for any hassle while upgrading! My hope is that most users will be unaffected, and that those affected will be able to migrate easily.
+v3 includes **breaking changes** (indicated by ➤ below) that may affect some (but not all) users. Please see the **relevant linked commit messages** below for details and migration info. Sincere apologies for any hassle while upgrading! My hope is that most users will be unaffected, and that those affected will be able to migrate easily.
 
-As always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/telemere/slack), and feel free to ping if I can provide any assistance! 🙏
+As always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
 
 \- [Peter Taoussanis](https://www.taoensso.com)
 
-## Changes since v2.7.0 (2024-04-15)
+## Changes since `v2.7.0` (2024-04-15)
 
 Please read **linked commit messages** carefully in case you may be affected:
 
+- ➤ **\[mod]** \[BREAKING] New API for draining [stats accumulator](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#stats-accumulator) \[b2c866b]
 - ➤ **\[mod]** \[BREAKING] Omit `defn_` / `fn_` id prefix when using [`defnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp), [`defnp-`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp-), [`fnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#fnp) \[5f5d2ef]
 - ➤ **\[mod]** \[BREAKING] Remove `:file` key from [pstats](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:pstats-content) `:loc` maps \[79ccac5]
 - ➤ **\[mod]** \[BREAKING] Change default `min-level` (2 -> `:info`) \[025ff70]
 - ➤ **\[mod]** \[BREAKING] Changed arg given to `profile` handlers \[a778ac9], see [`help:signal-content`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:signal-content) for new arg
 
-## New since v2.7.0 (2024-04-15)
+## New since `v2.7.0` (2024-04-15)
 
 - \[new] *Many* new options available to [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled), [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile) (see linked docstrings)
 - \[new] *Many* new options available to [`add-handler!`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#add-handler!) (see linked docstring, [`help:handler-dispatch-options`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options))
