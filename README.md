@@ -13,7 +13,7 @@ Use it alone, or as part of a suite of complementary **observability tools** for
 
 - [Telemere](https://www.taoensso.com/telemere) for logging, tracing, and general telemetry
 - [Tufte](https://www.taoensso.com/tufte) for performance monitoring
-- [Truss](https://www.taoensso.com/truss) for  assertions and error handling
+- [Truss](https://www.taoensso.com/truss) for assertions and error handling
 
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
