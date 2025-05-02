@@ -80,13 +80,13 @@
 
 (enc/defaliases
   ;; Encore
-  #?(:clj enc/set-var-root!)
-  #?(:clj enc/update-var-root!)
+  #?(:clj ^:no-doc enc/set-var-root!)
+  #?(:clj ^:no-doc enc/update-var-root!)
   #?(:clj enc/get-env)
   #?(:clj enc/call-on-shutdown!)
-  enc/chance
+  ^:no-doc enc/chance
   enc/rate-limiter
-  enc/newline
+  ^:no-doc enc/newline
   sigs/comp-xfn
   #?(:clj truss/keep-callsite)
 

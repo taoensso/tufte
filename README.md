@@ -14,6 +14,7 @@ Use it alone, or as part of a suite of complementary **observability tools** for
 - [Telemere](https://www.taoensso.com/telemere) for logging, tracing, and general telemetry
 - [Tufte](https://www.taoensso.com/tufte) for performance monitoring
 - [Truss](https://www.taoensso.com/truss) for  assertions and error handling
+- [Trove](https://www.taoensso.com/trove) for library authors that want to do structured logging
 
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
@@ -43,8 +44,10 @@ See [here][GitHub releases] for earlier releases.
 
 ## Quick example
 
+Using Tufte v3:
+
 ```clojure
-(require '[taoensso.tufte :as tufte)
+(require '[taoensso.tufte :as tufte])
 
 ;; Send `profile` signals to console
 (tufte/add-handler! :my-console-handler (tufte/handler:console))
