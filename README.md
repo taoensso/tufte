@@ -42,8 +42,10 @@ See [here][GitHub releases] for earlier releases.
 
 ## Quick example
 
+Using Tufte v3:
+
 ```clojure
-(require '[taoensso.tufte :as tufte)
+(require '[taoensso.tufte :as tufte])
 
 ;; Send `profile` signals to console
 (tufte/add-handler! :my-console-handler (tufte/handler:console))
