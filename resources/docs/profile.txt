@@ -27,6 +27,7 @@ Options include:
 
   `:nmax` ------- Max captures per `p` id before compaction (default 8e5).
   `:elidable?` -- Should signal be subject to compile-time elision? (default true)
+  `:allow?` ----- Custom override for usual runtime filtering (true => ALWAYS profile)
 
 Laziness in body:
 
