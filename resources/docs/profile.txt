@@ -6,7 +6,7 @@ Use this to conditionally activate profiling for given body:
   to any registered handlers (see `help:handlers`).
 
 Handy when you want to consume profiling results asynchronously and/or away from
-the callsite, otherwise prefer `profile`.
+the callsite, otherwise prefer `profiled`.
 
 Options include:
 
