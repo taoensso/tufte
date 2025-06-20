@@ -648,15 +648,18 @@
               (s+spc   hostname)))
 
          (when ns (s+spc (sigs/format-callsite ns (get signal :coords))))
-         (when id (s+spc (sigs/format-id ns id)))
+
+         (do      (enc/sb-append sb " Tufte pstats"))
+         (when id (enc/sb-append sb " " (sigs/format-id ns id)))
+
+         (when-let   [ff format-pstats-fn]
+           (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
+             (enc/sb-append sb nl fs)))
 
          #?(:clj (when   (enc/and? host   incl-host?)   (enc/sb-append sb nl "   host: " (enc/pr-edn* host))))
          #?(:clj (when   (enc/and? thread incl-thread?) (enc/sb-append sb nl " thread: " (enc/pr-edn* thread))))
          (when-let [data (enc/not-empty-coll data)]     (enc/sb-append sb nl "   data: " (enc/pr-edn* data)))
          (when-let [ctx  (enc/not-empty-coll ctx)]      (enc/sb-append sb nl "    ctx: " (enc/pr-edn* ctx)))
-
-         (enc/when-let [ff format-pstats-fn, formatted (ff pstats format-pstats-opts)]
-           (enc/sb-append sb nl "<<< pstats <<<" nl formatted ">>> pstats >>>"))
 
          (when incl-newline? (enc/sb-append sb nl))
          (str sb))))))
@@ -733,7 +736,9 @@
                (let [logger (js-console-logger (get signal :level))]
                  (.call logger logger (str output)))))))))))
 
-(comment ((handler:console) (assoc (dummy-signal) :data {:k1 :v1})))
+(comment
+  ((handler:console)        (dummy-signal))
+  ((handler:console) (assoc (dummy-signal) :data {:k1 :v1}, :ctx {:k1 :v1})))
 
 (defn handler:accumulating
   "Alpha, subject to change.
