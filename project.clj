@@ -38,6 +38,7 @@
 
     :dependencies
     [[org.clojure/test.check "1.1.1"]
+     [com.taoensso/trove     "1.0.0-beta1"]
      [com.taoensso/telemere  "1.0.1"]
      [com.taoensso/timbre    "6.7.1"]]
 
