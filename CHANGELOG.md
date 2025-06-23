@@ -2,6 +2,40 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v3.0.0` (2025-06-23)
+
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.0)
+- **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
+
+This is a **major upgrade** with many improvements. It includes **breaking changes** for a minority of users. Please see below for changes, and linked commit messages for relevant migration info and motivations.
+
+Sincere apologies for the hassle! Most users (esp. those using defaults) should be able to upgrade without any modifications, but as always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
+
+\- [Peter Taoussanis](https://www.taoensso.com)
+
+## Breaking since `v2.7.0` (2024-04-15)
+
+- ➤ **\[mod]** \[BREAKING] Changed arg given to custom `profile` handlers \0f73778], see [`help:signal-content`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:signal-content) for new arg
+- ➤ **\[mod]** \[BREAKING] Change default `min-level` (2 -> `:info`) \[025ff70]
+- ➤ **\[mod]** \[BREAKING] New API for draining [stats accumulator](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#stats-accumulator) \[b2c866b]
+- ➤ **\[mod]** \[BREAKING] Omit `defn_` / `fn_` id prefix when using [`defnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp), [`defnp-`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp-), [`fnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#fnp) \[5f5d2ef]
+- ➤ **\[mod]** \[BREAKING] Remove `:file` key from [pstats](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:pstats-content) `:loc` maps \[79ccac5]
+
+## New since `v2.7.0` (2024-04-15)
+
+- \[new] Added [Telemere](https://www.taoensso.com/telemere) and [Trove](https://www.taoensso.com/trove) handlers.
+- \[new] Many new options added to [`profiled`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profiled), [`profile`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#profile) (see linked docstrings)
+- \[new] Many new options added to [`add-handler!`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#add-handler!) (see linked docstring, [`help:handler-dispatch-options`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:handler-dispatch-options))
+- \[new] Automatic handler stats (see [`get-handlers-stats`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#get-handlers-stats))
+- \[new] Major documentation improvements \[7d14517], \[1d7abfd], etc.
+- \[new] Major performance improvements \[312bb4c], \[bbc8dfc], \[e51df6a], \[2b6e276], \[0f73778], etc.
+
+## Since `v3.0.0-RC1` (2025-04-30)
+
+- \[mod] Some changes to the options and output to the Timbre and Telemere handlers \[48e82ad]. Please recheck if you're using custom options.
+
+---
+
 # `v3.0.0-RC1` (2025-04-30)
 
 - **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.0-RC1)

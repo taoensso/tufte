@@ -19,8 +19,7 @@
     (tufte/p :get-y (get-y))))
 
 ;; The following will be printed to *out*:
-;; 2025-04-18T11:23:08.820786Z INFO MyHost readme-examples[15,1]
-;; <<< pstats <<<
+;; 2025-04-18T11:23:08.820786Z INFO MyHost readme-examples[15,1] Tufte pstats
 ;; pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total
 ;;
 ;; :get-y             5      238ms      501ms      981ms      981ms      981ms      981ms      618ms  ±42%      3.09s    55%
@@ -28,7 +27,6 @@
 ;;
 ;; Accounted                                                                                                    5.60s   100%
 ;; Clock                                                                                                        5.60s   100%
-;; >>> pstats >>>
 
 (tufte/profile
   ;; See `profile` docstring for all options:

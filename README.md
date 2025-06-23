@@ -22,8 +22,7 @@ Use it alone, or as part of a suite of complementary **observability tools** for
 
 ## Latest release/s
 
-- `2025-04-30` `v3.0.0-RC1`: [release info](../../releases/tag/v3.0.0-RC1) (improved [Telemere](https://www.taoensso.com/telemere) interop, much more)
-- `2025-04-15` `v2.7.0`: [release info](../../releases/tag/v2.7.0)
+- `2025-06-23` `v3.0.0`: [release info](../../releases/tag/v3.0.0)
 
 [![Clj tests][Clj tests SVG]][Clj tests URL]
 [![Cljs tests][Cljs tests SVG]][Cljs tests URL]
@@ -64,8 +63,7 @@ Using Tufte v3:
     (tufte/p :get-y (get-y))))
 
 ;; The following will be printed to *out*:
-;; 2025-04-18T11:23:08.820786Z INFO MyHost readme-examples[15,1]
-;; <<< pstats <<<
+;; 2025-04-18T11:23:08.820786Z INFO MyHost readme-examples[15,1] Tufte pstats
 ;; pId           nCalls        Min      50% ≤      90% ≤      95% ≤      99% ≤        Max       Mean   MAD      Clock  Total
 ;;
 ;; :get-y             5      238ms      501ms      981ms      981ms      981ms      981ms      618ms  ±42%      3.09s    55%
@@ -73,7 +71,6 @@ Using Tufte v3:
 ;;
 ;; Accounted                                                                                                    5.60s   100%
 ;; Clock                                                                                                        5.60s   100%
-;; >>> pstats >>>
 ```
 
 ## Documentation
