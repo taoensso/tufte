@@ -1,2 +1,2 @@
-{:deps {org.clojure/clojurescript {:mvn/version "1.11.132"}
-        com.taoensso/tufte        {:mvn/version "2.7.0"}}}
+{:deps {org.clojure/clojurescript {:mvn/version "1.12.134"}
+        com.taoensso/tufte        {:mvn/version "3.0.0"}}}

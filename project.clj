@@ -10,13 +10,13 @@
   :test-paths ["test" #_"src"]
 
   :dependencies
-  [[com.taoensso/encore "3.148.0"]]
+  [[com.taoensso/encore "3.159.0"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
-   :provided {:dependencies [[org.clojure/clojurescript "1.12.42"]
-                             [org.clojure/clojure       "1.12.1"]]}
-   :c1.12    {:dependencies [[org.clojure/clojure       "1.12.1"]]}
+   :provided {:dependencies [[org.clojure/clojurescript "1.12.134"]
+                             [org.clojure/clojure       "1.12.4"]]}
+   :c1.12    {:dependencies [[org.clojure/clojure       "1.12.4"]]}
    :c1.11    {:dependencies [[org.clojure/clojure       "1.11.4"]]}
    :c1.10    {:dependencies [[org.clojure/clojure       "1.10.3"]]}
 
@@ -26,7 +26,7 @@
     :aot [taoensso.graal-tests]
     :uberjar-name "graal-tests.jar"
     :dependencies
-    [[org.clojure/clojure                  "1.11.1"]
+    [[org.clojure/clojure                  "1.11.4"]
      [com.github.clj-easy/graal-build-time "1.0.5"]]}
 
    :dev
@@ -37,10 +37,10 @@
      *unchecked-math*     false #_:warn-on-boxed}
 
     :dependencies
-    [[org.clojure/test.check "1.1.1"]
-     [com.taoensso/trove     "1.0.0-beta1"]
-     [com.taoensso/telemere  "1.0.1"]
-     [com.taoensso/timbre    "6.7.1"]]
+    [[org.clojure/test.check "1.1.3"]
+     [com.taoensso/trove     "1.1.0"]
+     [com.taoensso/telemere  "1.2.1"]
+     [com.taoensso/timbre    "6.8.0"]]
 
     :plugins
     [[lein-pprint    "1.3.2"]
