@@ -160,22 +160,22 @@
 
 #?(:clj
    (let [;; Stack to support `profile/d` nesting
-         ^ThreadLocal stack-proxy (proxy [ThreadLocal] [] (initialValue [] (java.util.Stack.)))
-         ^ThreadLocal pdata-proxy (proxy [ThreadLocal] [])]
+         tl:stack (enc/threadlocal (java.util.Stack.))
+         tl:pdata (enc/threadlocal)]
 
-     (defn pdata-get [] (or *pdata* (.get pdata-proxy)))
-     (defn pdata-local-get "nnil iff thread-local profiling active" [] (.get pdata-proxy))
+     (defn pdata-get [] (or *pdata* (.get tl:pdata)))
+     (defn pdata-local-get "nnil iff thread-local profiling active" [] (.get tl:pdata))
      (defn pdata-local-pop []
-       (let [^java.util.Stack stack (.get stack-proxy)]
+       (let [^java.util.Stack stack (.get tl:stack)]
          (if-let [stashed (when-not (.empty stack) (.pop stack))]
-           (do (.set pdata-proxy stashed) stashed)
-           (do (.set pdata-proxy nil)     nil))))
+           (do (.set tl:pdata stashed) stashed)
+           (do (.set tl:pdata nil)     nil))))
 
      (defn pdata-local-push [v]
-       (let [^java.util.Stack stack  (.get stack-proxy)]
-         (if-let [to-stash (.get pdata-proxy)]
-           (do (.push stack to-stash) (.set pdata-proxy v) v)
-           (do                        (.set pdata-proxy v) v)))))
+       (let [^java.util.Stack stack   (.get tl:stack)]
+         (if-let [to-stash            (.get tl:pdata)]
+           (do (.push stack to-stash) (.set tl:pdata v) v)
+           (do                        (.set tl:pdata v) v)))))
 
    :cljs ; Single-threaded
    (let [pdata_ (volatile! nil)
