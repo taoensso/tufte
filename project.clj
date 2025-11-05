@@ -10,7 +10,7 @@
   :test-paths ["test" #_"src"]
 
   :dependencies
-  [[com.taoensso/encore "3.148.0"]]
+  [[com.taoensso/encore "3.158.0"]]
 
   :profiles
   {;; :default [:base :system :user :provided :dev]
