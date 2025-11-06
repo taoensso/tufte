@@ -1,5 +1,9 @@
 <a href="https://www.taoensso.com/clojure" title="More stuff by @ptaoussanis at www.taoensso.com"><img src="https://www.taoensso.com/open-source.png" alt="Taoensso open source" width="340"/></a>  
-[**API**][cljdoc] | [**Wiki**][GitHub wiki] | [Latest releases](#latest-releases) | [Slack channel][]
+[**API**][cljdoc] | [**Wiki**][GitHub wiki] | [Slack][] | Latest release: [v3.0.0](../../releases/tag/v3.0.0) (2025-06-23)
+
+[![Clj tests][Clj tests SVG]][Clj tests URL]
+[![Cljs tests][Cljs tests SVG]][Cljs tests URL]
+[![Graal tests][Graal tests SVG]][Graal tests URL]
 
 # Tufte
 
@@ -19,16 +23,6 @@ Use it alone, or as part of a suite of complementary **observability tools** for
 <img width="600" src="../../raw/master/hero.png" alt="Carte Figurative"/>
 
 > [Carte Figurative](https://en.wikipedia.org/wiki/Charles_Joseph_Minard#The_map_of_Napoleon's_Russian_campaign), one of [Edward Tufte](https://en.wikipedia.org/wiki/Edward_Tufte)'s favourite data visualizations.
-
-## Latest release/s
-
-- `2025-06-23` `v3.0.0`: [release info](../../releases/tag/v3.0.0)
-
-[![Clj tests][Clj tests SVG]][Clj tests URL]
-[![Cljs tests][Cljs tests SVG]][Cljs tests URL]
-[![Graal tests][Graal tests SVG]][Graal tests URL]
-
-See [here][GitHub releases] for earlier releases.
 
 ## Why Tufte?
 
@@ -77,11 +71,11 @@ Using Tufte v3:
 
 - [Wiki][GitHub wiki] (getting started, usage, etc.)
 - API reference via [cljdoc][cljdoc]
-- Support via [Slack channel][] or [GitHub issues][]
+- Support via [Slack][] or [GitHub issues][]
 
 ## Funding
 
-You can [help support][sponsor] continued work on this project, thank you!! 🙏
+You can [help support][sponsor] continued work on this project and [others][my work], thank you!! 🙏
 
 ## License
 
@@ -93,10 +87,11 @@ Licensed under [EPL 1.0](LICENSE.txt) (same as Clojure).
 [GitHub releases]: ../../releases
 [GitHub issues]:   ../../issues
 [GitHub wiki]:     ../../wiki
-[Slack channel]: https://www.taoensso.com/tufte/slack
+[Slack]: https://www.taoensso.com/tufte/slack
 
 [Peter Taoussanis]: https://www.taoensso.com
 [sponsor]:          https://www.taoensso.com/sponsor
+[my work]:          https://www.taoensso.com/clojure-libraries
 
 <!-- Project -->
 
