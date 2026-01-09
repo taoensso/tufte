@@ -769,9 +769,7 @@
 
 (enc/deprecated
   #?(:clj (defmacro ^:no-doc ^:deprecated with-ns-pattern "Prefer `with-ns-filter`" [ns-pattern & body] `(with-ns-filter ~ns-pattern (do ~@body))))
-  #?(:clj (defmacro ^:no-doc ^:deprecated with-min-level  "Prefer `with-min-level`" [level      & body] `(with-min-level ~level      (do ~@body))))
   (defn             ^:no-doc ^:deprecated set-ns-pattern! "Prefer `set-ns-filter!`" [ns-pattern] (set-ns-filter! ns-pattern))
-  (defn             ^:no-doc ^:deprecated set-min-level!  "Prefer `set-min-level!`" [level]      (set-min-level! level))
 
   #?(:clj (defmacro ^:no-doc ^:deprecated pspy            "Prefer `p`." [& args] (truss/keep-callsite `(p ~@args))))
   (enc/def*         ^:no-doc ^:deprecated format-id-abbr  "Prefer `format-id-abbr-fn`." format-id-abbr-fn)
