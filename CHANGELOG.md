@@ -4,7 +4,7 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 # `v3.0.1` (2026-01-09)
 
-- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.1.0)
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.1)
 - **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
 
 This is a **hotfix release** to address [an error](https://github.com/taoensso/tufte/issues/69) in the example project and an [issue](https://github.com/taoensso/tufte/issues/74) affecting `with-min-level`.
