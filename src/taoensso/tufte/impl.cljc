@@ -462,13 +462,12 @@
    {:keys [format-id-fn]
     :or   {format-id-fn (fn [id] (str id))}}]
 
-  (when id-sstats*
-    (reduce-kv
-      (fn [^long acc id _sstats*]
-        (let [c (count (format-id-fn id))]
-          (if (> c acc) c acc)))
-      9 ; (count "Accounted")
-      id-sstats*)))
+  (reduce-kv
+    (fn [^long acc id _sstats*]
+      (let [c (count (format-id-fn id))]
+        (if (> c acc) c acc)))
+    9 ; (count "Accounted")
+    id-sstats*))
 
 (def ^:private format-n (enc/format-num-fn 0 0))
 (defn ^:public format-pstats
@@ -501,17 +500,7 @@
                (+ acc (long (get (enc/force-ref ss) :sum))))
              0 id-sstats*)
 
-           sorted-ids
-           (sort-by
-             (fn [id] (sort-fn (get id-sstats* id)))
-             enc/rcompare
-             (keys id-sstats*))
-
-           ^long max-id-width
-           (or
-             max-id-width
-             (get-max-id-width id-sstats* opts))
-
+           max-id-width (or max-id-width (get-max-id-width id-sstats* opts))
            column->pattern
            {:id      {:heading "pId" :min-width max-id-width :align :left}
             :n       {:heading "nCalls"}
@@ -550,25 +539,32 @@
        (enc/sb-append sb enc/newlines)
 
        ;; Write id rows
-       (doseq [id sorted-ids]
-         (let [ssm (enc/force-ref (get id-sstats* id))
-               {:keys [n sum mean mad]} ssm]
+       (when id-sstats*
+         (let [sorted-ids
+               (sort-by
+                 (fn [id] (sort-fn (get id-sstats* id)))
+                 enc/rcompare
+                 (keys id-sstats*))]
 
-           (append-col :id (format-id-fn id))
-           (doseq [column columns]
-             (enc/sb-append sb " ")
-             (case column
-               :n     (append-col column (format-n n))
-               :mean  (append-col column (enc/format-nsecs mean))
-               :mad   (append-col column (str "±" (enc/perc mad mean)        "%"))
-               :sum   (append-col column (str     (enc/perc sum clock-total) "%"))
-               :clock (append-col column (enc/format-nsecs sum))
-               (do    (append-col column (enc/format-nsecs (get ssm column))))))
+           (doseq [id sorted-ids]
+             (let [ssm (enc/force-ref (get id-sstats* id))
+                   {:keys [n sum mean mad]} ssm]
 
-           (enc/sb-append sb enc/newline)))
+               (append-col :id (format-id-fn id))
+               (doseq [column columns]
+                 (enc/sb-append sb " ")
+                 (case column
+                   :n     (append-col column (format-n n))
+                   :mean  (append-col column (enc/format-nsecs mean))
+                   :mad   (append-col column (str "±" (enc/perc mad mean)        "%"))
+                   :sum   (append-col column (str     (enc/perc sum clock-total) "%"))
+                   :clock (append-col column (enc/format-nsecs sum))
+                   (do    (append-col column (enc/format-nsecs (get ssm column))))))
+
+               (enc/sb-append sb enc/newline))))
+         (enc/sb-append sb enc/newline))
 
        ;; Write accounted row
-       (enc/sb-append sb enc/newline)
        (append-col :id "Accounted")
        (doseq [column columns]
          (enc/sb-append sb " ")
