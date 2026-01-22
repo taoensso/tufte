@@ -356,7 +356,7 @@
                {inst-form  :inst
                 id-form    :id
                 level-form :level
-                dynamic?   :dynamic
+                dynamic?   :dynamic?
                 nmax       :nmax} opts
 
                host-form   (auto-> (get opts :host   :auto) (when clj? `(enc/host-info)))
