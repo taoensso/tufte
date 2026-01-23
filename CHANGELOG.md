@@ -2,6 +2,24 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v3.0.2` (2026-01-23)
+
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.2)
+- **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
+
+This is a **hotfix release** to addresses some issues in v3.0.0 (apologies for the trouble!!):
+
+- \[fix] [#75] Broken `:dynamic?` option for `profile` \[391b7fa]
+- \[fix] [#75] Protect against nil `:stats` \[88874e1]
+- \[fix] [#73] [#74] Fix bad deprecated vars affecting `with-min-level`
+- \[doc] [#69] [#72] Fix issue in example project \[2ada8b5]
+
+Big thanks to @ejschoen for reporting!
+
+\- [Peter Taoussanis](https://www.taoensso.com)
+
+---
+
 # `v3.0.1` (2026-01-09)
 
 - **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.1)
