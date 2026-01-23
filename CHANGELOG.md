@@ -29,7 +29,7 @@ Sincere apologies for the hassle! Most users (esp. those using defaults) should 
 ## Breaking since `v2.7.0` (2024-04-15)
 
 - ➤ **\[mod]** \[BREAKING] Changed arg given to custom `profile` handlers \0f73778], see [`help:signal-content`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:signal-content) for new arg
-- ➤ **\[mod]** \[BREAKING] Change default `min-level` (2 -> `:info`) \[025ff70]
+- ➤ **\[mod]** \[BREAKING] Profiling levels changed from 0..6 (default 2) to 0..100 (default `:info`=50), you may need to update your `profile/d` callsites! \[025ff70]
 - ➤ **\[mod]** \[BREAKING] New API for draining [stats accumulator](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#stats-accumulator) \[b2c866b]
 - ➤ **\[mod]** \[BREAKING] Omit `defn_` / `fn_` id prefix when using [`defnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp), [`defnp-`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp-), [`fnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#fnp) \[5f5d2ef]
 - ➤ **\[mod]** \[BREAKING] Remove `:file` key from [pstats](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:pstats-content) `:loc` maps \[79ccac5]
