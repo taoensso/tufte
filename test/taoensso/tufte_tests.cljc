@@ -306,7 +306,7 @@
            pstats (:pstats sig)]
 
           [(is (= res "bar"))
-           (is (ps? pstats))
+           (is (ps?           pstats))
            (is (truss/submap? @pstats
                  {:clock {:total enc/nat-int?}
                   :stats {:foo {:n 1}
@@ -320,7 +320,7 @@
               pstats (:pstats sig)]
 
           [(is (= res "bar"))
-           (is (ps? pstats))
+           (is (ps?            pstats))
            (is (truss/submap? @pstats
                  {:clock {:total enc/nat-int?}
                   :stats {:foo :submap/nx
@@ -334,11 +334,11 @@
               pstats (:pstats sig)]
 
           [(is (= res "bar"))
-           (is (ps? pstats))
+           (is (ps?            pstats))
            (is (truss/submap? @pstats
-                 {:clock {:total enc/nat-int?}
-                  :stats {:foo :submap/nx
-                          :bar {:n 1}}}))
+                 {:clock {:total          enc/nat-int?}
+                  :stats {:foo {:n 1 :sum enc/nat-int?}
+                          :bar {:n 1 :sum enc/nat-int?}}}))
            (is (string? ((:format-pstats-fn sig) pstats)))]))
 
      (do (tufte/remove-handler! :testing) :remove-handler)]))
