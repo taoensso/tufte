@@ -649,6 +649,18 @@
      (is (nil? ((tufte-timbre/handler:timbre))))
      (is (nil? ((tufte-trove/handler:trove))))]))
 
+(deftest trove-handler
+  (testing "Trove handler preserves profiling id"
+    (let [call_  (atom nil)
+          signal (impl/map->Signal
+                   {:ns "example.ns", :coords [1 2], :id :profile-id, :level :info})]
+      (with-redefs [taoensso.trove/*log-fn*
+                    (fn [ns coords level id lazy_]
+                      (reset! call_ {:ns ns, :coords coords, :level level, :id id}))]
+        ((tufte-trove/handler:trove) signal))
+      (is (= @call_
+            {:ns "example.ns", :coords [1 2], :level :info, :id :profile-id})))))
+
 #?(:clj
    (deftest profile-thread-info
      (testing "`profile` captures thread info before async dispatch"

@@ -29,6 +29,7 @@
           {:ns     ns
            :coords coords
            :level  (level-fn level)
+           :id     id
            :data   data
            :tufte/ctx    ctx    ; -> kvs
            :tufte/pstats pstats ; -> kvs
