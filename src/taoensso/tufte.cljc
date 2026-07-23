@@ -120,7 +120,7 @@
           t0 (System/nanoTime)]
       (with-profiling pd {}
         (p :foo (Thread/sleep 100))
-        (capture-time! pd :bar (- t0 (System/nanoTime))))
+        (capture-time! pd :bar (- (System/nanoTime) t0)))
       (deref pd))
 
   Dynamic (thread-safe) by default.

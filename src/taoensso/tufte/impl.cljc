@@ -280,17 +280,21 @@
       (fn [tspans]
         ;; Ref. <https://codereview.stackexchange.com/a/126927>
         (let [sorted-tspans (sort-by (fn [^TimeSpan tspan] (.-t0 tspan)) tspans)] ; O(n.logn)
-          (reduce ; O(n)
-            (fn [^TimeAcc acc ^TimeSpan tspan]
-              (let [t1   (.-t1   tspan)
-                    tmax (.-tmax acc)]
-                (if (> t1 tmax)
-                  (let [t0   (.-t0   tspan)
-                        tsum (.-tsum acc)]
-                    (TimeAcc. (+ tsum (- t1 (Math/max t0 tmax))) t1))
-                  acc)))
-            (TimeAcc. 0 0)
-            sorted-tspans)))]
+          (if-let [^TimeSpan first-tspan (first sorted-tspans)]
+            (reduce ; O(n)
+              (fn [^TimeAcc acc ^TimeSpan tspan]
+                (let [t1   (.-t1   tspan)
+                      tmax (.-tmax acc)]
+                  (if (> t1 tmax)
+                    (let [t0   (.-t0   tspan)
+                          tsum (.-tsum acc)]
+                      (TimeAcc. (+ tsum (- t1 (Math/max t0 tmax))) t1))
+                    acc)))
+              (TimeAcc.
+                (- (.-t1 first-tspan) (.-t0 first-tspan))
+                (.-t1 first-tspan))
+              (next sorted-tspans))
+            (TimeAcc. 0 0))))]
 
   (defn- tspans->tsum
     "Used for calculating total clock time when merging `PStats`."

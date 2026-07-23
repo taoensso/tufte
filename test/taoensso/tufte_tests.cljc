@@ -642,6 +642,19 @@
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
 
+(deftest merge-negative-time-spans
+  (testing "Merged clock time supports negative monotonic timestamps"
+    [(is (= 12
+           (get-in @(tufte/merge-pstats
+                      (pstats-tspan -20 -15)
+                      (pstats-tspan -10  -3))
+             [:clock :total])))
+     (is (= 17
+           (get-in @(tufte/merge-pstats
+                      (pstats-tspan -20 -5)
+                      (pstats-tspan -10 -3))
+             [:clock :total])))]))
+
 (tufte/defnp ^{:tufte/id :leading-id} trailing-attrs-fn
   ([x] x)
   ([x y] [x y])
