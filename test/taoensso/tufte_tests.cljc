@@ -639,6 +639,25 @@
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
 
+#?(:clj
+   (deftest profile-thread-info
+     (testing "`profile` captures thread info before async dispatch"
+       (let [signal_      (promise)
+             thread-ids_ (atom [])
+             caller-id   (.getId (Thread/currentThread))]
+         (tufte/add-handler! ::thread-test
+           (fn
+             ([])
+             ([signal] (deliver signal_ signal))))
+         (try
+           (profile {:thread (swap! thread-ids_ conj (.getId (Thread/currentThread)))} nil)
+           (let [signal (deref signal_ 5000 ::timeout)]
+             (is (not= signal ::timeout))
+             (is (= (:thread signal) [caller-id]))
+             (is (= @thread-ids_ [caller-id]) "Evaluates custom thread form once"))
+           (finally
+             (tufte/remove-handler! ::thread-test)))))))
+
 (deftest accumulating-handler ; [#75]
   (testing "`handler:accumulating` receives one signal after each completed `profile`"
     (let [sacc    (tufte/stats-accumulator)

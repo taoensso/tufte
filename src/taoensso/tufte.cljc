@@ -379,7 +379,7 @@
 
                      record-form
                      (if clj?
-                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level, ~host-form ~thread-form, ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats))
+                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level, ~host-form ~'__thread, ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats))
                        `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level,                          ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats)))]
 
                  `(enc/bound-delay
