@@ -242,7 +242,7 @@
         (is (<= (count (:foo (.-id-sstats ps0))) 10))])]))
 
 (defn- pstats-tspan [t0 t1]
-  (let [pd (PData. false 8e5 t0 nil nil nil false)
+  (let [pd (PData. false 8e5 t0 nil nil nil (enc/latom false))
         tspans [(TimeSpan. t0 t1)]]
     (PStats. 8e5 t0 t1 nil nil nil tspans
       (delay (#'impl/deref-pstats 8e5 t0 t1 nil nil nil tspans)))))
@@ -410,7 +410,7 @@
           ;; Use super low nmax to aggrevate possible contention.
           ;; This test will show if any times were lost during compaction.
           (let [n  (long 500)
-                pd (tufte/new-pdata {:dynamic? true :nmax 100}) ; Low nmax
+                pd (tufte/new-pdata {:dynamic? true :nmax 10}) ; Low nmax
                 f1 (future (looped n (tufte/capture-time! pd :foo 100)))
                 f2 (future (looped n (tufte/capture-time! pd :foo 100)))
                 f3 (future (looped n (tufte/capture-time! pd :foo 100)))

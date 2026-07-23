@@ -79,7 +79,7 @@
    #?(:clj ^:volatile-mutable acc         :cljs ^:mutable acc)
    #?(:clj ^:volatile-mutable id-times    :cljs ^:mutable id-times)
    #?(:clj ^:volatile-mutable id-sstats   :cljs ^:mutable id-sstats)
-   #?(:clj ^:volatile-mutable compacting? :cljs ^:mutable compacting?)]
+   compacting?_]
 
   ;; `acc`       - mutable accumulator or (latom ())
   ;; `id-times`  - ?{<id> [<Time>               ...]}
@@ -106,25 +106,21 @@
            pulled-times
            (if-not dynamic?
              acc-snap
-             (and
-               (not compacting?) ; Irrelevant for Cljs
+             (when (enc/-cas!? compacting?_ false true)
                (loop []
                  (let [times (acc-snap)]
-                   (when (and (not compacting?) (> (count times) nmax))
-                     (if (enc/-cas!? acc-snap times nil) times (recur)))))))]
+                   (if (> (count times) nmax)
+                     (if (enc/-cas!? acc-snap times nil) times (recur))
+                     (do (reset! compacting?_ false) nil))))))]
 
-          (set! compacting? true)
+          (when-not dynamic? (reset! compacting?_ true))
           (let [t0        (enc/now-nano*)
                 compacted (compact-id-state nmax id-times id-sstats pulled-times)]
-            ;; Safe to `set!` here even when `dynamic?` since we're protected by
-            ;; CAS against `acc-snap`. For performance reasons we DO tolerate a
-            ;; theoretical risk of losing times under high contention when `nmax`
-            ;; is ridiculously, unrealistically small.
             (set! id-times  (.-id-times  compacted))
             (set! id-sstats (.-id-sstats compacted))
             (when-not dynamic? (set! acc (mt-acc)))
             (this :tufte/compaction (- (enc/now-nano*) t0) nil)
-            (set! compacting? false))))
+            (reset! compacting?_ false))))
       true))
 
   ;; PData->PStats
@@ -141,8 +137,8 @@
 
 (def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
 (defn- as-nmax ^long [nmax] (truss/have enc/pos-int? (long nmax)))
-(defn new-pdata-local   ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. false nmax t0 (mt-acc)        nil nil false)))
-(defn new-pdata-dynamic ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. true  nmax t0 (enc/latom nil) nil nil false)))
+(defn new-pdata-local   ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. false nmax t0 (mt-acc)        nil nil (enc/latom false))))
+(defn new-pdata-dynamic ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. true  nmax t0 (enc/latom nil) nil nil (enc/latom false))))
 
 (comment
   (enc/qb 1e6 (new-pdata-local 10) (new-pdata-dynamic 10)) ; [49.61 50.54]
