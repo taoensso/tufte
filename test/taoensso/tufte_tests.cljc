@@ -642,6 +642,33 @@
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
 
+(tufte/defnp ^{:tufte/id :leading-id} trailing-attrs-fn
+  ([x] x)
+  ([x y] [x y])
+  {:private true, :test-meta :defnp, :tufte/id :trailing-id})
+
+(tufte/defnp- trailing-attrs-private-fn
+  ([x] x)
+  {:test-meta :defnp-})
+
+(deftest defnp-trailing-attrs
+  (testing "`defnp` and `defnp-` preserve trailing attr maps"
+    (let [[r ps]
+          (profiled {}
+            [(trailing-attrs-fn :x)
+             (trailing-attrs-fn :x :y)
+             (trailing-attrs-private-fn :z)])]
+      [(is (= r [:x [:x :y] :z]))
+       (is (truss/submap? @ps
+             {:stats
+              {:trailing-id   {:n 2}
+               :trailing-id_1 {:n 1}
+               :trailing-id_2 {:n 1}}}))
+       (is (= (:test-meta (meta #'trailing-attrs-fn)) :defnp))
+       (is (= (:test-meta (meta #'trailing-attrs-private-fn)) :defnp-))
+       (is (true? (:private (meta #'trailing-attrs-fn))))
+       (is (true? (:private (meta #'trailing-attrs-private-fn))))])))
+
 (deftest handler-lifecycle
   (testing "Provided handlers support the stop arity"
     [(is (nil? ((tufte/handler:accumulating (tufte/stats-accumulator)))))

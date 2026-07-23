@@ -491,6 +491,12 @@
   (macroexpand '(defnp                        bob ([x]) ([x y]))))
 
 #?(:clj
+   (defn- merge-trailing-fn-attrs [fn-sym sigs]
+     (if (and (seq? (first sigs)) (map? (last sigs)))
+       [(vary-meta fn-sym merge (last sigs)) (butlast sigs)]
+       [fn-sym sigs])))
+
+#?(:clj
    (defmacro defnp
      "Like `defn` but wraps fn bodies with `p` macro."
      {:arglists
@@ -498,6 +504,7 @@
         [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs))
+           [fn-sym sigs] (merge-trailing-fn-attrs fn-sym sigs)
            new-sigs      (fn-sigs :def (:tufte/id (meta fn-sym)) fn-sym sigs
                            (dissoc (enc/get-source &form &env) :file))]
        `(defn ~fn-sym ~@new-sigs))))
@@ -510,6 +517,7 @@
         [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])}
      [& sigs]
      (let [[fn-sym sigs] (enc/name-with-attrs (first sigs) (next sigs) {:private true})
+           [fn-sym sigs] (merge-trailing-fn-attrs fn-sym sigs)
            new-sigs      (fn-sigs :def (get (meta fn-sym) :tufte/id) fn-sym sigs
                            (dissoc (enc/get-source &form &env) :file))]
        `(defn ~fn-sym ~@new-sigs))))
