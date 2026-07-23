@@ -784,23 +784,27 @@
   (enc/def*         ^:no-doc ^:deprecated format-id-abbr  "Prefer `format-id-abbr-fn`." format-id-abbr-fn)
   (defn             ^:no-doc ^:deprecated add-legacy-handler!
     "Register given legacy handler-fn that expects a Tufte v2 style handler argument."
-    ([handler-id            handler-fn] (add-handler! handler-id nil handler-fn))
+    ([handler-id            handler-fn] (add-legacy-handler! handler-id nil handler-fn))
     ([handler-id ns-pattern handler-fn]
      (let [dispatch-opts
            (when    (and ns-pattern (not= ns-pattern "*"))
              {:ns-filter ns-pattern})]
 
        (add-handler! handler-id
-         (fn [signal]
-           (when-let [{:keys [ns id data coords pstats]} signal]
-             (let [pstats-str_ (delay (format-pstats pstats))] ; No opts support
-               ;; Add v3->v2 handler keys
-               (assoc signal
-                 :ns-str      ns
-                 :?id         id
-                 :?data       data
-                 :?line       (get coords 0)
-                 :pstats-str_ pstats-str_))))))))
+         (fn
+           ([])
+           ([signal]
+            (when-let [{:keys [ns id data coords pstats]} signal]
+              (let [pstats-str_ (delay (format-pstats pstats))] ; No opts support
+                ;; Add v3->v2 handler keys
+                (handler-fn
+                  (assoc signal
+                    :ns-str      ns
+                    :?id         id
+                    :?data       data
+                    :?line       (get coords 0)
+                    :pstats-str_ pstats-str_))))))
+         dispatch-opts))))
 
   (defn ^:no-doc ^:deprecated add-basic-println-handler!
     "Prefer (add-handler! <handler-id> (handler:console {<handler-opts>}) <dispatch-opts>)."
@@ -808,7 +812,9 @@
       :or   {ns-pattern "*"
              handler-id :basic-println}}]
 
-    (let [handler-fn (handler:console {:format-pstats-opts format-pstats-opts})
+    (let [handler-fn (handler:console
+                       {:output-fn (format-signal-fn
+                                     {:format-pstats-opts format-pstats-opts})})
           dispatch-opts
            (when    (and ns-pattern (not= ns-pattern "*"))
              {:ns-filter ns-pattern})]

@@ -658,6 +658,50 @@
            (finally
              (tufte/remove-handler! ::thread-test)))))))
 
+#?(:clj
+   (deftest legacy-handler
+     (when-let [add-legacy! (ns-resolve 'taoensso.tufte 'add-legacy-handler!)]
+       (testing "Legacy handler argument adaptation"
+         (let [signal_ (atom nil)]
+           (add-legacy! ::legacy-test #(reset! signal_ %))
+           (try
+             (profile {:id :profile-id :data :profile-data} (p :p-id nil))
+             (finally
+               (tufte/remove-handler! ::legacy-test)))
+           (is (truss/submap? @signal_
+                 {:ns-str "taoensso.tufte-tests"
+                  :?id :profile-id
+                  :?data :profile-data}))
+           (is (= 1 (get-in @(:pstats @signal_) [:stats :p-id :n])))
+           (is (delay? (:pstats-str_ @signal_)))))
+
+       (testing "Legacy namespace filtering"
+         (let [calls_ (atom 0)]
+           (add-legacy! ::legacy-filter-test "no.such.namespace" #(swap! calls_ inc))
+           (try
+             (profile {} nil)
+             (finally
+               (tufte/remove-handler! ::legacy-filter-test)))
+           (is (zero? @calls_))))
+
+       (testing "Legacy console formatting options"
+         (let [add-console! (ns-resolve 'taoensso.tufte 'add-basic-println-handler!)
+               [_ ps]       (profiled {} (p :p-id nil))]
+           (add-console!
+             {:handler-id ::legacy-console-test
+              :format-pstats-opts {:columns [:n]}})
+           (try
+             (let [handler-fn (get-in (tufte/get-handlers)
+                                [::legacy-console-test :handler-fn])
+                   output (with-out-str
+                            (handler-fn
+                              (impl/map->Signal
+                                {:pstats ps, :format-pstats-fn tufte/format-pstats})))]
+               (is (str/includes? output "nCalls"))
+               (is (not (str/includes? output "Mean"))))
+             (finally
+               (tufte/remove-handler! ::legacy-console-test))))))))
+
 (deftest accumulating-handler ; [#75]
   (testing "`handler:accumulating` receives one signal after each completed `profile`"
     (let [sacc    (tufte/stats-accumulator)
