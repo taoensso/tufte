@@ -642,6 +642,25 @@
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
 
+(deftest profile-sample-evaluation
+  (testing "`profile` evaluates a dynamic sample rate once"
+    (let [calls_  (atom 0)
+          signal_ (atom nil)]
+      (binding [impl/*sig-handlers* nil]
+        (profile {:sample (do (swap! calls_ inc) 1.0)} nil))
+      (is (zero? @calls_) "Does not evaluate without handlers")
+      (tufte/add-handler! ::sample-test
+        (fn
+          ([])
+          ([signal] (reset! signal_ signal)))
+        {:async nil})
+      (try
+        (profile {:sample (do (swap! calls_ inc) 1.0)} nil)
+        (is (= @calls_ 1))
+        (is (= (:sample @signal_) 1.0))
+        (finally
+          (tufte/remove-handler! ::sample-test))))))
+
 (deftest invalid-nmax
   (testing "`:nmax` must remain positive"
     (let [[_ ps] (profiled {} nil)]

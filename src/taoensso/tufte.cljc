@@ -335,6 +335,10 @@
            opts     (merge {:level :info} opts)
            ns-form* (get opts :ns :auto)
            ns-form  (auto-> ns-form* (str *ns*))
+           sample-form     (get opts :sample)
+           dynamic-sample? (and (contains? opts :sample) (not (enc/const-form? sample-form)))
+           sample-sym      '__sample
+           handlers-sym (gensym "handlers")
 
            {:keys [elide? allow?]}
            (sigs/filter-call
@@ -342,12 +346,14 @@
               :sf-arity 3
               :ct-call-filter     impl/ct-call-filter
               :*rt-call-filter* `impl/*rt-call-filter*}
-             (assoc opts
-               :ns ns-form
-               :local-forms
-               {:ns    '__ns
-                :id    '__id
-                :level '__level}))]
+             (cond->
+               (assoc opts
+                 :ns ns-form
+                 :local-forms
+                 {:ns    '__ns
+                  :id    '__id
+                  :level '__level})
+               dynamic-sample? (assoc :sample sample-sym)))]
 
        (if elide?
          (do ~@body)
@@ -364,8 +370,7 @@
                inst-form   (auto-> (get opts :inst   :auto)            `(enc/now-inst*))
 
                signal-form
-               (let [{sample-form :sample
-                      data-form   :data} opts
+               (let [{data-form :data} opts
 
                      ctx-form
                      (if-let [ctx+ (get opts :ctx+)]
@@ -379,8 +384,8 @@
 
                      record-form
                      (if clj?
-                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level, ~host-form ~'__thread, ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats))
-                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level,                          ~sample-form ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats)))]
+                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level, ~host-form ~'__thread, ~(if dynamic-sample? sample-sym sample-form) ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats))
+                       `(Signal. 1 ~'__inst, ~'__ns ~coords, ~'__id ~'__level,                          ~(if dynamic-sample? sample-sym sample-form) ~ctx-form ~data-form, ~'__body-result ~'__pstats (enc/fmemoize format-pstats)))]
 
                  `(enc/bound-delay
                     (let [signal# ~record-form]
@@ -389,20 +394,22 @@
                         (do   signal#)))))]
 
            `((fn [] ; iife for better IoC compatibility
-               (let [handlers# impl/*sig-handlers*
+               (let [~handlers-sym impl/*sig-handlers*
                      body-fn#  (fn [] ~@body)
                      ~'__ns    ~ns-form
                      ~'__id    ~id-form
-                     ~'__level ~level-form]
+                     ~'__level ~level-form
+                     ~@(when dynamic-sample?
+                         [sample-sym `(when ~handlers-sym ~sample-form)])]
 
-                 (enc/if-not (enc/and? handlers# ~allow?)
+                 (enc/if-not (enc/and? ~handlers-sym ~allow?)
                    (body-fn#)
                    (let [~'__inst   ~inst-form
                          ~'__thread ~thread-form
                          [~'__body-result ~'__pstats] (profiled* 'tufte/profiled ~dynamic? ~nmax (body-fn#))]
 
                      (when ~'__pstats
-                       (sigs/call-handlers! handlers#
+                       (sigs/call-handlers! ~handlers-sym
                          (WrappedSignal. ~'__ns ~'__id ~'__level ~signal-form)))
                      ~'__body-result))))))))))
 
