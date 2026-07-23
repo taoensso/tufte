@@ -20,20 +20,22 @@
   ([{:keys [level-fn format-pstats-opts]
      :or   {level-fn identity}}]
 
-   (fn a-handler:trove [signal]
-     (when-let [{:keys [#_inst ns coords, id level, ctx data,
-                        pstats format-pstats-fn]} signal]
-       (trove/log!
-         {:ns     ns
-          :coords coords
-          :level  (level-fn level)
-          :data   data
-          :tufte/ctx    ctx    ; -> kvs
-          :tufte/pstats pstats ; -> kvs
-          :msg
-          (when-let   [ff format-pstats-fn]
-            (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
-              (str "Tufte pstats:" enc/newline fs)))})))))
+   (fn a-handler:trove
+     ([])
+     ([signal]
+      (when-let [{:keys [#_inst ns coords, id level, ctx data,
+                         pstats format-pstats-fn]} signal]
+        (trove/log!
+          {:ns     ns
+           :coords coords
+           :level  (level-fn level)
+           :data   data
+           :tufte/ctx    ctx    ; -> kvs
+           :tufte/pstats pstats ; -> kvs
+           :msg
+           (when-let   [ff format-pstats-fn]
+             (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
+               (str "Tufte pstats:" enc/newline fs)))}))))))
 
 (comment
   ((handler:trove)        (#'tufte/dummy-signal))

@@ -757,9 +757,11 @@
 
   See `stats-accumulator` for more info."
   [^StatsAccumulator sacc]
-  (fn a-handler:accumulating [signal]
-    (let [{:keys [id pstats]} signal]
-      (sacc id pstats))))
+  (fn a-handler:accumulating
+    ([])
+    ([signal]
+     (let [{:keys [id pstats]} signal]
+       (sacc id pstats)))))
 
 (comment
   (def my-sacc (stats-accumulator))

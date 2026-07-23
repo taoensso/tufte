@@ -5,6 +5,9 @@
    [taoensso.truss  :as truss]
    [taoensso.encore :as enc]
    [taoensso.tufte  :as tufte :refer [profiled profile p]]
+   [taoensso.tufte.telemere :as tufte-telemere]
+   [taoensso.tufte.timbre   :as tufte-timbre]
+   [taoensso.tufte.trove    :as tufte-trove]
 
    #?(:clj  [taoensso.tufte.impl  :as impl]
       :cljs [taoensso.tufte.impl  :as impl :refer [PStats PData TimeSpan]]))
@@ -557,7 +560,7 @@
 ;;;; Util macros
 
 (do
-  (tufte/defnp                       fn1  [x] x) ; Line 560
+  (tufte/defnp                       fn1  [x] x) ; Line 563
   (tufte/defnp                       fn2  [x] x)
   (tufte/defnp ^{:tufte/id :my-fn3}  fn3  [x] x)
   (tufte/defnp ^{:tufte/id "my-fn4"} fn4 ([x] x) ([x y] [x y]))
@@ -597,12 +600,12 @@
   ;; need to be updated when line numbers change.
   [(let [[r ps]
          (profiled {}
-           (p :foo nil) (p :bar nil) ; Line 600
+           (p :foo nil) (p :bar nil) ; Line 603
            (p :baz
              (p :qux nil)))]
 
      [(is (truss/submap? @ps
-            (let [nref 600]
+            (let [nref 603]
               {:stats {:foo {:loc {:line nref}}
                        :bar {:loc {:line nref}}
                        :baz {:loc {:line (+ nref 1)}}
@@ -610,7 +613,7 @@
 
    (let [[r ps]
          (profiled {}
-           (p :foo nil) ; Line 613
+           (p :foo nil) ; Line 616
            (p :foo nil)
            (p :foo nil)
            (p :foo nil))
@@ -618,13 +621,13 @@
          loc (get-in @ps [:stats :foo :loc])]
 
      [(is (set? loc) "id with >1 locations")
-      (is (= (into #{} (map :line) loc) (let [nref 613] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
+      (is (= (into #{} (map :line) loc) (let [nref 616] #{nref (+ nref 1) (+ nref 2) (+ nref 3)})))
       (is (truss/submap? @ps {:stats {:foo {:n 4}}}) "id's stats include all locations")])
 
    (let [[r ps] (profiled {} (run-test-fns))]
      [(is
         (truss/submap? @ps
-          (let [nref 560]
+          (let [nref 563]
             {:stats {::fn1     {:loc {:line    nref}}
                      ::fn2     {:loc {:line (+ nref 1)}}
                      :my-fn3   {:loc {:line (+ nref 2)}}
@@ -638,6 +641,13 @@
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
+
+(deftest handler-lifecycle
+  (testing "Provided handlers support the stop arity"
+    [(is (nil? ((tufte/handler:accumulating (tufte/stats-accumulator)))))
+     (is (nil? ((tufte-telemere/handler:telemere))))
+     (is (nil? ((tufte-timbre/handler:timbre))))
+     (is (nil? ((tufte-trove/handler:trove))))]))
 
 #?(:clj
    (deftest profile-thread-info

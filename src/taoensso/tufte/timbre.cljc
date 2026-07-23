@@ -22,31 +22,33 @@
   ([{:keys [level-fn format-pstats-opts]
      :or   {level-fn identity}}]
 
-   (fn a-handler:timbre [signal]
-     (let [{:keys [inst ns coords, id level, #?@(:clj [host thread]), ctx data,
-                   pstats format-pstats-fn]} signal]
+   (fn a-handler:timbre
+     ([])
+     ([signal]
+      (let [{:keys [inst ns coords, id level, #?@(:clj [host thread]), ctx data,
+                    pstats format-pstats-fn]} signal]
 
-       (timbre/log!
-         {:loc      {:ns ns, :line (get coords 0)}
-          :level    (level-fn level)
-          :instant  #?(:clj (enc/as-dt inst), :cljs inst)
-          :msg-type :p
-          :tufte/pstats pstats ; -> log data map
-          :vargs
-          (let [nl  enc/newline
-                sb (enc/str-builder)]
+        (timbre/log!
+          {:loc      {:ns ns, :line (get coords 0)}
+           :level    (level-fn level)
+           :instant  #?(:clj (enc/as-dt inst), :cljs inst)
+           :msg-type :p
+           :tufte/pstats pstats ; -> log data map
+           :vargs
+           (let [nl  enc/newline
+                 sb (enc/str-builder)]
 
-            (do      (enc/sb-append sb "Tufte pstats"))
-            (when id (enc/sb-append sb " " (sigs/format-id ns id)))
+             (do      (enc/sb-append sb "Tufte pstats"))
+             (when id (enc/sb-append sb " " (sigs/format-id ns id)))
 
-            (when-let   [ff  format-pstats-fn]
-              (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
-                (enc/sb-append sb nl fs)))
+             (when-let   [ff  format-pstats-fn]
+               (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
+                 (enc/sb-append sb nl fs)))
 
-            (when-let [data (enc/not-empty-coll data)] (enc/sb-append sb nl " data: " (enc/pr-edn* data)))
-            (when-let [ctx  (enc/not-empty-coll ctx)]  (enc/sb-append sb nl "  ctx: " (enc/pr-edn* ctx)))
+             (when-let [data (enc/not-empty-coll data)] (enc/sb-append sb nl " data: " (enc/pr-edn* data)))
+             (when-let [ctx  (enc/not-empty-coll ctx)]  (enc/sb-append sb nl "  ctx: " (enc/pr-edn* ctx)))
 
-            [(str sb)])})))))
+             [(str sb)])}))))))
 
 (comment
   ((handler:timbre)        (#'tufte/dummy-signal))

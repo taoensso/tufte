@@ -22,25 +22,27 @@
   ([{:keys [level-fn format-pstats-opts]
      :or   {level-fn identity}}]
 
-   (fn a-handler:telemere [signal]
-     (when-let [{:keys [inst ns coords, id level, #?@(:clj [host thread]), ctx data,
-                        pstats format-pstats-fn]} signal]
-       (tel/signal!
-         {:inst   inst
-          :ns     ns
-          :coords coords
-          :kind   :tufte
-          :id     id
-          :level  (level-fn level)
-          :ctx+   ctx
-          :data   data
-          :tufte/pstats pstats ; -> kvs
-          :msg
-          (when-let   [ff format-pstats-fn]
-            (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
-              (str enc/newline fs)))
+   (fn a-handler:telemere
+     ([])
+     ([signal]
+      (when-let [{:keys [inst ns coords, id level, #?@(:clj [host thread]), ctx data,
+                         pstats format-pstats-fn]} signal]
+        (tel/signal!
+          {:inst   inst
+           :ns     ns
+           :coords coords
+           :kind   :tufte
+           :id     id
+           :level  (level-fn level)
+           :ctx+   ctx
+           :data   data
+           :tufte/pstats pstats ; -> kvs
+           :msg
+           (when-let   [ff format-pstats-fn]
+             (when-let [fs (ff pstats (conj {:incl-newline? false} format-pstats-opts))]
+               (str enc/newline fs)))
 
-          #?@(:clj [:host host, :thread thread])})))))
+           #?@(:clj [:host host, :thread thread])}))))))
 
 (comment
   ((handler:telemere)        (#'tufte/dummy-signal))
