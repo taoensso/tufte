@@ -45,7 +45,7 @@ Profiling is activated only when ALL of the following are true:
       Note: call filters (1a, 1b) should generally be AT LEAST as permissive
       as handler filters (2b) since they're always applied first.
 
-    To set call transform (3): use `set-xfn!`, `with-xfn`.
+    To set call transform (3): use `set-root-xfn!`, `with-xfn`.
 
   Compile-time vs runtime filtering:
 

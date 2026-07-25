@@ -60,8 +60,8 @@
   #?(:clj with-handler) #?(:clj with-handler+)
   add-handler! remove-handler! stop-handlers!
 
-  ^:dynamic *ctx* set-ctx! #?(:clj with-ctx) #?(:clj with-ctx+)
-  ^:dynamic *xfn* set-xfn! #?(:clj with-xfn) #?(:clj with-xfn+))
+  ^:dynamic *ctx* set-root-ctx! #?(:clj with-ctx) #?(:clj with-ctx+)
+  ^:dynamic *xfn* set-root-xfn! #?(:clj with-xfn) #?(:clj with-xfn+))
 
 (def default-handler-dispatch-opts
   "See `help:handler-dispatch-opts` for details."
