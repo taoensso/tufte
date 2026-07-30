@@ -67,13 +67,6 @@
   ^:private ^IdState compact-id-state
   ^:private          deref-pstats)
 
-#?(:clj
-   (let [cache_ (java.util.concurrent.ConcurrentHashMap.)]
-     ;; Tons of location duplicates in `Time`s, intern to save memory
-     (defn- interned [x] (when x (or (.get cache_ x) (.putIfAbsent cache_ x x) x)))))
-
-(comment (enc/qb 1e6 (interned "foo"))) ; 40.88
-
 (deftype PData ; Profiling Data (private)
   [dynamic? ^long nmax ^long t0
    #?(:clj ^:volatile-mutable acc         :cljs ^:mutable acc)
@@ -96,7 +89,7 @@
   ;; Captures time, compacting as necessary
   (#?(:clj invoke :cljs -invoke) [this id nsecs-elapsed location]
     (when-let [acc-snap acc]
-      (let [new-time (Time. id ^long nsecs-elapsed #?(:clj (interned location) :cljs location))]
+      (let [new-time (Time. id ^long nsecs-elapsed location)]
         (enc/when-let
           [need-compaction?
            (if dynamic?
