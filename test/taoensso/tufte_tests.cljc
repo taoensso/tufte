@@ -637,6 +637,32 @@
 
 (comment (let [f1 (tufte/fnp foo [x] x #_(p :x x))]))
 
+;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
+
+(deftest accumulating-handler ; [#75]
+  (testing "`handler:accumulating` receives one signal after each completed `profile`"
+    (let [sacc    (tufte/stats-accumulator)
+          during_ (volatile! nil)]
+      ;; `{:async nil}` => synchronous dispatch, so reads here are deterministic
+      (tufte/add-handler! ::acc-test (tufte/handler:accumulating sacc) {:async nil})
+      (try
+        (profile {:id :foo}
+          (p :p1 nil)
+          (vreset! during_ @sacc))
+
+        (is (empty? @during_) "No partial signal while `profile` is running")
+        (is (= 1 (get-in @(:foo @sacc) [:stats :p1 :n]))
+          "Exactly one signal after the first `profile` returns")
+
+        (profile {:id :foo} (p :p1 nil))
+        (is (= 2 (get-in @(:foo @sacc) [:stats :p1 :n]))
+          "Accumulates across completed `profile` calls")
+        (is (ps? (:foo (sacc))))       ; `(sacc)` returns current + drains
+        (is (nil? (not-empty @sacc)))  ; Now drained
+
+        (finally
+          (tufte/remove-handler! ::acc-test))))))
+
 ;;;;
 
 #?(:cljs

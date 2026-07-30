@@ -36,9 +36,8 @@
 
    :sample 0.75     ; Profile 75% of calls
    :when  (my-pred) ; Must be truthy at runtime to profile
-   :limit [[1 2000]
-           [2 60000]]   ; Rate limit (1 per 2 secs, 2 per minute)
-   :limit-by my-user-id ; Rate limit per unique user-id
+   :limit #{"1/2s" "2/1m"} ; Rate limit (1 per 2 secs, 2 per minute)
+   :limit-by my-user-id    ; Rate limit per unique user-id
    }
 
   ;; Code that has forms wrapped with `tufte/p`:

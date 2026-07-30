@@ -556,6 +556,10 @@
   For performance you may want to use some sort of serialization
   mechanism (e.g. agent) to avoid high contention when merging.
 
+  Note: `handler:accumulating` receives complete stats only when each `profile`
+  scope completes; it does not provide in-progress stats. `profiled` does not
+  invoke handlers; feed its returned pstats to the accumulator explicitly.
+
   One common pattern using `handler:accumulating` is to create a
   system-wide accumulator that you invoke every n minutes/etc. to get
   a view of system-wide performance over the period, e.g.:
@@ -745,6 +749,11 @@
   Returns a signal handler that:
      - Takes a Tufte profiling signal (map).
      - Merges the signal's `pstats` into the given accumulator.
+
+  Receives complete stats only when each `profile` scope completes; no
+  in-progress stats are available. Dispatch is async by default; pass
+  `{:async nil}` to `add-handler!` for synchronous dispatch. `profiled` does
+  not invoke handlers.
 
   See `stats-accumulator` for more info."
   [^StatsAccumulator sacc]
