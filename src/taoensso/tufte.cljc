@@ -42,7 +42,7 @@
   (remove-ns (symbol (str *ns*)))
   (:api (enc/interns-overview)))
 
-(enc/assert-min-encore-version [3 159 0])
+(enc/assert-min-encore-version [3 171 1])
 
 ;;;; Shared signal API
 

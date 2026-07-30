@@ -2,11 +2,11 @@
   :description "Tufte example web-app project"
   :url "https://github.com/ptaoussanis/tufte"
   :main    example.server
-  :plugins [[lein-ancient "0.7.0"]]
+  :plugins [[lein-ancient "1.0.0"]]
   :dependencies
-  [[org.clojure/clojure "1.12.4"]
-   [ring                "1.15.3"]
-   [ring/ring-defaults  "0.7.0"]
+  [[org.clojure/clojure "1.12.5"]
+   [ring                "1.15.5"]
+   [ring/ring-defaults  "0.7.1"]
    [ring/ring-codec     "1.3.0"]
    [compojure           "1.7.2"]
    [hiccup              "1.0.5"]
