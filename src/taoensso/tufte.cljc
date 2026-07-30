@@ -164,12 +164,19 @@
 #?(:clj
    (defmacro ^:no-doc profiled*
      "Unconditionally returns [<body-result> <pstats>].
-     Implementation detail."
+     Implementation detail, may expand `run-form` more than once."
      [caller dynamic? nmax run-form]
      (if     dynamic?
        `(let [pd# (impl/new-pdata-dynamic (or ~nmax default-nmax))] (binding [impl/*pdata* pd#] [~run-form @pd#]))
        `(let [pd# (impl/new-pdata-local   (or ~nmax default-nmax))]
-          (binding [impl/*pdata* nil]
+          ;; Establishing thread bindings is relatively expensive, so bind only
+          ;; when there's actually a dynamic parent to shadow
+          (if impl/*pdata*
+            (binding [impl/*pdata* nil] ; Ensure no dynamic parent (=>nesting) steals local captures
+              (try
+                (impl/pdata-local-push pd#)
+                [~run-form @pd#]
+                (finally (impl/pdata-local-pop))))
             (try
               (impl/pdata-local-push pd#)
               [~run-form @pd#]
