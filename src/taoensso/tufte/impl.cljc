@@ -140,8 +140,9 @@
 ;;;;
 
 (def ^:dynamic *pdata* "nnil iff dynamic profiling active" nil)
-(defn new-pdata-local   ^PData [^long nmax] (let [t0 (enc/now-nano*)] (PData. false nmax t0 (mt-acc)        nil nil false)))
-(defn new-pdata-dynamic ^PData [^long nmax] (let [t0 (enc/now-nano*)] (PData. true  nmax t0 (enc/latom nil) nil nil false)))
+(defn- as-nmax ^long [nmax] (truss/have enc/pos-int? (long nmax)))
+(defn new-pdata-local   ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. false nmax t0 (mt-acc)        nil nil false)))
+(defn new-pdata-dynamic ^PData [nmax] (let [nmax (as-nmax nmax), t0 (enc/now-nano*)] (PData. true  nmax t0 (enc/latom nil) nil nil false)))
 
 (comment
   (enc/qb 1e6 (new-pdata-local 10) (new-pdata-dynamic 10)) ; [49.61 50.54]
@@ -386,7 +387,7 @@
        (let [^PStats ps0 ps0
              ^PStats ps1 ps1
 
-             nmax   (long (or nmax (.-nmax ps0) (.-nmax ps1)))
+             nmax   (as-nmax (or nmax (.-nmax ps0) (.-nmax ps1)))
              ps0-t0 (.-t0 ps0)
              ps0-t1 (.-t1 ps0)
              ps1-t0 (.-t0 ps1)

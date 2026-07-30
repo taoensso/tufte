@@ -642,6 +642,14 @@
 
 ;;;; NB keep below any line-sensitive tests (e.g. `location-info`)
 
+(deftest invalid-nmax
+  (testing "`:nmax` must remain positive"
+    (let [[_ ps] (profiled {} nil)]
+      [(is (thrown? #?(:clj Exception :cljs js/Error) (tufte/new-pdata {:nmax 0})))
+       (is (thrown? #?(:clj Exception :cljs js/Error) (profiled {:nmax -1} nil)))
+       (is (thrown? #?(:clj Exception :cljs js/Error) (profiled {:dynamic? true :nmax 0.5} nil)))
+       (is (thrown? #?(:clj Exception :cljs js/Error) (tufte/merge-pstats 0 ps ps)))])))
+
 (deftest merge-negative-time-spans
   (testing "Merged clock time supports negative monotonic timestamps"
     [(is (= 12

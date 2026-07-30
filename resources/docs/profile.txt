@@ -25,7 +25,7 @@ Options include:
   `:limit` ------ Rate limit ?spec given to `taoensso.tufte/rate-limiter`, see its docstring for details
   `:limit-by` --- When present, rate limits will be enforced independently for each value (any Clojure value!)
 
-  `:nmax` ------- Max captures per `p` id before compaction (default 8e5).
+  `:nmax` ------- Positive max captures per `p` id before compaction (default 8e5).
   `:elidable?` -- Should signal be subject to compile-time elision? (default true)
   `:allow?` ----- Custom override for usual runtime filtering (true => ALWAYS profile)
 
