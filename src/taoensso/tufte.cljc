@@ -250,14 +250,13 @@
        (if-let [elide? (when-let [sf impl/ct-call-filter] (not (sf (:ns location) (enc/const-form id-form) (enc/const-form level-form))))]
          `(do ~@body)
          ;; Note no `impl/*rt-call-filter*` check
-         `(let [~'body-fn (fn [] ~@body)
-                ~'pd      (impl/pdata-get)]
-            (if ~'pd
-              (let [~'t0     (enc/now-nano*)
-                    ~'result (~'body-fn)]
-                (~'pd ~id-form (- (enc/now-nano*) ~'t0) ~location) ; time excl. capture cost
-                ~'result)
-              (~'body-fn)))))))
+         ;; Body is expanded inline (no wrapping fn) to avoid a closure per call,
+         ;; so locals here MUST be gensyms to avoid shadowing body locals
+         `(let [pd#     (impl/pdata-get)
+                t0#     (if pd# (enc/now-nano*) 0)
+                result# (do ~@body)]
+            (when pd# (pd# ~id-form (- (enc/now-nano*) t0#) ~location)) ; time excl. capture cost
+            result#)))))
 
 (comment
   (macroexpand '(p :foo "hello"))
