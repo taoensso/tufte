@@ -42,3 +42,6 @@ jobs:
       - name: Run tests (Clojure 1.10 - 1.13)
         if: matrix.java != '8'
         run: lein test-clj
+      - name: Test deprecated API
+        if: matrix.java == '17'
+        run: lein test-deprecated

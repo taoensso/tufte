@@ -21,6 +21,8 @@
    :c1.11    {:dependencies [[org.clojure/clojure       "1.11.4"]]}
    :c1.10    {:dependencies [[org.clojure/clojure       "1.10.3"]]}
 
+   :incl-deprecated {:jvm-opts ["-Dtaoensso.elide-deprecated=false"]}
+
    :graal-tests
    {:source-paths ["test"]
     :main taoensso.graal-tests
@@ -69,7 +71,8 @@
    "build-once" ["do" ["clean"] ["cljsbuild" "once"]]
    "deploy-lib" ["do" ["build-once"] ["deploy" "clojars"] ["install"]]
 
-   "test-clj"       ["with-profile" "+c1.13:+c1.12:+c1.11:+c1.10" "test"]
-   "test-clj-java8" ["with-profile" "+c1.12:+c1.11:+c1.10"        "test"]
-   "test-cljs"      ["with-profile" "+c1.12" "cljsbuild"   "test"]
-   "test-all"       ["do" ["clean"] ["test-clj"] ["test-cljs"]]})
+   "test-clj"        ["with-profile" "+c1.13:+c1.12:+c1.11:+c1.10" "test"]
+   "test-clj-java8"  ["with-profile" "+c1.12:+c1.11:+c1.10"        "test"]
+   "test-deprecated" ["with-profile" "+incl-deprecated"            "test"]
+   "test-cljs"       ["with-profile" "+c1.12" "cljsbuild" "test"]
+   "test-all"        ["do" ["clean"] ["test-clj"] ["test-cljs"]]})
