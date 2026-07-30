@@ -464,6 +464,10 @@
     id-sstats*))
 
 (def ^:private format-n (enc/format-num-fn 0 0))
+(let [spaces (str/join (repeat 64 " "))]
+  (defn- pad-str [^long n]
+    (if (<= n 64) (subs spaces 0 n) (str/join (repeat n " ")))))
+
 (defn ^:public format-pstats
   "Formats given `pstats` to a string table.
     Accounted < Clock => Some work was done that wasn't tracked by any `p` forms.
@@ -517,12 +521,17 @@
            (fn [column s]
              (let [{:keys [min-width align]
                     :or   {min-width 10 align :right}}
-                   (get column->pattern column)]
+                   (get column->pattern column)
 
-               (enc/sb-append sb
-                 (enc/format
-                   (str "%" (case align :left "-" :right "") min-width "s")
-                   s))))]
+                   s   (str s)
+                   pad (- (long min-width) (count s))]
+
+               ;; Manual padding here is much faster than `enc/format`
+               (if (<= pad 0)
+                 (enc/sb-append sb s)
+                 (if (enc/identical-kw? align :left)
+                   (enc/sb-append sb s (pad-str pad))
+                   (enc/sb-append sb (pad-str pad) s)))))]
 
        ;; Write header rows
        (doseq [column (into [:id] columns)]
