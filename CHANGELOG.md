@@ -2,12 +2,43 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ---
 
+# `v3.1.0` (2026-07-30)
+
+- **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.1.0)
+- **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
+
+This is a **non-breaking feature and maintenance release** with a significant number of fixes performance improvements.
+
+It should be a safe upgrade for current users, but as always please **test carefully** before using for anything important, and please **report any unexpected problems** - thank you! 🙏
+
+\- [Peter Taoussanis](https://www.taoensso.com)
+
+## Since `v3.0.2` (2026-01-23)
+
+- \[new] Add explicit root setters \[d56270a]
+- \[fix] Dynamic compaction: prevent loss \[12c1c21]
+- \[fix] Profile: reuse sample rate \[72bf710]
+- \[fix] p: inline body \[bbfad52]
+- \[fix] Profile: capture caller thread \[9ac5821]
+- \[fix] Legacy handlers: restore dispatch \[397e70f]
+- \[fix] Handlers: support clean shutdown \[6329119]
+- \[fix] Compaction: reject invalid limits \[3224869]
+- \[fix] Defnp: preserve trailing attrs \[91ae3bc]
+- \[fix] Timing: support negative origins \[e85358a]
+- \[fix] Trove: preserve profiling id \[b827896]
+- \[fix] Encore: require root setters \[f3cf99f]
+- \[prf] Format: pad columns directly \[98d327b]
+- \[prf] Profiled: skip unnecessary binding \[0af8f20]
+- \[prf] Capture: drop location interner \[0f3e7e0]
+
+---
+
 # `v3.0.2` (2026-01-23)
 
 - **Dependency**: [on Clojars](https://clojars.org/com.taoensso/tufte/versions/3.0.2)
 - **Versioning**: [Break Versioning](https://www.taoensso.com/break-versioning)
 
-This is a **hotfix release** to addresses some issues in v3.0.0 (apologies for the trouble!!):
+This is a **hotfix release** to address some issues in v3.0.0 (apologies for the trouble!!):
 
 - \[fix] [#75] Broken `:dynamic?` option for `profile` \[391b7fa]
 - \[fix] [#75] Protect against nil `:stats` \[88874e1]
@@ -40,13 +71,13 @@ Apologies for the trouble!
 
 This is a **major upgrade** with many improvements. It includes **breaking changes** for a minority of users. Please see below for changes, and linked commit messages for relevant migration info and motivations.
 
-Sincere apologies for the hassle! Most users (esp. those using defaults) should be able to upgrade without any modifications, but as always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
+Sincere apologies for the hassle! Most users (esp. those using defaults) should be able to upgrade without any modifications, but as always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/tufte/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
 
 \- [Peter Taoussanis](https://www.taoensso.com)
 
 ## Breaking since `v2.7.0` (2024-04-15)
 
-- ➤ **\[mod]** \[BREAKING] Changed arg given to custom `profile` handlers \0f73778], see [`help:signal-content`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:signal-content) for new arg
+- ➤ **\[mod]** \[BREAKING] Changed arg given to custom `profile` handlers \[0f73778], see [`help:signal-content`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#help:signal-content) for new arg
 - ➤ **\[mod]** \[BREAKING] Profiling levels changed from 0..6 (default 2) to 0..100 (default `:info`=50), you may need to update your `profile/d` callsites! \[025ff70]
 - ➤ **\[mod]** \[BREAKING] New API for draining [stats accumulator](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#stats-accumulator) \[b2c866b]
 - ➤ **\[mod]** \[BREAKING] Omit `defn_` / `fn_` id prefix when using [`defnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp), [`defnp-`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#defnp-), [`fnp`](https://cljdoc.org/d/com.taoensso/tufte/CURRENT/api/taoensso.tufte#fnp) \[5f5d2ef]
@@ -76,7 +107,7 @@ This is a **major upgrade** of Tufte with *many* new features and improvements, 
 
 v3 includes **breaking changes** (indicated by ➤ below) that may affect some (but not all) users. Please see the **relevant linked commit messages** below for details and migration info. Sincere apologies for any hassle while upgrading! My hope is that most users will be unaffected, and that those affected will be able to migrate easily.
 
-As always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/telemere/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
+As always please **report any unexpected problems** on [GitHub](https://github.com/taoensso/tufte/issues) or the [Slack channel](https://www.taoensso.com/tufte/slack), and feel free to ping if I can provide any assistance! 🙏
 
 \- [Peter Taoussanis](https://www.taoensso.com)
 
